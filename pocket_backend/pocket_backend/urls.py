@@ -17,17 +17,47 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 
+
+def _root(_request):
+    return JsonResponse(
+        {
+            'service': 'Pocket Shop backend',
+            'api': '/api/',
+            'admin': '/admin/',
+        }
+    )
+
+
+def _api_root(_request):
+    return JsonResponse(
+        {
+            'detail': 'API root',
+            'prefixes': [
+                '/api/auth/',
+                '/api/products/',
+                '/api/orders/',
+                '/api/delivery/',
+                '/api/reviews/',
+            ],
+        }
+    )
+
+
 urlpatterns = [
+    path('', _root),
+    path('api/', _api_root),
     path('admin/', admin.site.urls),
+    # More specific than `api/auth/` include so JWT refresh resolves correctly.
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/', include('accounts.urls')),
     path('api/products/', include('products.urls')),
     path('api/orders/', include('orders.urls')),
     path('api/delivery/', include('delivery.urls')),
     path('api/reviews/', include('reviews.urls')),
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
 
 if settings.DEBUG:

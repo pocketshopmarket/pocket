@@ -4,7 +4,7 @@ class AppConstants {
   // With trailing slash:    "http://host/api/" + "auth/login/" → "http://host/api/auth/login/" (correct)
   static const String _rawBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api/',
+    defaultValue: 'http://13.222.154.44/api/',
   );
   static String get baseUrl => _rawBaseUrl.endsWith('/') ? _rawBaseUrl : '$_rawBaseUrl/';
   static const String sendOtpEndpoint = 'auth/send-otp/';

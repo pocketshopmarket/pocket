@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_constants.dart';
 
@@ -22,10 +23,16 @@ class ApiService {
         'Accept': 'application/json',
       },
     ));
+    if (kDebugMode) {
+      debugPrint('[API] Base URL: ${_dio.options.baseUrl}');
+    }
 
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          if (kDebugMode) {
+            debugPrint('[API] ${options.method} ${options.uri}');
+          }
           if (options.data is FormData) {
             options.contentType = null;
           }
@@ -36,6 +43,13 @@ class ApiService {
           handler.next(options);
         },
         onError: (error, handler) async {
+          if (kDebugMode) {
+            final response = error.response;
+            debugPrint(
+              '[API][ERROR] ${error.requestOptions.method} ${error.requestOptions.uri} '
+              'status=${response?.statusCode} data=${response?.data}',
+            );
+          }
           final path = error.requestOptions.path;
           final isRefreshCall = path.endsWith(AppConstants.refreshEndpoint);
 

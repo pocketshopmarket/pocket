@@ -27,7 +27,7 @@ defaults:
 
 env:
   # Used only when repo variable and workflow input are empty (update when EC2 IP changes).
-  FALLBACK_API_BASE_URL: "http://13.222.154.44/api"
+  FALLBACK_API_BASE_URL: "http://13.222.154.44/api/"
 
 jobs:
   android-apk:

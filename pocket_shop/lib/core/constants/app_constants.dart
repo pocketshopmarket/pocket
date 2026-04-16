@@ -1,12 +1,12 @@
 class AppConstants {
-  // API base (Django mounts apps under /api/...). No trailing slash required.
-  // Paths below must NOT start with "/" — Dio uses Uri.resolve(); a leading "/"
-  // would drop the "/api" segment and cause 404s on the server.
-  // Local: flutter run (default). EC2 / CI: --dart-define=API_BASE_URL=http://HOST/api
-  static const String baseUrl = String.fromEnvironment(
+  // API base — MUST end with "/" so Dio resolves relative paths under /api/.
+  // Without trailing slash: "http://host/api" + "auth/login/" → "http://host/auth/login/" (WRONG)
+  // With trailing slash:    "http://host/api/" + "auth/login/" → "http://host/api/auth/login/" (correct)
+  static const String _rawBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api',
+    defaultValue: 'http://localhost:8000/api/',
   );
+  static String get baseUrl => _rawBaseUrl.endsWith('/') ? _rawBaseUrl : '$_rawBaseUrl/';
   static const String sendOtpEndpoint = 'auth/send-otp/';
   static const String verifyOtpEndpoint = 'auth/verify-otp/';
   static const String profileEndpoint = 'auth/profile/';

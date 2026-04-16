@@ -197,7 +197,7 @@ class AuthService {
     await _ensureInitialized();
     try {
       final response = await _apiService.post(
-        '/auth/login/',
+        AppConstants.loginEndpoint,
         data: {
           'phone_number': formattedPhone,
           'password': password,

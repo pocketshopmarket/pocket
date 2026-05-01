@@ -17,17 +17,17 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
   static const List<_PaymentProviderOption> _providerOptions = [
     _PaymentProviderOption(
       label: 'MTN',
-      logoAsset: 'assets/images/payment_methods/mtn.png',
+      logoAsset: 'mtn.png',
       accentColor: Color(0xFFF2D23B),
     ),
     _PaymentProviderOption(
       label: 'Airtel',
-      logoAsset: 'assets/images/payment_methods/airtel.png',
+      logoAsset: 'airtel.png',
       accentColor: Color(0xFFE51E2A),
     ),
     _PaymentProviderOption(
       label: 'Zamtel',
-      logoAsset: 'assets/images/payment_methods/zamtel.png',
+      logoAsset: 'zamtel.png',
       accentColor: Color(0xFF008543),
     ),
   ];
@@ -485,14 +485,16 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                         ),
                         child: Row(
                           children: [
-                            _providerLogo(method.provider),
+                            _providerLogo(method.providerLabel),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    method.provider,
+                                    method.providerLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
@@ -500,34 +502,28 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    method.phoneNumber,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondary,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        method.phoneNumber,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        method.isVerified ? Icons.verified : Icons.error_outline,
+                                        size: 14,
+                                        color: method.isVerified ? AppTheme.success : AppTheme.warning,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            if (method.isVerified)
-                              const Text(
-                                'Verified ✓',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.success,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              )
-                            else
-                              const Text(
-                                'Unverified',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.warning,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
                             const SizedBox(width: 8),
                             OutlinedButton(
                               onPressed: () async {

@@ -1,11 +1,59 @@
 from django.contrib import admin
+from django.urls import reverse
+from django.http import HttpResponseRedirect
 from .models import (
     DeliveryAssignment,
+    DeliveryPricingConfig,
     DeliverySpeedProfile,
     DeliveryTelemetrySegment,
     DeliveryTracking,
     DeliveryZone,
 )
+
+
+@admin.register(DeliveryPricingConfig)
+class DeliveryPricingConfigAdmin(admin.ModelAdmin):
+    """
+    Singleton admin — always edits the one pricing config row.
+    You can change per_km_rate, short_distance_threshold_km, and short_distance_flat_rate
+    here and those values will immediately be used for all new delivery quotes.
+    """
+    list_display = [
+        'short_distance_threshold_km',
+        'short_distance_flat_rate',
+        'per_km_rate',
+        'updated_at',
+    ]
+    fieldsets = (
+        ('Short-distance pricing', {
+            'description': (
+                'Trips at or below the threshold get a flat fee regardless of exact distance.'
+            ),
+            'fields': ('short_distance_threshold_km', 'short_distance_flat_rate'),
+        }),
+        ('Long-distance pricing', {
+            'description': 'Applied to every trip longer than the short-distance threshold.',
+            'fields': ('per_km_rate',),
+        }),
+    )
+    readonly_fields = ['updated_at']
+
+    def has_add_permission(self, request):
+        # Only allow creating the row if none exists yet.
+        return not DeliveryPricingConfig.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        # Never allow deleting the config row.
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        # Skip the list view and redirect straight to the edit form.
+        config = DeliveryPricingConfig.get_config()
+        return HttpResponseRedirect(
+            reverse('admin:delivery_deliverypricingconfig_change', args=[config.pk])
+        )
+
+
 
 @admin.register(DeliveryAssignment)
 class DeliveryAssignmentAdmin(admin.ModelAdmin):

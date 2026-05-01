@@ -6,6 +6,53 @@ from orders.models import Order
 
 # Create your models here.
 
+
+class DeliveryPricingConfig(models.Model):
+    """
+    Singleton model — only one row should ever exist.
+    Operators edit this from Django Admin to control delivery fees platform-wide.
+
+    Pricing logic:
+      if distance_km <= short_distance_threshold_km:
+          fee = short_distance_flat_rate          (e.g. ZMW 30 flat)
+      else:
+          fee = distance_km * per_km_rate         (e.g. 12 km × ZMW 5 = ZMW 60)
+    """
+    per_km_rate = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=5.00,
+        help_text='Charge per kilometre for long-distance trips (ZMW)',
+    )
+    short_distance_threshold_km = models.FloatField(
+        default=3.0,
+        help_text='Trips at or below this distance (km) get the flat rate',
+    )
+    short_distance_flat_rate = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=30.00,
+        help_text='Flat delivery fee for short-distance trips (ZMW)',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Delivery Pricing Config'
+        verbose_name_plural = 'Delivery Pricing Config'
+
+    def __str__(self):
+        return (
+            f'Short ≤{self.short_distance_threshold_km} km → ZMW {self.short_distance_flat_rate} flat | '
+            f'Long → ZMW {self.per_km_rate}/km'
+        )
+
+    @classmethod
+    def get_config(cls):
+        """Always returns the single config row, creating it with defaults if absent."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class DeliveryAssignment(models.Model):
     STATUS_CHOICES = [
         ('assigned', 'Assigned'),
@@ -98,8 +145,8 @@ class DeliveryZone(models.Model):
 
 class DeliveryTracking(models.Model):
     delivery_assignment = models.ForeignKey(DeliveryAssignment, on_delete=models.CASCADE, related_name='tracking_points')
-    latitude = models.DecimalField(max_digits=10, decimal_places=7)
-    longitude = models.DecimalField(max_digits=10, decimal_places=7)
+    latitude = models.DecimalField(max_digits=12, decimal_places=8)
+    longitude = models.DecimalField(max_digits=12, decimal_places=8)
     timestamp = models.DateTimeField(auto_now_add=True)
     speed = models.FloatField(null=True, blank=True, help_text="Speed in km/h")
     accuracy = models.FloatField(null=True, blank=True, help_text="GPS accuracy in meters")

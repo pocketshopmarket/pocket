@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -204,7 +205,7 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
       final updated = await svc.updateAssignmentStatus(
         assignmentId: id,
         status: next,
-        simulateQr: next == 'picked_up' || next == 'delivered',
+        simulateQr: false,
       );
       if (mounted) {
         setState(() {
@@ -232,10 +233,129 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     }
   }
 
+  Future<void> _verifyPickupQrAndContinue() async {
+    final a = _assignment;
+    if (a == null) return;
+    final id = _parseId(a['id']);
+    if (id == null) return;
+    final tokenController = TextEditingController();
+    final token = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Scan seller pickup QR'),
+        content: TextField(
+          controller: tokenController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Pickup token',
+            hintText: 'Paste token from seller QR',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(tokenController.text.trim()),
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+    tokenController.dispose();
+    if (token == null || token.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final svc = ref.read(deliveryServiceProvider);
+      await svc.verifyHandoffToken(
+        assignmentId: id,
+        step: 'pickup',
+        token: token,
+      );
+      await _setStatus('picked_up');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      final msg = e is DioException
+          ? ref.read(deliveryServiceProvider).extractErrorMessage(e)
+          : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg ?? 'Could not verify pickup token')),
+      );
+    }
+  }
+
+  Future<void> _verifyDropoffTokenDialog() async {
+    final a = _assignment;
+    if (a == null) return;
+    final id = _parseId(a['id']);
+    if (id == null) return;
+
+    final tokenController = TextEditingController();
+    final token = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: AppTheme.surfaceWhite,
+        title: const Text(
+          'Verify Dropoff QR',
+          style: TextStyle(fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+        ),
+        content: TextField(
+          controller: tokenController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          decoration: InputDecoration(
+            labelText: 'Dropoff token',
+            hintText: 'Enter token from buyer',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(tokenController.text.trim()),
+            child: const Text('Verify', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    tokenController.dispose();
+    if (token == null || token.isEmpty) return;
+
+    setState(() => _busy = true);
+    try {
+      final svc = ref.read(deliveryServiceProvider);
+      await svc.verifyHandoffToken(
+        assignmentId: id,
+        step: 'dropoff',
+        token: token,
+      );
+      await _setStatus('delivered');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      final msg = e is DioException
+          ? ref.read(deliveryServiceProvider).extractErrorMessage(e)
+          : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg ?? 'Could not verify dropoff token')),
+      );
+    }
+  }
+
   String? _nextActionLabel(String status) {
     switch (status) {
       case 'accepted':
-        return 'Mark picked up';
+        return 'Scan seller pickup QR';
       case 'picked_up':
         return 'Start trip (in transit)';
       case 'in_transit':
@@ -728,7 +848,11 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
           bottom: 10,
           child: _panelHidden
               ? const SizedBox.shrink()
-              : Container(
+              : ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.65,
+                  ),
+                  child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.72),
@@ -744,10 +868,11 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 if (routeMeta != null)
                   Text(
                     routeMeta,
@@ -971,12 +1096,31 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                     ),
                   ),
                 ],
+                if (status == 'in_transit' || status == 'picked_up') ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _verifyDropoffTokenDialog,
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                      label: const Text('Verify dropoff QR from buyer'),
+                    ),
+                  ),
+                ],
                 if (next != null && nextLabel != null) ...[
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: _busy ? null : () => _setStatus(next),
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              if (status == 'accepted' && next == 'picked_up') {
+                                _verifyPickupQrAndContinue();
+                                return;
+                              }
+                              _setStatus(next);
+                            },
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 42),
                       ),
@@ -1005,6 +1149,8 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                 ),
               ],
             ),
+            ),
+          ),
           ),
         ),
         if (_panelHidden)

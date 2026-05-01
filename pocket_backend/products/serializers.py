@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import MAX_PRODUCT_IMAGES, Product, ProductVariant
+from .models import MAX_PRODUCT_IMAGES, Category, Product, ProductVariant
 
 
 def _absolute_media_url(request, relative_url):
@@ -46,6 +46,11 @@ def first_image_url_for_product(product, request):
         return None
     return payload[0]['url']
 
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'slug', 'icon_name', 'parent']
 
 class ProductSerializer(serializers.ModelSerializer):
     seller_name = serializers.CharField(source='seller.full_name', read_only=True)

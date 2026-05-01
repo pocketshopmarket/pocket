@@ -20,8 +20,11 @@ from products.models import Product, ProductImage, ProductVariant
 from delivery.coordinates import resolve_delivery_coordinates
 from delivery.utils import create_delivery_offers_for_order
 from delivery.models import DeliveryAssignment
+from payments.models import Transaction
+from payments.services.pawapay import PawaPayService
 from .models import OrderRating
 from accounts.permissions import IsBuyer
+from .services import cancel_order_with_refund
 
 
 def _cart_for_api(cart):
@@ -162,6 +165,14 @@ class CreateOrderView(APIView):
                         id__in=[item.product_id for item in cart_items]
                     )
                 }
+                # Lock variants to prevent concurrent overselling of the same variant.
+                variant_ids = [item.variant_id for item in cart_items if item.variant_id]
+                locked_variants = {
+                    v.id: v
+                    for v in ProductVariant.objects.select_for_update().filter(
+                        id__in=variant_ids
+                    )
+                } if variant_ids else {}
 
                 line_total = 0
                 for cart_item in cart_items:
@@ -181,24 +192,72 @@ class CreateOrderView(APIView):
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                    if cart_item.variant and cart_item.variant.stock_quantity < cart_item.quantity:
+                    variant = locked_variants.get(cart_item.variant_id) if cart_item.variant_id else None
+                    if variant and variant.stock_quantity < cart_item.quantity:
                         return Response(
                             {
                                 'error': (
                                     f'Insufficient stock for variant '
-                                    f'{cart_item.variant.name}: {cart_item.variant.value}. '
-                                    f'Only {cart_item.variant.stock_quantity} left.'
+                                    f'{variant.name}: {variant.value}. '
+                                    f'Only {variant.stock_quantity} left.'
                                 )
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
                     line_total += product.price * cart_item.quantity
 
+                # ---------- Delivery fee (server-side validated) ----------
+                import json as _json
+                fulfillment_type = 'delivery'
+                server_delivery_fee = 0
+                raw_instructions = special_instructions
+                # Parse PS_META from special_instructions if present.
+                meta_start = raw_instructions.find('[PS_META]')
+                meta_end = raw_instructions.find('[/PS_META]')
+                ps_meta = {}
+                if meta_start != -1 and meta_end != -1 and meta_end > meta_start:
+                    try:
+                        ps_meta = _json.loads(
+                            raw_instructions[meta_start + len('[PS_META]'):meta_end].strip()
+                        )
+                    except _json.JSONDecodeError:
+                        pass
+                    fulfillment_type = ps_meta.get('fulfillment_type', 'delivery')
+
+                if fulfillment_type == 'delivery':
+                    dlat = ps_meta.get('delivery_lat')
+                    dlng = ps_meta.get('delivery_lng')
+                    if dlat is not None and dlng is not None:
+                        from delivery.utils import LocationService
+                        from accounts.models import SellerProfile
+                        try:
+                            # Resolve seller shop coordinates.
+                            seller_id = cart_items[0].product.seller_id
+                            sp = SellerProfile.objects.filter(user_id=seller_id).first()
+                            if sp and sp.shop_lat and sp.shop_lng:
+                                distance_km = LocationService.calculate_distance(
+                                    sp.shop_lat, sp.shop_lng,
+                                    float(dlat), float(dlng),
+                                )
+                                server_delivery_fee = LocationService.calculate_delivery_fee(distance_km)
+                            else:
+                                # No seller coords — trust client as fallback.
+                                server_delivery_fee = ps_meta.get('quoted_delivery_fee', 0)
+                        except Exception:
+                            server_delivery_fee = ps_meta.get('quoted_delivery_fee', 0)
+                    else:
+                        server_delivery_fee = ps_meta.get('quoted_delivery_fee', 0)
+
+                from decimal import Decimal as _Decimal
+                delivery_fee_val = _Decimal(str(server_delivery_fee or 0))
+
                 # Create order after stock validation passes.
                 order = Order.objects.create(
                     buyer=request.user,
                     seller=cart_items[0].product.seller,
                     total_price=line_total,
+                    delivery_fee=delivery_fee_val,
+                    fulfillment_type=fulfillment_type,
                     delivery_address=delivery_address,
                     special_instructions=special_instructions,
                     payment_method=None,
@@ -208,13 +267,14 @@ class CreateOrderView(APIView):
 
                 for cart_item in cart_items:
                     product = locked_products[cart_item.product_id]
+                    variant = locked_variants.get(cart_item.variant_id) if cart_item.variant_id else None
                     OrderItem.objects.create(
                         order=order,
                         product=product,
-                        variant=cart_item.variant,
+                        variant=variant,
                         variant_label=(
-                            f'{cart_item.variant.name}: {cart_item.variant.value}'
-                            if cart_item.variant
+                            f'{variant.name}: {variant.value}'
+                            if variant
                             else ''
                         ),
                         quantity=cart_item.quantity,
@@ -233,14 +293,14 @@ class CreateOrderView(APIView):
                             'updated_at',
                         ]
                     )
-                    if cart_item.variant:
-                        cart_item.variant.stock_quantity = max(
-                            cart_item.variant.stock_quantity - cart_item.quantity,
+                    if variant:
+                        variant.stock_quantity = max(
+                            variant.stock_quantity - cart_item.quantity,
                             0,
                         )
-                        if cart_item.variant.stock_quantity <= 0:
-                            cart_item.variant.is_active = False
-                        cart_item.variant.save(
+                        if variant.stock_quantity <= 0:
+                            variant.is_active = False
+                        variant.save(
                             update_fields=['stock_quantity', 'is_active', 'updated_at']
                         )
 
@@ -314,8 +374,9 @@ class UpdateOrderStatusView(APIView):
                 'pending': ['accepted', 'cancelled'],
                 'accepted': ['preparing', 'cancelled'],
                 'preparing': ['out_for_delivery'],
-                # Rider marks delivered via delivery assignment flow.
-                'out_for_delivery': [],
+                # Rider marks delivered via delivery assignment flow for 'delivery'.
+                # Seller marks delivered for 'pickup'.
+                'out_for_delivery': ['delivered'] if order.fulfillment_type == 'pickup' else [],
                 'delivered': [],
                 'cancelled': []
             }
@@ -325,14 +386,62 @@ class UpdateOrderStatusView(APIView):
             
             order.status = new_status
             order.save()
-            if new_status == 'out_for_delivery':
+            if new_status == 'out_for_delivery' and order.fulfillment_type == 'delivery':
                 create_delivery_offers_for_order(order)
+            elif new_status == 'cancelled':
+                # Use the shared cancel service (handles refund + stock restore).
+                cancel_order_with_refund(
+                    order, reason='Seller cancelled order'
+                )
             
             serializer = OrderSerializer(order)
             return Response(serializer.data)
             
         except Order.DoesNotExist:
             return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class BuyerCancelOrderView(APIView):
+    """
+    Allow buyers to cancel their own orders while the seller hasn't
+    started preparing yet (status in 'pending' or 'accepted').
+    Automatically refunds the buyer if they already paid.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsBuyer]
+
+    def post(self, request, order_id):
+        try:
+            order = request.user.orders.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Order not found'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Buyers can only cancel before the seller starts preparing.
+        if order.status not in ('pending', 'accepted'):
+            return Response(
+                {
+                    'error': (
+                        f'Cannot cancel — order is already "{order.get_status_display()}". '
+                        'Contact support if you need help.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ok = cancel_order_with_refund(
+            order, reason='Buyer cancelled order'
+        )
+        if not ok:
+            return Response(
+                {'error': 'Order could not be cancelled. Please try again.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        order.refresh_from_db()
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
 
 
 class SellerDashboardStatsView(APIView):
@@ -397,6 +506,48 @@ class SellerDashboardStatsView(APIView):
             )
             .order_by('-units_sold')[:5]
         )
+        seller_payouts = Transaction.objects.filter(
+            transaction_type='payout',
+            recipient=request.user,
+            recipient_role='seller',
+        ).order_by('-created_at')[:30]
+        payout_rows = [
+            {
+                'transaction_id': str(tx.transaction_id),
+                'order_number': tx.order.order_number,
+                'amount': str(tx.amount),
+                'currency': tx.currency,
+                'status': tx.status,
+                'payout_stage': tx.payout_stage,
+                'trigger_event': tx.trigger_event,
+                'amount_color': (
+                    'green'
+                    if tx.status == 'completed' and tx.payout_stage == 'payout_paid'
+                    else 'orange'
+                ),
+                'created_at': tx.created_at,
+            }
+            for tx in seller_payouts
+        ]
+        payout_total = (
+            Transaction.objects.filter(
+                transaction_type='payout',
+                recipient=request.user,
+                recipient_role='seller',
+                status='completed',
+            ).aggregate(total=Sum('amount'))['total']
+            or 0
+        )
+        payout_pending = (
+            Transaction.objects.filter(
+                transaction_type='payout',
+                recipient=request.user,
+                recipient_role='seller',
+            )
+            .exclude(status='completed')
+            .aggregate(total=Sum('amount'))['total']
+            or 0
+        )
 
         return Response(
             {
@@ -406,6 +557,8 @@ class SellerDashboardStatsView(APIView):
                     'pending_count': pending_count,
                     'revenue': str(revenue),
                     'low_stock_products': low_stock_products,
+                    'seller_payout_total': str(payout_total),
+                    'seller_pending_payouts': str(payout_pending),
                 },
                 'recent_orders': OrderSerializer(recent_orders, many=True).data,
                 'trends': trends,
@@ -418,6 +571,7 @@ class SellerDashboardStatsView(APIView):
                     }
                     for row in top_products
                 ],
+                'payouts': payout_rows,
             }
         )
 

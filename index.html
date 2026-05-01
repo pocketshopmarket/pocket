@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pocket | The Future of Marketplace Orchestration</title>
+    <meta name="description" content="Secure, instant, and transparent. Join the early access for Pocket, the marketplace payment orchestrator that empowers buyers, sellers, and delivery agents.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="bg-glow">
+        <div class="glow-1"></div>
+        <div class="glow-2"></div>
+    </div>
+
+    <nav>
+        <div class="logo">
+            <i class="fas fa-wallet"></i>
+            <span>POCKET</span>
+        </div>
+        <div class="nav-links">
+            <a href="#early-access" class="btn btn-primary" id="nav-cta">Early Access</a>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content reveal">
+                <h1 class="hero-title">
+                    The Marketplace <br>
+                    <span class="gradient-text">Orchestrator.</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Effortless payments for the modern marketplace. Connect buyers, sellers, and delivery agents with instant mobile money payouts. No wallets, no holding funds, just pure efficiency.
+                </p>
+                <div class="hero-actions">
+                    <button class="btn btn-primary btn-large open-modal">
+                        Join Early Access
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="hero-image reveal">
+                <img src="pocket_hero.png" alt="Pocket Visual" class="hero-visual" id="hero-img">
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features">
+            <div class="section-header reveal">
+                <h2 class="hero-title" style="font-size: 2.5rem;">Built for <span class="gradient-text">Transparency.</span></h2>
+            </div>
+            <div class="grid">
+                <div class="card reveal">
+                    <i class="fas fa-shield-alt"></i>
+                    <h3>Zero Trust Funds</h3>
+                    <p>We never hold your money. All transactions are handled exclusively by licensed payment providers for maximum security.</p>
+                </div>
+                <div class="card reveal">
+                    <i class="fas fa-bolt"></i>
+                    <h3>Instant Payouts</h3>
+                    <p>Sellers and delivery agents get paid immediately upon order confirmation. No waiting, no withdrawal requests.</p>
+                </div>
+                <div class="card reveal">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h3>Mobile Money Native</h3>
+                    <p>Deep integration with MTN, Airtel, and Zamtel via PawaPay. Built for the way you move money.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- How it Works -->
+        <section class="features" style="background: rgba(255,255,255,0.02);">
+            <div class="section-header reveal">
+                <h2 class="hero-title" style="font-size: 2.5rem;">How it <span class="gradient-text">Works.</span></h2>
+            </div>
+            <div class="grid">
+                <div class="card reveal">
+                    <i class="fas fa-shopping-cart"></i>
+                    <h3>1. Order</h3>
+                    <p>Buyer pays via mobile money. Funds are held securely by the payment gateway.</p>
+                </div>
+                <div class="card reveal">
+                    <i class="fas fa-truck"></i>
+                    <h3>2. Deliver</h3>
+                    <p>Delivery agent fulfills the order. Confirmation is triggered via secure handoff.</p>
+                </div>
+                <div class="card reveal">
+                    <i class="fas fa-coins"></i>
+                    <h3>3. Split</h3>
+                    <p>System automatically triggers payouts: Seller gets price, Agent gets fee.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal">
+            <span class="close-modal">&times;</span>
+            <h2 style="margin-bottom: 1rem;">Reserve Your Spot</h2>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">Be the first to know when we launch and get exclusive early-bird benefits.</p>
+            <form id="early-access-form">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" placeholder="john@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>I am a...</label>
+                    <select style="width: 100%; padding: 1rem; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 0.75rem; color: white; outline: none;">
+                        <option value="seller">Seller</option>
+                        <option value="buyer">Buyer</option>
+                        <option value="delivery">Delivery Agent</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                    Get Early Access
+                </button>
+            </form>
+            <div id="success-msg" style="display: none; text-align: center; margin-top: 1rem; color: var(--secondary);">
+                <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+                <h3>You're on the list!</h3>
+                <p>We've sent a confirmation to your email.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>

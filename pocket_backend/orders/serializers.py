@@ -67,6 +67,7 @@ class OrderSerializer(serializers.ModelSerializer):
     buyer_name = serializers.CharField(source='buyer.full_name', read_only=True)
     seller_name = serializers.CharField(source='seller.full_name', read_only=True)
     payment_method_id = serializers.IntegerField(source='payment_method.id', read_only=True)
+    delivery_assignment_id = serializers.SerializerMethodField()
     ratings = serializers.SerializerMethodField()
     
     class Meta:
@@ -74,12 +75,17 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['id', 'order_number', 'buyer', 'buyer_name', 'seller', 'seller_name',
                  'total_price', 'status', 'delivery_address', 'delivery_lat', 'delivery_lng',
                  'special_instructions', 'payment_method_id',
+                 'delivery_assignment_id',
                  'payment_provider_snapshot', 'payment_account_snapshot',
                  'items', 'ratings', 'created_at', 'updated_at']
         read_only_fields = ['order_number', 'buyer', 'seller', 'total_price', 'delivery_lat', 'delivery_lng']
 
     def get_ratings(self, obj):
         return OrderRatingSerializer(obj.ratings.all(), many=True).data
+
+    def get_delivery_assignment_id(self, obj):
+        assignment = getattr(obj, 'deliveryassignment', None)
+        return getattr(assignment, 'id', None)
 
 class CreateOrderSerializer(serializers.Serializer):
     delivery_address = serializers.CharField(max_length=500)

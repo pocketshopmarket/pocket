@@ -5,9 +5,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../models/product.dart';
 import '../../../../widgets/product_list_thumbnail.dart';
 import '../../../../providers/product_provider.dart';
+import '../../../../providers/category_provider.dart';
+import '../../../../services/product_service.dart';
+import 'dart:async';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../providers/auth_provider.dart';
+import '../../../../models/category.dart';
 
 class BuyerHomeScreen extends ConsumerStatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -25,11 +29,13 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   bool _inStockOnly = false;
   String _sortBy = 'default';
   int _activeBannerIndex = 0;
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
     _scrollController.dispose();
     _bannerController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -72,7 +78,30 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     });
   }
 
-  Future<void> _openFilterSortSheet(List<String> categories) async {
+  Widget _buildCategoryChip(String id, String label, String currentCategory, Function(String) onSelect) {
+    final selected = currentCategory == id;
+    return InkWell(
+      onTap: () => onSelect(id),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.primaryCyan : const Color(0xFFEEEEEE),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : AppTheme.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFilterSortSheet(List<Category> allCategories) async {
     String tempCategory = _selectedCategory;
     bool tempInStockOnly = _inStockOnly;
     String tempSortBy = _sortBy;
@@ -87,151 +116,125 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
       builder: (_) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Filter & sort',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Category',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
+            return SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Filter & sort',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: categories.map((category) {
-                      final selected = tempCategory == category;
-                      return InkWell(
-                        onTap: () =>
-                            setModalState(() => tempCategory = category),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppTheme.primaryCyan
-                                : const Color(0xFFEEEEEE),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            category == 'all'
-                                ? 'All'
-                                : _categoryLabel(category),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: selected
-                                  ? Colors.white
-                                  : AppTheme.textPrimary,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('In-stock only'),
-                    value: tempInStockOnly,
-                    activeColor: AppTheme.primaryCyan,
-                    onChanged: (value) =>
-                        setModalState(() => tempInStockOnly = value),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Sort',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Category',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...[
-                    ('default', 'Default'),
-                    ('latest', 'Latest'),
-                    ('price_low', 'Price: low to high'),
-                    ('price_high', 'Price: high to low'),
-                    ('name_az', 'Name: A to Z'),
-                  ].map((option) {
-                    return RadioListTile<String>(
-                      value: option.$1,
-                      groupValue: tempSortBy,
-                      activeColor: AppTheme.primaryCyan,
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildCategoryChip('all', 'All', tempCategory, (val) => setModalState(() => tempCategory = val)),
+                        ...allCategories.map((cat) => _buildCategoryChip(cat.id.toString(), cat.name, tempCategory, (val) => setModalState(() => tempCategory = val))),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        option.$2,
-                        style: const TextStyle(fontSize: 13),
+                      title: const Text('In-stock only'),
+                      value: tempInStockOnly,
+                      activeColor: AppTheme.primaryCyan,
+                      onChanged: (value) =>
+                          setModalState(() => tempInStockOnly = value),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Sort',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
                       ),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setModalState(() => tempSortBy = value);
-                        }
-                      },
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            setState(() {
-                              _selectedCategory = 'all';
-                              _inStockOnly = false;
-                              _sortBy = 'default';
-                            });
-                            ref
-                                .read(productProvider.notifier)
-                                .updateFilters(
-                                  category: 'all',
-                                  inStockOnly: false,
-                                  sortBy: 'default',
-                                );
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Reset'),
+                    ),
+                    const SizedBox(height: 8),
+                    ...[
+                      ('default', 'Default'),
+                      ('latest', 'Latest'),
+                      ('price_low', 'Price: low to high'),
+                      ('price_high', 'Price: high to low'),
+                      ('name_az', 'Name: A to Z'),
+                    ].map((option) {
+                      return RadioListTile<String>(
+                        value: option.$1,
+                        groupValue: tempSortBy,
+                        activeColor: AppTheme.primaryCyan,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          option.$2,
+                          style: const TextStyle(fontSize: 13),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _selectedCategory = tempCategory;
-                              _inStockOnly = tempInStockOnly;
-                              _sortBy = tempSortBy;
-                            });
-                            ref
-                                .read(productProvider.notifier)
-                                .updateFilters(
-                                  category: tempCategory,
-                                  inStockOnly: tempInStockOnly,
-                                  sortBy: tempSortBy,
-                                );
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Apply'),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setModalState(() => tempSortBy = value);
+                          }
+                        },
+                      );
+                    }),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedCategory = 'all';
+                                _inStockOnly = false;
+                                _sortBy = 'default';
+                              });
+                              ref
+                                  .read(productProvider.notifier)
+                                  .updateFilters(
+                                    category: 'all',
+                                    inStockOnly: false,
+                                    sortBy: 'default',
+                                  );
+                              Navigator.pop(context);
+                            },
+                            child: const Text('Reset'),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                _selectedCategory = tempCategory;
+                                _inStockOnly = tempInStockOnly;
+                                _sortBy = tempSortBy;
+                              });
+                              ref
+                                  .read(productProvider.notifier)
+                                  .updateFilters(
+                                    category: tempCategory,
+                                    inStockOnly: tempInStockOnly,
+                                    sortBy: tempSortBy,
+                                  );
+                              Navigator.pop(context);
+                            },
+                            child: const Text('Apply'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -257,10 +260,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     final cartNotifier = ref.read(cartProvider.notifier);
     final wishlistNotifier = ref.read(wishlistProvider.notifier);
     final firstName = user?.displayName.split(' ').first ?? 'Shopper';
-    final categories = {
-      'all',
-      ...productState.products.map((p) => p.category),
-    }.toList();
+    final allCategories = ref.watch(categoryProvider).value ?? [];
     final products = productState.products;
     final trendingProducts = productState.trendingProducts.isNotEmpty
         ? productState.trendingProducts
@@ -346,38 +346,49 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 ],
               ),
               SizedBox(height: isCompact ? 10 : 12),
-              InkWell(
-                onTap: () => context.go('/buyer/shop'),
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isCompact ? 12 : 14,
-                    vertical: 11,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.divider),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.search_rounded,
-                        color: AppTheme.textSecondary,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Search products',
-                          style: TextStyle(
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 12 : 14,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.divider),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.search_rounded,
+                      color: AppTheme.textSecondary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        onChanged: (val) {
+                          if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+                          _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+                            ref.read(productProvider.notifier).updateFilters(searchQuery: val);
+                          });
+                        },
+                        style: const TextStyle(fontSize: 14),
+                        decoration: const InputDecoration(
+                          hintText: 'Search products',
+                          hintStyle: TextStyle(
                             fontSize: 13,
                             color: AppTheme.textSecondary,
                           ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
-                      Container(
+                    ),
+                    GestureDetector(
+                      onTap: () => _openFilterSortSheet(allCategories),
+                      child: Container(
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
@@ -390,8 +401,8 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                           color: Colors.white,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               SizedBox(height: isCompact ? 10 : 12),
@@ -483,49 +494,70 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     ),
                   ),
                   const Spacer(),
-                  TextButton(onPressed: () {}, child: const Text('See all')),
+                  TextButton(onPressed: () => context.go('/buyer/shop'), child: const Text('See all')),
                 ],
               ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 42,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: categories.length > 6 ? 6 : categories.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) {
-                    final category = categories[i];
-                    final isSelected = _selectedCategory == category;
-                    return InkWell(
-                      onTap: () {
-                        setState(() {
-                          _selectedCategory = category;
-                        });
-                        ref
-                            .read(productProvider.notifier)
-                            .updateFilters(category: category);
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        height: 42,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.primaryCyan
-                              : AppTheme.softSurface,
+                child: ref.watch(categoryProvider).when(
+                  data: (categories) {
+                    final allCategories = [Category(id: 0, name: 'All', slug: 'all'), ...categories];
+                    return ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: allCategories.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (_, i) {
+                        final category = allCategories[i];
+                        final isSelected = ref.watch(selectedCategoryProvider) == category.id || (category.id == 0 && ref.watch(selectedCategoryProvider) == null);
+                        return InkWell(
+                          onTap: () {
+                            if (category.id == 0) {
+                              ref.read(selectedCategoryProvider.notifier).state = null;
+                              ref.read(productProvider.notifier).updateFilters(category: 'all');
+                            } else {
+                              ref.read(selectedCategoryProvider.notifier).state = category.id;
+                              ref.read(productProvider.notifier).updateFilters(category: category.id.toString());
+                            }
+                          },
                           borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          _categoryIcon(category),
-                          size: 18,
-                          color: isSelected
-                              ? Colors.white
-                              : AppTheme.textSecondary,
-                        ),
-                      ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            height: 42,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primaryCyan
+                                  : AppTheme.softSurface,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                if (category.iconName != null) ...[
+                                  Icon(
+                                    _categoryIcon(category.name),
+                                    size: 18,
+                                    color: isSelected ? Colors.white : AppTheme.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                Text(
+                                  category.name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                    color: isSelected ? Colors.white : AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (_, __) => const Text('Failed to load categories'),
                 ),
               ),
               const SizedBox(height: 14),
@@ -639,12 +671,14 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Trending now',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                    Expanded(
+                      child: Text(
+                        'Trending now',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
                     ),
                     Text(
@@ -706,6 +740,89 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 ),
                 const SizedBox(height: 18),
               ],
+              ref.watch(recommendedProvider).when(
+                data: (recommendedProducts) {
+                  if (recommendedProducts.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'What you might be interested in',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'Swipe',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: isCompact ? 230 : 248,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recommendedProducts.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 10),
+                          itemBuilder: (_, index) {
+                            final product = recommendedProducts[index];
+                            final inStock = product.isAvailable && product.isInStock;
+                            return SizedBox(
+                              width: isCompact ? 156 : 170,
+                              child: _ProductCard(
+                                product: product,
+                                inStock: inStock,
+                                isFavorite: wishlist.contains(product.id),
+                                onToggleFavorite: () =>
+                                    wishlistNotifier.toggle(product.id),
+                                onCardTap: () => context.push(
+                                  '/buyer/product-details',
+                                  extra: product,
+                                ),
+                                onAdd: () async {
+                                  final err = await cartNotifier.addProduct(product);
+                                  if (!context.mounted) return;
+                                  if (err != null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(err),
+                                        backgroundColor: AppTheme.error,
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '${product.name} added to cart',
+                                        ),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                    ],
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -722,7 +839,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   Row(
                     children: [
                       InkWell(
-                        onTap: () => _openFilterSortSheet(categories),
+                        onTap: () => _openFilterSortSheet(allCategories),
                         borderRadius: BorderRadius.circular(20),
                         child: Container(
                           padding: const EdgeInsets.symmetric(

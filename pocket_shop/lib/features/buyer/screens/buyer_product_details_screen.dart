@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../models/product.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/delivery_provider.dart';
 import '../../../../providers/review_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 
@@ -54,6 +55,7 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
     final reviewCount = reviewState.reviewCount > 0
         ? reviewState.reviewCount
         : product.reviewCount;
+    final deliveryPricingAsync = ref.watch(deliveryPricingProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
@@ -386,6 +388,46 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                         .toList(),
                   ),
                 ],
+                const SizedBox(height: 12),
+                deliveryPricingAsync.when(
+                  data: (data) {
+                    final flatRate = data['short_distance_flat_rate'];
+                    if (flatRate == null) return const SizedBox.shrink();
+                    final fee = (flatRate as num).toDouble();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.primaryCyan.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.local_shipping_outlined,
+                            size: 16,
+                            color: AppTheme.primaryCyan,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Delivery from ZMW ${fee.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryCyan,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
               ],
             ),
           ),

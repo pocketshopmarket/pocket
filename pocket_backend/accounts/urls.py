@@ -6,6 +6,8 @@ from .views import (
     ChangePasswordView,
     BuyerPaymentMethodsView, BuyerPaymentMethodDetailView,
     VerifyBuyerPaymentMethodView,
+    SellerPayoutMethodsView, SellerPayoutMethodDetailView,
+    VerifySellerPayoutMethodView,
 )
 
 urlpatterns = [
@@ -28,6 +30,21 @@ urlpatterns = [
         'buyer/payment-methods/<int:method_id>/verify/',
         VerifyBuyerPaymentMethodView.as_view(),
         name='verify-buyer-payment-method',
+    ),
+    path(
+        'seller/payout-methods/',
+        SellerPayoutMethodsView.as_view(),
+        name='seller-payout-methods',
+    ),
+    path(
+        'seller/payout-methods/<int:method_id>/',
+        SellerPayoutMethodDetailView.as_view(),
+        name='seller-payout-method-detail',
+    ),
+    path(
+        'seller/payout-methods/<int:method_id>/verify/',
+        VerifySellerPayoutMethodView.as_view(),
+        name='verify-seller-payout-method',
     ),
     path('logout/', logout_view, name='logout'),
 ]

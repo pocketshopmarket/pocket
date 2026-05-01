@@ -28,4 +28,11 @@ class CartItem {
       'quantity': quantity,
     };
   }
+
+  factory CartItem.fromJson(Map<String, dynamic> json) {
+    return CartItem(
+      product: Product.fromJson(json['product']),
+      quantity: json['quantity'] ?? 1,
+    );
+  }
 }

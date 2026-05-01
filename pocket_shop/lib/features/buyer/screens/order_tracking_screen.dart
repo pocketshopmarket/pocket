@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -56,6 +57,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
   Map<String, dynamic>? _data;
   String? _error;
   bool _loading = true;
+  bool _sheetHidden = false;
   Timer? _pollTimer;
 
   @override
@@ -121,6 +123,130 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       });
     }
   }
+  Future<void> _showDropoffToken(int assignmentId) async {
+    setState(() => _loading = true);
+    try {
+      final svc = ref.read(orderServiceProvider);
+      final payload = await svc.generateBuyerDropoffToken(assignmentId);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final token = (payload['token'] ?? '').toString();
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AppTheme.surfaceWhite,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.qr_code_rounded,
+                  size: 48,
+                  color: AppTheme.primaryCyan,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Your delivery QR code',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Show this to the rider when they arrive to confirm delivery.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                if (token.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                    ),
+                    child: QrImageView(
+                      data: token,
+                      version: QrVersions.auto,
+                      size: 180.0,
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Or provide this code manually:',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightCyan.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SelectableText(
+                    token.isEmpty ? 'Token not available' : token,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      letterSpacing: 2.0,
+                      color: AppTheme.darkCyan,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final msg = e is DioException ? ref.read(orderServiceProvider).extractErrorMessage(e) : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg ?? 'Could not generate token')),
+      );
+    }
+  }
+
 
   bool get _hasOrder =>
       widget.orderNumber != null && widget.orderNumber!.trim().isNotEmpty;
@@ -250,6 +376,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           followTarget: payload.rider,
           followMinMoveMeters: 12,
           refitBoundsWhenDataChanges: payload.rider == null,
+          showZoomControls: true,
         ),
         sheetBody: (c) => _sheetTrackingContent(context, c, payload),
       );
@@ -280,25 +407,38 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       fit: StackFit.expand,
       children: [
         Positioned.fill(child: mapLayer),
-        DraggableScrollableSheet(
-          initialChildSize: 0.34,
-          minChildSize: 0.20,
-          maxChildSize: 0.92,
-          snap: true,
-          snapSizes: const [0.20, 0.34, 0.55, 0.92],
-          builder: (context, scrollController) {
-            return Material(
-              elevation: 12,
-              shadowColor: Colors.black26,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-              color: AppTheme.surfaceWhite,
-              clipBehavior: Clip.antiAlias,
-              child: sheetBody(scrollController),
-            );
-          },
-        ),
+        if (!_sheetHidden)
+          DraggableScrollableSheet(
+            initialChildSize: 0.48,
+            minChildSize: 0.20,
+            maxChildSize: 0.92,
+            snap: true,
+            snapSizes: const [0.20, 0.48, 0.65, 0.92],
+            builder: (context, scrollController) {
+              return Material(
+                elevation: 12,
+                shadowColor: Colors.black26,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                color: Colors.white.withValues(alpha: 0.88),
+                clipBehavior: Clip.antiAlias,
+                child: sheetBody(scrollController),
+              );
+            },
+          ),
+        if (_sheetHidden)
+          Positioned(
+            right: 14,
+            bottom: 18,
+            child: FloatingActionButton.small(
+              heroTag: 'expand_tracking_panel',
+              onPressed: () => setState(() => _sheetHidden = false),
+              backgroundColor: Colors.white.withValues(alpha: 0.92),
+              foregroundColor: AppTheme.textPrimary,
+              child: const Icon(Icons.keyboard_arrow_up_rounded),
+            ),
+          ),
       ],
     );
   }
@@ -338,7 +478,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
 
   Widget _sheetDragHandle() {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
       child: Center(
         child: Container(
           width: 40,
@@ -371,20 +511,40 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
           SliverToBoxAdapter(child: _sheetDragHandle()),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              padding: const EdgeInsets.fromLTRB(20, 0, 8, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      p.orderNumber,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Minimise panel',
+                    onPressed: () => setState(() => _sheetHidden = true),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppTheme.textSecondary,
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    p.orderNumber,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
                   Text(
                     _labelStatus(p.status),
                     style: const TextStyle(
@@ -403,7 +563,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                       color: AppTheme.darkCyan.withValues(alpha: 0.9),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -443,6 +603,17 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                         color: AppTheme.textPrimary,
                       ),
                     ),
+                    if (assignment['status'] == 'in_transit' || assignment['status'] == 'picked_up') ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showDropoffToken(int.parse(assignment['id'].toString())),
+                          icon: const Icon(Icons.qr_code_2_rounded),
+                          label: const Text('Show delivery QR code'),
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -565,7 +736,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 28)),
+          const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
     );
@@ -768,7 +939,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       final la = raw['lat'];
       final ln = raw['lng'];
       if (la != null && ln != null) {
-        return LatLng((la as num).toDouble(), (ln as num).toDouble());
+        final lat = double.tryParse(la.toString());
+        final lng = double.tryParse(ln.toString());
+        if (lat != null && lng != null) {
+          return LatLng(lat, lng);
+        }
       }
     }
     return null;
@@ -791,7 +966,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         final la = p['latitude'];
         final lo = p['longitude'];
         if (la != null && lo != null) {
-          out.add(LatLng((la as num).toDouble(), (lo as num).toDouble()));
+          final lat = double.tryParse(la.toString());
+          final lng = double.tryParse(lo.toString());
+          if (lat != null && lng != null) {
+            out.add(LatLng(lat, lng));
+          }
         }
       }
     }

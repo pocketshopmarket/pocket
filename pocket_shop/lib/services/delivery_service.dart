@@ -32,8 +32,8 @@ class DeliveryService {
       AppConstants.deliveryAcceptEndpoint,
       data: {
         'order_id': orderId,
-        'lat': lat,
-        'lng': lng,
+        'lat': double.parse(lat.toStringAsFixed(8)),
+        'lng': double.parse(lng.toStringAsFixed(8)),
       },
     );
     final data = response.data;
@@ -57,8 +57,8 @@ class DeliveryService {
       AppConstants.deliveryLocationEndpoint,
       data: {
         'assignment_id': assignmentId,
-        'lat': lat,
-        'lng': lng,
+        'lat': double.parse(lat.toStringAsFixed(8)),
+        'lng': double.parse(lng.toStringAsFixed(8)),
         if (speed != null) 'speed': speed,
         if (accuracy != null) 'accuracy': accuracy,
       },
@@ -118,6 +118,7 @@ class DeliveryService {
     required double deliveryLng,
     double? pickupLat,
     double? pickupLng,
+    int? sellerId,
   }) async {
     final body = <String, dynamic>{
       'delivery_lat': deliveryLat,
@@ -126,6 +127,9 @@ class DeliveryService {
     if (pickupLat != null && pickupLng != null) {
       body['pickup_lat'] = pickupLat;
       body['pickup_lng'] = pickupLng;
+    }
+    if (sellerId != null) {
+      body['seller_id'] = sellerId;
     }
     final response = await _api.post(AppConstants.deliveryQuoteEndpoint, data: body);
     final data = response.data;
@@ -147,6 +151,46 @@ class DeliveryService {
     if (data is Map) {
       return Map<String, dynamic>.from(data);
     }
+    return {};
+  }
+
+  /// Returns the platform delivery pricing config:
+  /// { short_distance_threshold_km, short_distance_flat_rate, per_km_rate }
+  Future<Map<String, dynamic>> fetchPricingConfig() async {
+    final response = await _api.get('/delivery/pricing/');
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return {};
+  }
+
+  Future<Map<String, dynamic>> generateHandoffToken({
+    required int assignmentId,
+    required String step,
+  }) async {
+    final path =
+        '${AppConstants.deliveryHandoffTokenPrefix}$assignmentId/handoff/token/';
+    final response = await _api.post(path, data: {'step': step});
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return {};
+  }
+
+  Future<Map<String, dynamic>> verifyHandoffToken({
+    required int assignmentId,
+    required String step,
+    required String token,
+  }) async {
+    final path =
+        '${AppConstants.deliveryHandoffTokenPrefix}$assignmentId/handoff/verify/';
+    final response = await _api.post(
+      path,
+      data: {'step': step, 'token': token},
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
     return {};
   }
 

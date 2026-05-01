@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/delivery_provider.dart';
 
@@ -53,6 +53,17 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
   Widget build(BuildContext context) {
     final n = _stats?['completed_deliveries'];
     final km = _stats?['total_estimated_km'];
+    final payoutTotal =
+        (_stats?['delivery_payout_total']?.toString() ?? '0').trim();
+    final payoutPending =
+        (_stats?['delivery_pending_payouts']?.toString() ?? '0').trim();
+    final payoutsRaw = _stats?['payouts'];
+    final payouts = payoutsRaw is List
+        ? payoutsRaw
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+        : const <Map<String, dynamic>>[];
     final count = n is int ? n : (n is num ? n.toInt() : 0);
     final totalKm = km is num ? km.toDouble() : 0.0;
 
@@ -146,9 +157,29 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _metricTile(
+                              label: 'Paid',
+                              value: 'ZMW $payoutTotal',
+                              icon: Icons.payments_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _metricTile(
                               label: 'Distance',
                               value: '${totalKm.toStringAsFixed(1)} km',
                               icon: Icons.route_outlined,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _metricTile(
+                              label: 'Pending',
+                              value: 'ZMW $payoutPending',
+                              icon: Icons.schedule_outlined,
                             ),
                           ),
                         ],
@@ -180,15 +211,68 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Payout statements and per-order fees can be added when '
-                  'payments are connected.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary.withValues(alpha: 0.9),
-                    height: 1.4,
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    onPressed: () => context.push('/delivery/payout'),
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    label: const Text('Request Payout'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.success,
+                    ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                if (payouts.isNotEmpty) ...[
+                  const Text(
+                    'Recent payout status',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...payouts.take(5).map((row) {
+                    final amountColor = row['amount_color'] == 'green'
+                        ? AppTheme.success
+                        : AppTheme.warning;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.divider),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              row['order_number']?.toString() ?? '-',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          Text(
+                            'ZMW ${row['amount'] ?? '0'}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: amountColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ] else
+                  Text(
+                    'Payout rows will appear here once pickup/dropoff scans trigger payouts.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary.withValues(alpha: 0.9),
+                      height: 1.4,
+                    ),
+                  ),
               ],
             ],
           ),

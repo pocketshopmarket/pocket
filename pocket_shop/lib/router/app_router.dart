@@ -21,6 +21,7 @@ import '../features/buyer/screens/buyer_search_screen.dart';
 import '../features/buyer/screens/buyer_wishlist_screen.dart';
 import '../features/buyer/screens/cart_screen.dart';
 import '../features/buyer/screens/order_tracking_screen.dart';
+import '../features/buyer/screens/payment_pending_screen.dart';
 import '../features/delivery/screens/active_delivery_screen.dart';
 import '../features/delivery/screens/delivery_home_screen.dart';
 import '../features/delivery/screens/delivery_main_screen.dart';
@@ -31,6 +32,9 @@ import '../features/seller/screens/seller_dashboard_screen.dart';
 import '../features/seller/screens/seller_main_screen.dart';
 import '../features/seller/screens/seller_orders_screen.dart';
 import '../features/seller/screens/seller_profile_screen.dart';
+import '../features/seller/screens/seller_payout_methods_screen.dart';
+import '../features/seller/screens/seller_payout_history_screen.dart';
+import '../features/shared/screens/payout_screen.dart';
 import '../models/product.dart';
 import '../providers/auth_provider.dart' show AuthState, authProvider;
 
@@ -240,6 +244,28 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                       return BuyerOrderDetailScreen(orderId: id);
                     },
                   ),
+                  GoRoute(
+                    path: 'payment-pending',
+                    builder: (context, state) {
+                      final params = state.uri.queryParameters;
+                      final extra =
+                          state.extra as Map<String, dynamic>? ?? {};
+                      return PaymentPendingScreen(
+                        orderNumber: params['order'] ??
+                            extra['order_number']?.toString() ??
+                            '',
+                        provider: params['provider'] ??
+                            extra['provider']?.toString() ??
+                            '',
+                        amount: params['amount'] ??
+                            extra['amount']?.toString() ??
+                            '',
+                        isDelivery:
+                            (params['delivery'] ?? extra['is_delivery']?.toString() ?? 'true') ==
+                                'true',
+                      );
+                    },
+                  ),
                 ],
               ),
               StatefulShellBranch(
@@ -323,6 +349,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     path: 'shop',
                     builder: (context, state) => const SellerProfileScreen(),
                   ),
+                  GoRoute(
+                    path: 'payout-methods',
+                    builder: (context, state) =>
+                        const SellerPayoutMethodsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'payout',
+                    builder: (context, state) =>
+                        const PayoutScreen(),
+                  ),
+                  GoRoute(
+                    path: 'payout-history',
+                    builder: (context, state) {
+                      final payouts = state.extra as List<Map<String, dynamic>>? ?? [];
+                      return SellerPayoutHistoryScreen(payouts: payouts);
+                    },
+                  ),
                 ],
               ),
             ],
@@ -373,6 +416,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'account',
                     builder: (context, state) => const DeliveryProfileScreen(),
+                  ),
+                  GoRoute(
+                    path: 'payout-methods',
+                    builder: (context, state) =>
+                        const SellerPayoutMethodsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'payout',
+                    builder: (context, state) =>
+                        const PayoutScreen(),
                   ),
                 ],
               ),

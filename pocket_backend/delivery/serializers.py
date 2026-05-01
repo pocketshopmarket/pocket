@@ -113,13 +113,13 @@ class DeliveryZoneSerializer(serializers.ModelSerializer):
 class AcceptDeliverySerializer(serializers.Serializer):
     order_id = serializers.IntegerField()
     offer_id = serializers.IntegerField(required=False)
-    lat = serializers.DecimalField(max_digits=10, decimal_places=7)
-    lng = serializers.DecimalField(max_digits=10, decimal_places=7)
+    lat = serializers.DecimalField(max_digits=12, decimal_places=8)
+    lng = serializers.DecimalField(max_digits=12, decimal_places=8)
 
 class UpdateLocationSerializer(serializers.Serializer):
     assignment_id = serializers.IntegerField()
-    lat = serializers.DecimalField(max_digits=10, decimal_places=7)
-    lng = serializers.DecimalField(max_digits=10, decimal_places=7)
+    lat = serializers.DecimalField(max_digits=12, decimal_places=8)
+    lng = serializers.DecimalField(max_digits=12, decimal_places=8)
     speed = serializers.FloatField(required=False, allow_null=True)
     accuracy = serializers.FloatField(required=False, allow_null=True)
 

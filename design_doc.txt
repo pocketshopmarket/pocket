@@ -1,0 +1,66 @@
+POCKET 
+PAYMENT SYSTEM DESIGN
+Ecommerce & Delivery Marketplace
+1. Objective
+To implement a secure and compliant payment system for a marketplace application that connects Buyers, Sellers, and Delivery Agents — without holding customer funds, operating a wallet system, or falling under financial regulatory classification.
+2. Core Principle
+The platform acts as a Marketplace Orchestrator — not a financial intermediary. All funds are collected, held, and disbursed exclusively by PawaPay, a licensed payment provider.
+3. 
+POCKET 
+Payment Flow
+Step 1 — Order Placement
+Buyer selects a product from the marketplace
+Delivery fee is calculated (fixed or distance-based)
+Total amount = Product price + Delivery fee
+Step 2 — Payment Collection
+Buyer pays via Mobile Money (MTN / Airtel
+/Zamtel
+)
+Payment is processed by PawaPay; funds move into a holding account managed by the gateway
+Step 3 — Order Processing
+Seller receives the order and prepares the product
+A delivery agent is assigned  (bidding
+ depending who can afford to pick
+)
+Step 4 — Delivery & Confirmation
+Delivery agent confirms delivery via the app
+(by the buyer scanning the qr code for delivery app to confrim handoff)
+Buyer confirmation is optional but recommended
+Step 5 — Payout Execution
+After delivery confirmation, the system triggers payouts via the PawaPay API:
+Seller receives the product amount
+Delivery agent receives the delivery fee
+Platform retains a commission (optional)
+4. System Scope
+What the system WILL do
+What the system will NOT do
+Track orders and transactions
+Calculate earnings per transaction
+Trigger payouts after service completion
+Provide read-only earnings visibility
+Store or hold user money
+Provide wallet functionality
+Maintain withdrawable balances
+Delay payouts arbitrarily
+5. Earnings Display (UI)
+Users (Sellers and Delivery Agents) will have read-only visibility into their earnings:
+Total earnings to date
+Earnings broken down per order
+Completed transactions history
+Pending payouts (not yet processed)
+Note: The UI will not display wallet balance, available balance, or any withdraw-on-demand functionality.
+6. Security & Verification
+Payment confirmation is received via gateway webhooks from PawaPay
+Backend verifies payment status before marking any order as paid
+Frontend payment status is never trusted — all verification is server-side
+7. Optional Future Enhancements
+Automated payout scheduling
+Refund handling via the PawaPay gateway
+Delivery tracking integration (maps)
+Commission optimization and reporting dashboard
+Summary
+This system ensures that:
+•  The platform never holds or controls money
+•  All funds are managed exclusively by PawaPay
+•  Payments are transaction-based, not balance-based
+•  The platform remains a pure ecommerce marketplace

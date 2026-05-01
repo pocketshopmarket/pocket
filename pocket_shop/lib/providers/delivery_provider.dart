@@ -5,3 +5,8 @@ import '../services/delivery_service.dart';
 final deliveryServiceProvider = Provider<DeliveryService>((ref) {
   return DeliveryService();
 });
+
+final deliveryPricingProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final service = ref.read(deliveryServiceProvider);
+  return service.fetchPricingConfig();
+});

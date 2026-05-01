@@ -109,12 +109,46 @@ class ProductService {
     }
   }
 
-  Future<List<Product>> getProducts() async {
+  Future<List<Product>> getProducts({int? categoryId, String? search}) async {
     try {
-      final page = await getProductsPage(ProductQuery());
-      return page.items;
+      final Map<String, dynamic> queryParams = {};
+      if (categoryId != null) queryParams['category'] = categoryId;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _apiService.get(
+        AppConstants.productsEndpoint, 
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+      
+      if (response.data is List) {
+        return (response.data as List).map((item) => Product.fromJson(item)).toList();
+      }
+      return [];
     } catch (e) {
       throw Exception('Failed to load products: $e');
+    }
+  }
+
+  Future<List<Product>> getRecommendedProducts() async {
+    try {
+      final response = await _apiService.get('${AppConstants.productsEndpoint}recommended/');
+      if (response.data is List) {
+        return (response.data as List).map((item) => Product.fromJson(item)).toList();
+      }
+      return [];
+    } catch (e) {
+      throw Exception('Failed to load recommended products: $e');
+    }
+  }
+
+  Future<void> trackInteraction(int productId, String type) async {
+    try {
+      await _apiService.post('${AppConstants.productsEndpoint}interact/', data: {
+        'product_id': productId,
+        'interaction_type': type,
+      });
+    } catch (e) {
+      // Fail silently for analytics
     }
   }
 

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/order.dart';
@@ -292,6 +294,25 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (order.status == 'accepted') ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.timer_outlined, size: 14, color: AppTheme.warning),
+                        const SizedBox(width: 6),
+                        _CountdownTimer(expiresAt: order.updatedAt.add(const Duration(minutes: 30))),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Text(
                   order.buyerName != null && order.buyerName!.isNotEmpty
@@ -397,6 +418,7 @@ class _SellerOrderSheet extends ConsumerStatefulWidget {
 class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
   late Order _order;
   bool _busy = false;
+  bool _tokenBusy = false;
 
   @override
   void initState() {
@@ -438,23 +460,173 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
   }
 
   List<({String label, String value})> _actionsFor(String status) {
-    switch (status) {
-      case 'pending':
-        return [
-          (label: 'Accept order', value: 'accepted'),
-          (label: 'Cancel', value: 'cancelled'),
-        ];
-      case 'accepted':
-        return [
-          (label: 'Start preparing', value: 'preparing'),
-          (label: 'Cancel', value: 'cancelled'),
-        ];
-      case 'preparing':
-        return [(label: 'Ready — out for delivery', value: 'out_for_delivery')];
-      case 'out_for_delivery':
-        return [(label: 'Mark delivered', value: 'delivered')];
-      default:
-        return [];
+    if (_order.isPickup) {
+      switch (status) {
+        case 'pending':
+          return [
+            (label: 'Accept order', value: 'accepted'),
+            (label: 'Cancel', value: 'cancelled'),
+          ];
+        case 'accepted':
+          return [
+            (label: 'Start preparing', value: 'preparing'),
+            (label: 'Cancel', value: 'cancelled'),
+          ];
+        case 'preparing':
+          return [(label: 'Ready for pickup', value: 'out_for_delivery')];
+        case 'out_for_delivery':
+          return [(label: 'Mark delivered (picked up)', value: 'delivered')];
+        default:
+          return [];
+      }
+    } else {
+      switch (status) {
+        case 'pending':
+          return [
+            (label: 'Accept order', value: 'accepted'),
+            (label: 'Cancel', value: 'cancelled'),
+          ];
+        case 'accepted':
+          return [
+            (label: 'Start preparing', value: 'preparing'),
+            (label: 'Cancel', value: 'cancelled'),
+          ];
+        case 'preparing':
+          return [(label: 'Ready — request rider', value: 'out_for_delivery')];
+        default:
+          return [];
+      }
+    }
+  }
+
+  Future<void> _generatePickupToken() async {
+    final assignmentId = _order.deliveryAssignmentId;
+    if (assignmentId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Delivery rider has not been assigned yet')),
+      );
+      return;
+    }
+    setState(() => _tokenBusy = true);
+    final svc = ref.read(orderServiceProvider);
+    try {
+      final payload = await svc.generateSellerPickupToken(assignmentId);
+      if (!mounted) return;
+      setState(() => _tokenBusy = false);
+      final token = (payload['token'] ?? '').toString();
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AppTheme.surfaceWhite,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  size: 48,
+                  color: AppTheme.primaryCyan,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Seller pickup QR code',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Show this to the rider so they can scan it to confirm pickup.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                if (token.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                      border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                    ),
+                    child: QrImageView(
+                      data: token,
+                      version: QrVersions.auto,
+                      size: 180.0,
+                    ),
+                  ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Or type token manually:',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightCyan.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SelectableText(
+                    token.isEmpty ? 'No token returned' : token,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      letterSpacing: 2.0,
+                      color: AppTheme.darkCyan,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _tokenBusy = false);
+      final msg = e is DioException ? svc.extractErrorMessage(e) : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg ?? 'Could not generate pickup token')),
+      );
     }
   }
 
@@ -499,6 +671,25 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                 color: AppTheme.darkCyan,
               ),
             ),
+            if (_order.status == 'accepted') ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.timer_outlined, size: 16, color: AppTheme.warning),
+                    const SizedBox(width: 8),
+                    _CountdownTimer(expiresAt: _order.updatedAt.add(const Duration(minutes: 30))),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             const Text(
               'Deliver to',
@@ -613,6 +804,46 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                 );
               }),
             ],
+            if (widget.canUpdateStatus && _order.isDelivery && _order.status == 'out_for_delivery') ...[
+              const SizedBox(height: 14),
+              if (_order.deliveryAssignmentId != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _tokenBusy ? null : _generatePickupToken,
+                    icon: const Icon(Icons.qr_code_2_rounded),
+                    label: Text(
+                      _tokenBusy ? 'Generating token...' : 'Generate pickup QR token',
+                    ),
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.primaryCyan.withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.pedal_bike_rounded, color: AppTheme.primaryCyan, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Waiting for a rider to accept the delivery. The QR button will appear here once a rider is assigned.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
             if (!widget.canUpdateStatus)
               const Padding(
                 padding: EdgeInsets.only(top: 16),
@@ -623,6 +854,65 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CountdownTimer extends StatefulWidget {
+  const _CountdownTimer({required this.expiresAt});
+  final DateTime expiresAt;
+
+  @override
+  State<_CountdownTimer> createState() => _CountdownTimerState();
+}
+
+class _CountdownTimerState extends State<_CountdownTimer> {
+  late Timer _timer;
+  late Duration _remaining;
+
+  @override
+  void initState() {
+    super.initState();
+    _update();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _update());
+  }
+
+  void _update() {
+    final diff = widget.expiresAt.difference(DateTime.now());
+    if (mounted) {
+      setState(() {
+        _remaining = diff.isNegative ? Duration.zero : diff;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_remaining == Duration.zero) {
+      return const Text(
+        'Time expired (auto-canceling...)',
+        style: TextStyle(
+          color: AppTheme.error,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+    }
+    final m = _remaining.inMinutes.toString().padLeft(2, '0');
+    final s = (_remaining.inSeconds % 60).toString().padLeft(2, '0');
+    return Text(
+      'Action required in $m:$s',
+      style: const TextStyle(
+        color: AppTheme.warning,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
       ),
     );
   }

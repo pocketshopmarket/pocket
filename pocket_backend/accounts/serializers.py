@@ -10,6 +10,12 @@ from .models import (
 from .phone_utils import normalize_zambia_phone_to_e164
 from .otp_utils import assert_phone_otp_valid
 
+PROVIDER_PREFIX_RULES = {
+    'mtn_momo': {'096', '076'},
+    'airtel_money': {'097', '077'},
+    'zamtel': {'095', '075', '057'},
+}
+
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -50,17 +56,28 @@ class BuyerPaymentMethodSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user = self.context['request'].user
         phone = (attrs.get('account_phone') or '').strip()
-        attrs['account_phone'] = phone
         if not phone:
             raise serializers.ValidationError(
                 {'account_phone': ['Wallet / mobile money number is required.']}
             )
+        normalized = normalize_zambia_phone_to_e164(phone)
+        attrs['account_phone'] = normalized
 
         provider = attrs.get('provider')
+        local_prefix = '0' + normalized[4:6]
+        allowed = PROVIDER_PREFIX_RULES.get(provider, set())
+        if local_prefix not in allowed:
+            raise serializers.ValidationError(
+                {
+                    'account_phone': [
+                        'Phone number does not match selected network/provider.'
+                    ]
+                }
+            )
         exists = BuyerPaymentMethod.objects.filter(
             user=user,
             provider=provider,
-            account_phone=phone,
+            account_phone=normalized,
         )
         if self.instance is not None:
             exists = exists.exclude(pk=self.instance.pk)

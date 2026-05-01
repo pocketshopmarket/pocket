@@ -5,6 +5,8 @@ import '../models/cart_item.dart';
 import '../models/product.dart';
 import '../services/order_service.dart';
 import 'auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class CartState {
   final List<CartItem> items;
@@ -50,12 +52,16 @@ class CartNotifier extends StateNotifier<CartState> {
 
   Future<void> syncFromServer() async {
     final auth = _ref.read(authProvider);
-    if (!auth.isAuthenticated || auth.user?.isBuyer != true) return;
+    if (!auth.isAuthenticated || auth.user?.isBuyer != true) {
+      _loadLocalCart();
+      return;
+    }
 
     state = state.copyWith(isLoading: true, error: null);
     try {
       final items = await _orderService.fetchCart();
       state = state.copyWith(items: items, isLoading: false, error: null);
+      _saveLocalCart(items);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -64,15 +70,43 @@ class CartNotifier extends StateNotifier<CartState> {
     }
   }
 
-  void clearLocal() {
-    state = CartState();
+  Future<void> _loadLocalCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cartStr = prefs.getString('local_cart');
+    if (cartStr != null) {
+      try {
+        final List<dynamic> decoded = jsonDecode(cartStr);
+        final items = decoded.map((e) => CartItem.fromJson(e)).toList();
+        state = state.copyWith(items: items, isLoading: false, error: null);
+      } catch (_) {}
+    }
   }
 
-  /// Returns null on success, or an error message for the UI.
+  Future<void> _saveLocalCart(List<CartItem> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
+    await prefs.setString('local_cart', encoded);
+  }
+
+  void clearLocal() {
+    state = CartState();
+    _saveLocalCart([]);
+  }
+
   Future<String?> addProduct(Product product, {int quantity = 1}) async {
     final auth = _ref.read(authProvider);
     if (!auth.isAuthenticated || auth.user?.isBuyer != true) {
-      return 'Please sign in to add items to your cart.';
+      // Local cart persistence for unauthenticated users
+      final currentItemIndex = state.items.indexWhere((i) => i.product.id == product.id);
+      List<CartItem> newItems = List.from(state.items);
+      if (currentItemIndex >= 0) {
+        newItems[currentItemIndex] = newItems[currentItemIndex].copyWith(quantity: newItems[currentItemIndex].quantity + quantity);
+      } else {
+        newItems.add(CartItem(product: product, quantity: quantity));
+      }
+      state = state.copyWith(items: newItems);
+      _saveLocalCart(newItems);
+      return null;
     }
 
     if (state.items.isNotEmpty && product.sellerId != 0) {
@@ -89,6 +123,7 @@ class CartNotifier extends StateNotifier<CartState> {
         quantity: quantity,
       );
       state = state.copyWith(items: items, isLoading: false, error: null);
+      _saveLocalCart(items);
       return null;
     } catch (e) {
       final msg = e is DioException
@@ -187,6 +222,8 @@ class CartNotifier extends StateNotifier<CartState> {
     double? deliveryLat,
     double? deliveryLng,
     String? pickupTimeSlot,
+    String? paymentProvider,
+    String? payerNumber,
   }) async {
     if (state.items.isEmpty) {
       return {'success': false, 'message': 'No items in cart.'};
@@ -210,13 +247,33 @@ class CartNotifier extends StateNotifier<CartState> {
         deliveryLng: deliveryLng,
         pickupTimeSlot: pickupTimeSlot,
       );
+      
+      Map<String, dynamic>? paymentResult;
+      if (paymentProvider != null && payerNumber != null && payerNumber.trim().isNotEmpty) {
+        try {
+          paymentResult = await _orderService.initiatePayment(
+            orderNumber: order.orderNumber,
+            provider: paymentProvider,
+            payerNumber: payerNumber.trim(),
+          );
+        } catch (e) {
+          // Order is created but payment failed — surface the error so UI can
+          // tell the buyer their order is placed but payment is pending.
+          paymentResult = {
+            'payment_error': e is DioException
+                ? (_orderService.extractErrorMessage(e) ?? 'Payment initiation failed')
+                : e.toString(),
+          };
+        }
+      }
+
       final items = await _orderService.fetchCart();
       state = state.copyWith(
         items: items,
         isCheckingOut: false,
         error: null,
       );
-      return {'success': true, 'order': order};
+      return {'success': true, 'order': order, 'payment': paymentResult};
     } catch (e) {
       final msg = e is DioException
           ? _orderService.extractErrorMessage(e)

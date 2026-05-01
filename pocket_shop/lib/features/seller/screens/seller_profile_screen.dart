@@ -280,6 +280,29 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
         SizedBox(
           height: 48,
           width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => context.push('/seller/payout'),
+            icon: const Icon(Icons.payments_outlined),
+            label: const Text('Request Payout'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.success,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 48,
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => context.push('/seller/payout-methods'),
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            label: const Text('Manage payout methods'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 48,
+          width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () => context.push('/change-password'),
             icon: const Icon(Icons.lock_outline_rounded),

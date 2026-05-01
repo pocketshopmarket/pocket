@@ -12,6 +12,7 @@ import '../../../../providers/cart_provider.dart';
 import '../../../../providers/delivery_provider.dart';
 import '../../../../models/order.dart';
 import '../../../../providers/orders_provider.dart';
+import '../../../../providers/payment_methods_provider.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -38,10 +39,44 @@ class CartScreen extends ConsumerWidget {
     double? quoteFee;
     double? quoteDistanceKm;
     int? quoteEtaMinutes;
+    String? quotePricingMode;
     String pickupTimeSlot = 'As soon as possible';
+    String selectedProvider = 'AIRTEL_OAPI_ZMB';
+    final payerNumberController = TextEditingController();
     Timer? manualSearchDebounce;
     bool searchingAddress = false;
     List<Map<String, dynamic>> addressSuggestions = [];
+
+    String methodKeyForProvider(String providerCode) {
+      switch (providerCode) {
+        case 'MTN_MOMO_ZMB':
+          return 'mtn_momo';
+        case 'AIRTEL_OAPI_ZMB':
+        case 'AIRTEL_MOMO_ZMB':
+          return 'airtel_money';
+        case 'ZAMTEL_MONEY_ZMB':
+        case 'ZAMTEL_MOMO_ZMB':
+          return 'zamtel';
+        default:
+          return 'mtn_momo';
+      }
+    }
+
+    void syncNumberFromSavedMethods() {
+      final methods = ref.read(paymentMethodsProvider);
+      final key = methodKeyForProvider(selectedProvider);
+      final matches = methods
+          .where((m) => m.isVerified && m.provider == key)
+          .toList()
+        ..sort((a, b) => (b.isDefault ? 1 : 0).compareTo(a.isDefault ? 1 : 0));
+      if (matches.isNotEmpty) {
+        payerNumberController.text = matches.first.phoneNumber;
+      } else {
+        payerNumberController.clear();
+      }
+    }
+
+    syncNumberFromSavedMethods();
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -117,10 +152,11 @@ class CartScreen extends ConsumerWidget {
                 top: 16,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   const Text(
                     'Checkout',
                     style: TextStyle(
@@ -526,7 +562,7 @@ class CartScreen extends ConsumerWidget {
                     ),
                   ] else if (step == 2) ...[
                     const Text(
-                      'Order summary',
+                      'Payment method',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -536,14 +572,109 @@ class CartScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEEEEE),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        'Payments are currently disabled. Orders are placed directly for fulfillment.',
-                        style: TextStyle(fontSize: 13),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Select mobile money provider',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _providerCard(
+                                keyName: 'AIRTEL_OAPI_ZMB',
+                                label: 'Airtel',
+                                imageAsset: 'airtel.png',
+                                selectedProvider: selectedProvider,
+                                onTap: (value) => setModalState(() {
+                                  selectedProvider = value;
+                                  syncNumberFromSavedMethods();
+                                }),
+                              ),
+                              _providerCard(
+                                keyName: 'MTN_MOMO_ZMB',
+                                label: 'MTN',
+                                imageAsset: 'mtn.png',
+                                selectedProvider: selectedProvider,
+                                onTap: (value) => setModalState(() {
+                                  selectedProvider = value;
+                                  syncNumberFromSavedMethods();
+                                }),
+                              ),
+                              _providerCard(
+                                keyName: 'ZAMTEL_MONEY_ZMB',
+                                label: 'Zamtel',
+                                imageAsset: 'zamtel.png',
+                                selectedProvider: selectedProvider,
+                                onTap: (value) => setModalState(() {
+                                  selectedProvider = value;
+                                  syncNumberFromSavedMethods();
+                                }),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: payerNumberController,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              labelText: 'Payer phone number',
+                              hintText: 'e.g. 0973714666',
+                              prefixText: '+260 ',
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Builder(
+                            builder: (_) {
+                              final methods = ref.watch(paymentMethodsProvider);
+                              final key = methodKeyForProvider(selectedProvider);
+                              final hasVerified = methods.any(
+                                (m) => m.isVerified && m.provider == key,
+                              );
+                              if (hasVerified) {
+                                return const SizedBox.shrink();
+                              }
+                              if (payerNumberController.text.trim().isNotEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return const Padding(
+                                padding: EdgeInsets.only(bottom: 6),
+                                child: Text(
+                                  'Enter your mobile money number for this network.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.warning,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const Text(
+                            'OTP/PIN authorization happens on customer phone via pawaPay.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ] else ...[
@@ -580,33 +711,181 @@ class CartScreen extends ConsumerWidget {
                       ),
                     ],
                     if (fulfillmentType == 'delivery' && quoteFee != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        'Estimated delivery fee: ZMW ${quoteFee!.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 13),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.primaryCyan.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.local_shipping_outlined,
+                                  size: 16,
+                                  color: AppTheme.primaryCyan,
+                                ),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'Delivery fee',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.primaryCyan,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  quotePricingMode == 'flat'
+                                      ? 'Short trip (flat rate)'
+                                      : quoteDistanceKm != null
+                                          ? '${quoteDistanceKm!.toStringAsFixed(1)} km'
+                                          : 'Distance-based',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  'ZMW ${quoteFee!.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (quoteEtaMinutes != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Estimated arrival: ~${quoteEtaMinutes!} min',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                      if (quoteDistanceKm != null)
-                        Text(
-                          'Distance: ${quoteDistanceKm!.toStringAsFixed(1)} km',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      if (quoteEtaMinutes != null)
-                        Text(
-                          'ETA: ~${quoteEtaMinutes!} min',
-                          style: const TextStyle(fontSize: 13),
-                        ),
                     ],
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Payment: currently disabled',
-                      style: TextStyle(fontSize: 13),
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Payment: ${selectedProvider == "AIRTEL_OAPI_ZMB" ? "Airtel" : selectedProvider == "MTN_MOMO_ZMB" ? "MTN" : "Zamtel"} Mobile Money',
+                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          payerNumberController.text.trim().isEmpty ? 'Number not entered' : payerNumberController.text.trim(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.divider),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Items subtotal',
+                                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                              ),
+                              Text(
+                                'ZMW ${ref.read(cartProvider).totalAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                          if (fulfillmentType == 'delivery') ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Delivery fee',
+                                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                                ),
+                                Text(
+                                  quoteFee != null ? 'ZMW ${quoteFee!.toStringAsFixed(2)}' : 'Calculating...',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Divider(height: 1),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total to pay',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                'ZMW ${(ref.read(cartProvider).totalAmount + (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0)).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                   const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () {
+                  Row(
+                    children: [
+                      if (step > 1) ...[
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                          ),
+                          onPressed: () => setModalState(() => step--),
+                          child: const Text('Back'),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: (step == 1 && fulfillmentType == 'delivery' && (selectedLat == null || selectedLng == null)) || quoteLoading ? null : () {
                         if (quoteLoading) return;
                         if (step == 1) {
                           if (fulfillmentType == 'delivery') {
@@ -630,22 +909,28 @@ class CartScreen extends ConsumerWidget {
                               quoteLoading = true;
                               quoteError = null;
                             });
+                            final sellerId = cartItems.isNotEmpty
+                                ? cartItems.first.product.sellerId
+                                : null;
                             ref
                                 .read(deliveryServiceProvider)
                                 .fetchQuote(
                                   deliveryLat: selectedLat!,
                                   deliveryLng: selectedLng!,
+                                  sellerId: sellerId,
                                 )
                                 .then((quote) {
                                   if (!context.mounted) return;
                                   setModalState(() {
                                     quoteFee =
-                                        (quote['fee'] as num?)?.toDouble() ??
-                                        (quote['delivery_fee'] as num?)
-                                            ?.toDouble();
+                                        (quote['estimated_fee_zmw'] as num?)
+                                            ?.toDouble() ??
+                                        (quote['fee'] as num?)?.toDouble();
                                     quoteDistanceKm =
                                         (quote['distance_km'] as num?)
                                             ?.toDouble();
+                                    quotePricingMode =
+                                        quote['pricing_mode']?.toString();
                                     quoteEtaMinutes =
                                         (quote['eta_minutes'] as num?)?.toInt();
                                     quoteLoading = false;
@@ -667,6 +952,25 @@ class CartScreen extends ConsumerWidget {
                           return;
                         }
                         if (step == 2) {
+                          if (payerNumberController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please enter your mobile money number to continue.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          // Normalize number: ensure it starts with +260
+                          var num = payerNumberController.text.trim();
+                          num = num.replaceAll(RegExp(r'[\s\-()]'), '');
+                          if (num.startsWith('0')) {
+                            num = '+260${num.substring(1)}';
+                          } else if (!num.startsWith('+')) {
+                            num = '+260$num';
+                          }
+                          payerNumberController.text = num;
                           setModalState(() => step = 3);
                           return;
                         }
@@ -681,7 +985,10 @@ class CartScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-            );
+            ],
+          ),
+        ),
+      );
           },
         );
       },
@@ -706,6 +1013,8 @@ class CartScreen extends ConsumerWidget {
           deliveryLat: selectedLat,
           deliveryLng: selectedLng,
           pickupTimeSlot: fulfillmentType == 'pickup' ? pickupTimeSlot : null,
+          paymentProvider: selectedProvider,
+          payerNumber: payerNumberController.text,
         );
 
     if (!context.mounted) return;
@@ -713,16 +1022,25 @@ class CartScreen extends ConsumerWidget {
     if (result['success'] == true) {
       final order = result['order'] as Order?;
       final orderNumber = order?.orderNumber ?? '';
+      final payment = result['payment'] as Map<String, dynamic>?;
       ref.invalidate(buyerOrdersProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Order placed successfully'),
-          backgroundColor: AppTheme.success,
-        ),
-      );
-      if (orderNumber.isNotEmpty && order?.isDelivery == true) {
+
+      if (orderNumber.isNotEmpty) {
+        // Navigate to payment pending screen so buyer can track payment status
+        final amountCharged = payment?['amount_charged']?.toString() ?? '';
         context.go(
-          '/buyer/track-order?order=${Uri.encodeComponent(orderNumber)}',
+          '/buyer/payment-pending'
+          '?order=${Uri.encodeComponent(orderNumber)}'
+          '&provider=${Uri.encodeComponent(selectedProvider)}'
+          '&amount=${Uri.encodeComponent(amountCharged)}'
+          '&delivery=${order?.isDelivery == true ? 'true' : 'false'}',
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order placed successfully'),
+            backgroundColor: AppTheme.success,
+          ),
         );
       }
     } else {
@@ -733,6 +1051,7 @@ class CartScreen extends ConsumerWidget {
         ),
       );
     }
+    payerNumberController.dispose();
   }
 
   @override
@@ -774,7 +1093,7 @@ class CartScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Total',
+                          'Items subtotal',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -787,6 +1106,27 @@ class CartScreen extends ConsumerWidget {
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Delivery fee',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          'Calculated at checkout',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryCyan,
                           ),
                         ),
                       ],
@@ -1081,6 +1421,51 @@ class CartScreen extends ConsumerWidget {
             border: Border.all(color: AppTheme.divider),
           ),
           child: Icon(icon, size: 18, color: AppTheme.textPrimary),
+        ),
+      ),
+    );
+  }
+
+  Widget _providerCard({
+    required String keyName,
+    required String label,
+    required String imageAsset,
+    required String selectedProvider,
+    required ValueChanged<String> onTap,
+  }) {
+    final selected = keyName == selectedProvider;
+    return InkWell(
+      onTap: () => onTap(keyName),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 96,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.lightCyan : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppTheme.primaryCyan : AppTheme.divider,
+          ),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 32,
+              child: Image.asset(
+                imageAsset,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(Icons.sim_card_rounded),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

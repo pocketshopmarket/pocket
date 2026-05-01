@@ -98,6 +98,7 @@ class Order {
   final double? deliveryLng;
   final String? pickupTimeSlot;
   final int? paymentMethodId;
+  final int? deliveryAssignmentId;
   final String paymentProviderSnapshot;
   final String paymentAccountSnapshot;
   final List<OrderRating> ratings;
@@ -124,6 +125,7 @@ class Order {
     this.deliveryLng,
     this.pickupTimeSlot,
     this.paymentMethodId,
+    this.deliveryAssignmentId,
     this.paymentProviderSnapshot = '',
     this.paymentAccountSnapshot = '',
     this.ratings = const [],
@@ -179,6 +181,7 @@ class Order {
       pickupTimeSlot: json['pickup_time_slot']?.toString() ??
           meta?['pickup_time_slot']?.toString(),
       paymentMethodId: json['payment_method_id'] as int?,
+      deliveryAssignmentId: json['delivery_assignment_id'] as int?,
       paymentProviderSnapshot: json['payment_provider_snapshot']?.toString() ?? '',
       paymentAccountSnapshot: json['payment_account_snapshot']?.toString() ?? '',
       ratings: ratings,

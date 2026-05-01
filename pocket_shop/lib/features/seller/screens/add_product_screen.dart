@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../providers/category_provider.dart';
 import '../../../providers/product_provider.dart';
 import '../../../services/product_service.dart';
 
@@ -51,6 +52,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   final List<_PendingImage> _images = [];
   final List<_VariantDraft> _variants = [];
   String _quality = 'new';
+  int? _selectedCategoryId;
 
   static const List<(String value, String label)> _qualityChoices = [
     ('new', 'New'),
@@ -197,10 +199,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   Future<void> _handleSave() async {
     if (_nameController.text.trim().isEmpty ||
-        _priceController.text.trim().isEmpty) {
+        _priceController.text.trim().isEmpty ||
+        _selectedCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Name and price are required.'),
+          content: Text('Name, price, and category are required.'),
           backgroundColor: AppTheme.error,
         ),
       );
@@ -242,7 +245,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           price: double.tryParse(_priceController.text.trim()) ?? 0.0,
           stockQuantity: int.tryParse(_stockController.text.trim()) ?? 1,
           description: _descriptionController.text.trim(),
-          category: 'other',
+          category: _selectedCategoryId.toString(),
           quality: _quality,
           images: uploads,
           variants: variants,
@@ -338,44 +341,42 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
-                    height: 108,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
+                    width: double.infinity,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
                         for (var i = 0; i < _images.length; i++)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.memory(
-                                    _images[i].bytes,
-                                    width: 108,
-                                    height: 108,
-                                    fit: BoxFit.cover,
+                          Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(
+                                  _images[i].bytes,
+                                  width: 108,
+                                  height: 108,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                right: 4,
+                                top: 4,
+                                child: IconButton.filled(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Colors.black54,
+                                    padding: const EdgeInsets.all(4),
+                                    minimumSize: const Size(32, 32),
+                                  ),
+                                  onPressed: () =>
+                                      setState(() => _images.removeAt(i)),
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 18,
                                   ),
                                 ),
-                                Positioned(
-                                  right: 4,
-                                  top: 4,
-                                  child: IconButton.filled(
-                                    style: IconButton.styleFrom(
-                                      backgroundColor: Colors.black54,
-                                      padding: const EdgeInsets.all(4),
-                                      minimumSize: const Size(32, 32),
-                                    ),
-                                    onPressed: () =>
-                                        setState(() => _images.removeAt(i)),
-                                    icon: const Icon(
-                                      Icons.close,
-                                      color: Colors.white,
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         if (_images.length < _kMaxProductImages)
                           Material(
@@ -434,6 +435,29 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                       labelText: 'Description (optional)',
                       hintText: 'Short note for buyers',
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  ref.watch(allCategoriesProvider).when(
+                    data: (categories) {
+                      return DropdownButtonFormField<int>(
+                        value: _selectedCategoryId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                        ),
+                        items: categories
+                            .map((c) => DropdownMenuItem(
+                                  value: c.id,
+                                  child: Text(c.name),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _selectedCategoryId = v);
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (_, __) => const Text('Could not load categories'),
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(

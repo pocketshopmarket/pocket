@@ -23,6 +23,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
   List<Order> _recent = [];
   List<Map<String, dynamic>> _trends = [];
   List<Map<String, dynamic>> _topProducts = [];
+  List<Map<String, dynamic>> _payouts = [];
 
   @override
   void initState() {
@@ -64,6 +65,9 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
         _topProducts = ((raw['top_products'] as List?) ?? const [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
+        _payouts = ((raw['payouts'] as List?) ?? const [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         _loading = false;
       });
     } on DioException catch (e) {
@@ -73,6 +77,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
       _recent = [];
       _trends = [];
       _topProducts = [];
+      _payouts = [];
       try {
         final fallback = await svc.fetchOrders();
         fallback.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -200,10 +205,27 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
               else ...[
                 _metricRow(context),
                 const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: () => context.go('/seller/products'),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Add product'),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    onPressed: () => context.go('/seller/products'),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Add product'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    onPressed: () => context.push('/seller/payout'),
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('Request Payout'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.success,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 28),
                 if (_trends.isNotEmpty) ...[
@@ -315,6 +337,63 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
+                ],
+                if (_payouts.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Seller payouts',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.push(
+                          '/seller/payout-history',
+                          extra: _payouts,
+                        ),
+                        child: const Text('See all'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ..._payouts.take(5).map((row) {
+                    final amountColor = row['amount_color'] == 'green'
+                        ? AppTheme.success
+                        : AppTheme.warning;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.surfaceWhite,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.divider),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                row['order_number']?.toString() ?? '-',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'ZMW ${row['amount'] ?? '0'}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: amountColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                 ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

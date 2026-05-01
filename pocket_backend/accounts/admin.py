@@ -9,6 +9,7 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ['role', 'gender', 'is_verified', 'is_phone_verified', 'is_active', 'date_joined']
     search_fields = ['full_name', 'phone_number', 'email']
     ordering = ['-date_joined']
+    readonly_fields = ['date_joined', 'last_login']
     
     fieldsets = (
         (None, {'fields': ('phone_number', 'password')}),

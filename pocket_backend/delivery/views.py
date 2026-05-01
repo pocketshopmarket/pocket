@@ -1,4 +1,6 @@
 import logging
+import json
+from decimal import Decimal
 
 from django.db.models import Avg, Case, Count, IntegerField, Q, Sum, When
 from django.db import transaction
@@ -30,6 +32,8 @@ from .serializers import (
 )
 from accounts.models import SellerProfile
 from orders.models import Order
+from payments.models import Transaction
+from payments.services.pawapay import PawaPayService
 
 from .coordinates import (
     build_pickup_coords_for_orders,
@@ -40,6 +44,31 @@ from .routing import apply_route_to_assignment
 from .utils import LocationService
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_order_finance_meta(order: Order) -> dict:
+    text = order.special_instructions or ''
+    start = text.find('[PS_META]')
+    end = text.find('[/PS_META]')
+    if start == -1 or end == -1 or end <= start:
+        return {}
+    raw = text[start + len('[PS_META]') : end].strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _delivery_fee_for_order(order: Order) -> Decimal:
+    meta = _extract_order_finance_meta(order)
+    raw_fee = meta.get('quoted_delivery_fee')
+    try:
+        return Decimal(str(raw_fee))
+    except Exception:
+        return Decimal('0')
 
 class AvailableOrdersView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -61,26 +90,11 @@ class AvailableOrdersView(APIView):
 
         orders = list(
             Order.objects.filter(
-                status__in=[
-                    'pending',
-                    'accepted',
-                    'preparing',
-                    'out_for_delivery',
-                ],
+                status='out_for_delivery',
             )
             .exclude(id__in=busy_order_ids)
             .select_related('seller')
-            .annotate(
-                _prio=Case(
-                    When(status='out_for_delivery', then=0),
-                    When(status='preparing', then=1),
-                    When(status='accepted', then=2),
-                    When(status='pending', then=3),
-                    default=4,
-                    output_field=IntegerField(),
-                ),
-            )
-            .order_by('_prio', '-created_at')
+            .order_by('-created_at')
         )
 
         pickup_coords = build_pickup_coords_for_orders(
@@ -850,15 +864,15 @@ class GenerateHandoffTokenView(APIView):
 
         user = request.user
         is_seller = user.role == 'seller' and assignment.order.seller_id == user.id
-        is_rider = user.role == 'delivery' and assignment.delivery_person_id == user.id
+        is_buyer = user.role == 'buyer' and assignment.order.buyer_id == user.id
         if step == 'pickup' and not is_seller:
             return Response(
                 {'error': 'Only the seller can generate pickup QR token'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if step == 'dropoff' and not is_rider:
+        if step == 'dropoff' and not is_buyer:
             return Response(
-                {'error': 'Only the rider can generate dropoff QR token'},
+                {'error': 'Only the buyer can generate dropoff QR token'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -896,15 +910,14 @@ class VerifyHandoffTokenView(APIView):
 
         user = request.user
         is_rider = user.role == 'delivery' and assignment.delivery_person_id == user.id
-        is_buyer = user.role == 'buyer' and assignment.order.buyer_id == user.id
         if step == 'pickup' and not is_rider:
             return Response(
                 {'error': 'Only assigned rider can verify pickup token'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if step == 'dropoff' and not is_buyer:
+        if step == 'dropoff' and not is_rider:
             return Response(
-                {'error': 'Only buyer can verify dropoff token'},
+                {'error': 'Only assigned rider can verify dropoff token'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -924,6 +937,120 @@ class VerifyHandoffTokenView(APIView):
         token.used_at = timezone.now()
         token.save(update_fields=['status', 'used_at'])
 
+        deposit_tx = (
+            Transaction.objects.filter(
+                order=assignment.order,
+                transaction_type='deposit',
+                status='completed',
+            )
+            .order_by('-created_at')
+            .first()
+        )
+        if deposit_tx is not None:
+            delivery_fee = _delivery_fee_for_order(assignment.order)
+            order_total = Decimal(str(assignment.order.total_price))
+            seller_share = max(order_total - delivery_fee, Decimal('0'))
+
+            if step == 'pickup':
+                seller_tx = Transaction.objects.filter(
+                    order=assignment.order,
+                    transaction_type='payout',
+                    recipient=assignment.order.seller,
+                    recipient_role='seller',
+                    trigger_event='pickup_qr',
+                ).order_by('-created_at').first()
+                if seller_tx is None and seller_share > 0:
+                    seller_tx = Transaction.objects.create(
+                        order=assignment.order,
+                        transaction_type='payout',
+                        amount=seller_share,
+                        currency=deposit_tx.currency,
+                        provider=deposit_tx.provider,
+                        payer_number=assignment.order.seller.phone_number,
+                        recipient=assignment.order.seller,
+                        recipient_role='seller',
+                        trigger_event='pickup_qr',
+                        payout_stage='pickup_pending_scan',
+                        status='pending',
+                    )
+                if seller_tx is not None and seller_tx.payout_stage in [
+                    'pickup_pending_scan',
+                    'ready_for_payout',
+                ]:
+                    seller_tx.payout_stage = 'ready_for_payout'
+                    seller_tx.save(update_fields=['payout_stage', 'updated_at'])
+                    payout_resp = PawaPayService.initiate_payout(seller_tx)
+                    if payout_resp:
+                        seller_tx.payout_stage = (
+                            'payout_paid'
+                            if seller_tx.status == 'completed'
+                            else 'payout_sent'
+                        )
+                    else:
+                        seller_tx.payout_stage = 'payout_failed'
+                    seller_tx.save(update_fields=['payout_stage', 'updated_at'])
+
+                rider_tx = Transaction.objects.filter(
+                    order=assignment.order,
+                    transaction_type='payout',
+                    recipient=assignment.delivery_person,
+                    recipient_role='delivery',
+                    trigger_event='dropoff_qr',
+                ).order_by('-created_at').first()
+                if rider_tx is None and delivery_fee > 0:
+                    Transaction.objects.create(
+                        order=assignment.order,
+                        transaction_type='payout',
+                        amount=delivery_fee,
+                        currency=deposit_tx.currency,
+                        provider=deposit_tx.provider,
+                        payer_number=assignment.delivery_person.phone_number,
+                        recipient=assignment.delivery_person,
+                        recipient_role='delivery',
+                        trigger_event='dropoff_qr',
+                        payout_stage='dropoff_pending_scan',
+                        status='pending',
+                    )
+
+            if step == 'dropoff':
+                rider_tx = Transaction.objects.filter(
+                    order=assignment.order,
+                    transaction_type='payout',
+                    recipient=assignment.delivery_person,
+                    recipient_role='delivery',
+                    trigger_event='dropoff_qr',
+                ).order_by('-created_at').first()
+                if rider_tx is None and delivery_fee > 0:
+                    rider_tx = Transaction.objects.create(
+                        order=assignment.order,
+                        transaction_type='payout',
+                        amount=delivery_fee,
+                        currency=deposit_tx.currency,
+                        provider=deposit_tx.provider,
+                        payer_number=assignment.delivery_person.phone_number,
+                        recipient=assignment.delivery_person,
+                        recipient_role='delivery',
+                        trigger_event='dropoff_qr',
+                        payout_stage='dropoff_pending_scan',
+                        status='pending',
+                    )
+                if rider_tx is not None and rider_tx.payout_stage in [
+                    'dropoff_pending_scan',
+                    'ready_for_payout',
+                ]:
+                    rider_tx.payout_stage = 'ready_for_payout'
+                    rider_tx.save(update_fields=['payout_stage', 'updated_at'])
+                    payout_resp = PawaPayService.initiate_payout(rider_tx)
+                    if payout_resp:
+                        rider_tx.payout_stage = (
+                            'payout_paid'
+                            if rider_tx.status == 'completed'
+                            else 'payout_sent'
+                        )
+                    else:
+                        rider_tx.payout_stage = 'payout_failed'
+                    rider_tx.save(update_fields=['payout_stage', 'updated_at'])
+
         return Response(
             {
                 'message': 'Handoff verified',
@@ -940,12 +1067,48 @@ class DeliveryZonesListView(APIView):
         return Response(DeliveryZoneSerializer(zones, many=True).data)
 
 
+class DeliveryPricingConfigView(APIView):
+    """
+    Public endpoint returning the current delivery pricing variables.
+    Used by the app to display 'Delivery from ZMW X' on product pages.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .models import DeliveryPricingConfig
+        config = DeliveryPricingConfig.get_config()
+        return Response({
+            'short_distance_threshold_km': float(config.short_distance_threshold_km),
+            'short_distance_flat_rate': float(config.short_distance_flat_rate),
+            'per_km_rate': float(config.per_km_rate),
+        })
+
+
 class DeliveryQuoteView(APIView):
-    """Estimate fee using zone rates + optional pickup→drop distance (Phase 3)."""
+    """
+    Calculate a delivery fee quote using the platform's live pricing config.
+
+    POST body:
+        delivery_lat / delivery_lng  — buyer's drop-off coordinates (required)
+        pickup_lat   / pickup_lng    — seller's shop coordinates    (optional)
+        seller_id                    — if given, auto-resolves pickup from seller profile
+
+    Returns:
+        distance_km            — straight-line distance between shop and buyer
+        estimated_fee_zmw      — calculated fee in ZMW
+        pricing_mode           — 'flat' (short trip) or 'per_km' (long trip)
+        short_distance_threshold_km
+        short_distance_flat_rate
+        per_km_rate
+    """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        from .models import DeliveryPricingConfig
+        from .coordinates import resolve_pickup_coordinates
+
+        # --- Resolve delivery (buyer) coordinates ---
         try:
             dlat = float(
                 request.data.get('delivery_lat') or request.data.get('lat')
@@ -959,47 +1122,55 @@ class DeliveryQuoteView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        zone_match = None
-        for z in DeliveryZone.objects.filter(is_active=True):
-            try:
-                if z.contains_point(dlat, dlng):
-                    zone_match = z
-                    break
-            except Exception:
-                continue
-
-        distance_km = None
-        fee = None
+        # --- Resolve pickup (seller) coordinates ---
         plat = request.data.get('pickup_lat')
         plng = request.data.get('pickup_lng')
+
+        # Auto-resolve from seller_id if not provided directly
+        if (plat is None or plng is None):
+            seller_id = request.data.get('seller_id')
+            if seller_id:
+                try:
+                    from accounts.models import User
+                    seller = User.objects.get(pk=seller_id, role='seller')
+                    pickup = resolve_pickup_coordinates(seller, allow_fallback=True)
+                    if pickup:
+                        plat = pickup.get('lat')
+                        plng = pickup.get('lng')
+                except Exception:
+                    pass
+
+        # --- Calculate distance and fee ---
+        distance_km = None
+        fee = None
+        pricing_mode = None
+        config = DeliveryPricingConfig.get_config()
+
         if plat is not None and plng is not None:
             try:
                 distance_km = LocationService.calculate_distance(
                     float(plat), float(plng), dlat, dlng
                 )
+                fee = LocationService.calculate_delivery_fee(distance_km)
+                pricing_mode = (
+                    'flat'
+                    if distance_km <= float(config.short_distance_threshold_km)
+                    else 'per_km'
+                )
             except (TypeError, ValueError):
                 pass
-            if zone_match is not None and distance_km is not None:
-                fee = round(
-                    LocationService.calculate_delivery_cost(
-                        distance_km,
-                        zone_match.base_rate,
-                        zone_match.per_km_rate,
-                    ),
-                    2,
-                )
 
         return Response(
             {
-                'zone': DeliveryZoneSerializer(zone_match).data
-                if zone_match
-                else None,
-                'distance_km': round(distance_km, 2)
-                if distance_km is not None
-                else None,
+                'distance_km': round(distance_km, 2) if distance_km is not None else None,
                 'estimated_fee_zmw': fee,
+                'pricing_mode': pricing_mode,
+                'short_distance_threshold_km': float(config.short_distance_threshold_km),
+                'short_distance_flat_rate': float(config.short_distance_flat_rate),
+                'per_km_rate': float(config.per_km_rate),
             }
         )
+
 
 
 class DeliveryStatsView(APIView):
@@ -1024,6 +1195,48 @@ class DeliveryStatsView(APIView):
             ),
             reroutes=Sum('reroute_count'),
         )
+        rider_payouts = Transaction.objects.filter(
+            transaction_type='payout',
+            recipient=request.user,
+            recipient_role='delivery',
+        ).order_by('-created_at')[:30]
+        payout_rows = [
+            {
+                'transaction_id': str(tx.transaction_id),
+                'order_number': tx.order.order_number,
+                'amount': str(tx.amount),
+                'currency': tx.currency,
+                'status': tx.status,
+                'payout_stage': tx.payout_stage,
+                'trigger_event': tx.trigger_event,
+                'amount_color': (
+                    'green'
+                    if tx.status == 'completed' and tx.payout_stage == 'payout_paid'
+                    else 'orange'
+                ),
+                'created_at': tx.created_at,
+            }
+            for tx in rider_payouts
+        ]
+        payout_total = (
+            Transaction.objects.filter(
+                transaction_type='payout',
+                recipient=request.user,
+                recipient_role='delivery',
+                status='completed',
+            ).aggregate(total=Sum('amount'))['total']
+            or 0
+        )
+        pending_total = (
+            Transaction.objects.filter(
+                transaction_type='payout',
+                recipient=request.user,
+                recipient_role='delivery',
+            )
+            .exclude(status='completed')
+            .aggregate(total=Sum('amount'))['total']
+            or 0
+        )
 
         return Response(
             {
@@ -1032,6 +1245,9 @@ class DeliveryStatsView(APIView):
                 'avg_eta_error_minutes': float(agg['avg_eta_error'] or 0),
                 'low_confidence_routes': agg['low_conf_routes'] or 0,
                 'total_reroutes': agg['reroutes'] or 0,
+                'delivery_payout_total': str(payout_total),
+                'delivery_pending_payouts': str(pending_total),
+                'payouts': payout_rows,
             }
         )
 

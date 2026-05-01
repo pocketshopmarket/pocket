@@ -11,23 +11,174 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.core.cache import cache
+from django.utils import timezone
+from datetime import timedelta
 
 from accounts.permissions import IsApprovedSeller
-from .models import MAX_PRODUCT_IMAGES, Product, ProductImage
+from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction
 from .pagination import ProductPagination
-from .serializers import ProductSerializer
+from .serializers import ProductSerializer, CategorySerializer
 
 logger = logging.getLogger(__name__)
+
+
+class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.AllowAny]
+    pagination_class = None
+
+class RecommendedProductsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        # Make sure user has a buyer profile for advanced recommendations
+        if not hasattr(user, 'buyer_profile'):
+            # Cold start fallback for non-buyers
+            products = Product.objects.filter(is_available=True).order_by('-created_at', '-views_count')[:20]
+            serializer = ProductSerializer(products, many=True, context={'request': request})
+            return Response(serializer.data)
+
+        buyer_profile = user.buyer_profile
+        
+        # Pagination params
+        limit = int(request.query_params.get('limit', 20))
+        offset = int(request.query_params.get('offset', 0))
+        
+        # Check cache
+        cache_key = f"recommendations_{buyer_profile.id}_{limit}_{offset}"
+        cached_result = cache.get(cache_key)
+        
+        if cached_result:
+            return Response(cached_result)
+
+        # 1. Gather signals
+        interests = dict(UserInterest.objects.filter(user=buyer_profile).values_list('category_id', 'weight'))
+        
+        searches = SearchHistory.objects.filter(user=buyer_profile).order_by('-timestamp')[:10]
+        keywords = [s.query for s in searches if s.query]
+        
+        # Recent interactions
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        interactions = ProductInteraction.objects.filter(user=buyer_profile, timestamp__gte=thirty_days_ago).order_by('-timestamp')[:50]
+        
+        interacted_categories = {}
+        for i in interactions:
+            if i.product.category_id:
+                # Weight interactions: cart > click > view
+                weight = 1
+                if i.interaction_type == ProductInteraction.CLICK:
+                    weight = 2
+                elif i.interaction_type == ProductInteraction.ADD_TO_CART:
+                    weight = 4
+                interacted_categories[i.product.category_id] = interacted_categories.get(i.product.category_id, 0) + weight
+
+        # Base Query
+        products = Product.objects.filter(is_available=True, stock_quantity__gt=0)
+        scored_products = []
+
+        for product in products:
+            score = 0.0
+
+            # Interest match
+            if product.category_id in interests:
+                score += (5.0 * interests[product.category_id])
+
+            # Interaction history category match
+            if product.category_id in interacted_categories:
+                score += interacted_categories[product.category_id]
+
+            # Search match
+            for keyword in keywords:
+                if keyword.lower() in product.name.lower() or keyword.lower() in product.description.lower():
+                    score += 3.0
+            
+            # Popularity boost
+            score += (product.views_count * 0.1)
+            score += (product.purchases_count * 0.5)
+
+            # Freshness boost (last 7 days)
+            if product.created_at >= timezone.now() - timedelta(days=7):
+                score += 2.0
+
+            scored_products.append((product, score))
+
+        # Sort by score descending
+        scored_products.sort(key=lambda x: x[1], reverse=True)
+        
+        # Paginate
+        paginated_results = [p[0] for p in scored_products[offset:offset+limit]]
+
+        serializer = ProductSerializer(paginated_results, many=True, context={'request': request})
+        data = serializer.data
+        
+        # Cache for 1 hour
+        cache.set(cache_key, data, 60 * 60)
+        
+        return Response(data)
+
+class TrackInteractionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not hasattr(user, 'buyer_profile'):
+            return Response({'error': 'Must be a buyer'}, status=400)
+            
+        product_id = request.data.get('product_id')
+        interaction_type = request.data.get('interaction_type', ProductInteraction.VIEW)
+        
+        if not product_id:
+            return Response({'error': 'product_id required'}, status=400)
+            
+        try:
+            product = Product.objects.get(id=product_id)
+            ProductInteraction.objects.create(
+                user=user.buyer_profile,
+                product=product,
+                interaction_type=interaction_type
+            )
+            
+            # Update product views count if it's a view
+            if interaction_type == ProductInteraction.VIEW:
+                product.views_count += 1
+                product.save(update_fields=['views_count'])
+                
+            # Invalidate cache since interaction changes scoring
+            cache_key_prefix = f"recommendations_{user.buyer_profile.id}"
+            # Django cache doesn't easily delete by prefix, but we'll let it expire naturally or explicitly clear exact keys if needed
+            
+            return Response({'success': True})
+        except Product.DoesNotExist:
+            return Response({'error': 'Product not found'}, status=404)
 
 
 class ProductFilterSet(django_filters.FilterSet):
     min_price = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
     max_price = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
     in_stock = django_filters.BooleanFilter(method='filter_in_stock')
+    # Accept either category ID (integer) or slug (string)
+    category = django_filters.CharFilter(method='filter_category')
 
     class Meta:
         model = Product
-        fields = ['category', 'is_available']
+        fields = ['is_available']
+
+    def filter_category(self, queryset, name, value):
+        if not value or value.lower() == 'all':
+            return queryset
+        # Try as integer ID first
+        try:
+            cat_id = int(value)
+            return queryset.filter(category_id=cat_id)
+        except (ValueError, TypeError):
+            pass
+        # Fall back to slug match
+        return queryset.filter(category__slug__iexact=value)
 
     def filter_in_stock(self, queryset, name, value):
         if value is True:

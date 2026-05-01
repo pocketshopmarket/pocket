@@ -51,10 +51,19 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     
+    FULFILLMENT_CHOICES = [
+        ('delivery', 'Delivery'),
+        ('pickup', 'Pickup'),
+    ]
+
     order_number = models.CharField(max_length=20, unique=True)
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales')
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fulfillment_type = models.CharField(
+        max_length=10, choices=FULFILLMENT_CHOICES, default='delivery',
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     delivery_address = models.TextField()
     delivery_lat = models.FloatField(null=True, blank=True)
@@ -71,6 +80,12 @@ class Order(models.Model):
     payment_account_snapshot = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def grand_total(self):
+        """Items + delivery fee — the actual amount the buyer is charged."""
+        from decimal import Decimal
+        return self.total_price + (self.delivery_fee or Decimal('0'))
     
     class Meta:
         ordering = ['-created_at']

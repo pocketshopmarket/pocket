@@ -76,7 +76,23 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = ENVIRONMENT == 'development'
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Local + ngrok: set PUBLIC_BACKEND_URL=https://YOUR.ngrok-free.app when your tunnel changes.
+# AWS later: set DJANGO_ALLOWED_HOSTS, DJANGO_CSRF_TRUSTED_ORIGINS, PUBLIC_BACKEND_URL in the console.
+PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', '').rstrip('/')
+
+_allowed = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+ALLOWED_HOSTS = (
+    [h.strip() for h in _allowed.split(',') if h.strip()]
+    if _allowed
+    else ['*']
+)
+
+_csrf = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').strip()
+CSRF_TRUSTED_ORIGINS = [o.strip().rstrip('/') for o in _csrf.split(',') if o.strip()]
+if PUBLIC_BACKEND_URL and PUBLIC_BACKEND_URL not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.insert(0, PUBLIC_BACKEND_URL)
+if not CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000', 'http://localhost:8000']
 
 # DRF Configuration
 REST_FRAMEWORK = {
@@ -132,6 +148,7 @@ INSTALLED_APPS = [
     'orders',
     'delivery',
     'reviews',
+    'payments',
 ]
 
 MIDDLEWARE = [
@@ -216,3 +233,22 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# PAWAPAY CONFIGURATION (set PAWAPAY_JWT_TOKEN in AWS / local env for production)
+PAWAPAY_JWT_TOKEN = os.environ.get(
+    'PAWAPAY_JWT_TOKEN',
+    'eyJraWQiOiIxIiwiYWxnIjoiRVMyNTYifQ.eyJ0dCI6IkFBVCIsInN1YiI6IjI4NDAiLCJtYXYiOiIxIiwiZXhwIjoyMDkyNzU2MzM0LCJpYXQiOjE3NzcxMzcxMzQsInBtIjoiREFGLFBBRiIsImp0aSI6IjA1M2JhZGI5LTI5NTEtNDZlOS04NzliLWVlNzBhOWQ3YjMwMCJ9.RNrnow6ek9eLn-zd3dinte5Ta4tSo7YWgkJ0wntAWxqPQcQ6dncl7zth7fJY4Rjqpwf9-ME4R8lzA3jb6T6NOg',
+)
+PAWAPAY_BASE_URL = os.environ.get('PAWAPAY_BASE_URL', 'https://api.pawapay.io/v2')
+
+# Webhook signature verification — set this from PawaPay dashboard.
+# In DEBUG mode the webhook handler will skip verification if this is empty.
+PAWAPAY_WEBHOOK_SECRET = os.environ.get('PAWAPAY_WEBHOOK_SECRET', '')
+
+# Platform commission taken from each order (0.05 = 5%).
+PLATFORM_COMMISSION_RATE = float(os.environ.get('PLATFORM_COMMISSION_RATE', '0.05'))
+
+# Maximum minutes a paid order can sit in 'accepted' before auto-cancel + refund.
+ORDER_ACCEPTANCE_TIMEOUT_MINUTES = int(
+    os.environ.get('ORDER_ACCEPTANCE_TIMEOUT_MINUTES', '30')
+)

@@ -236,3 +236,8 @@ final productServiceProvider = Provider<ProductService>((ref) {
 final productProvider = StateNotifierProvider<ProductNotifier, ProductState>((ref) {
   return ProductNotifier(ref.read(productServiceProvider));
 });
+
+final recommendedProvider = FutureProvider<List<Product>>((ref) async {
+  final service = ref.read(productServiceProvider);
+  return service.getRecommendedProducts();
+});

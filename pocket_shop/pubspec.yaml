@@ -47,6 +47,9 @@ dependencies:
   # Desktop: file_selector/image_picker share a broken Pigeon channel on some Windows builds; file_picker uses a different path.
   file_picker: ^8.3.7
   google_fonts: ^8.0.2
+  qr_flutter: ^4.1.0
+  flutter_map_tile_caching: ^10.0.0
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +75,9 @@ flutter:
   assets:
     - assets/images/
     - assets/images/pocket_shopper_buyers_logo.jpg
+    - airtel.png
+    - mtn.png
+    - zamtel.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

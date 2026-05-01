@@ -109,6 +109,45 @@ class OrderService {
     throw Exception('Invalid order response');
   }
 
+  Future<Map<String, dynamic>> initiatePayment({
+    required String orderNumber,
+    required String provider,
+    required String payerNumber,
+  }) async {
+    final response = await _api.post(
+      AppConstants.paymentsInitiateEndpoint,
+      data: {
+        'order_number': orderNumber,
+        'provider': provider,
+        'payer_number': payerNumber,
+      },
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return {};
+  }
+
+  Future<Map<String, dynamic>> checkPaymentStatus({
+    required String orderNumber,
+  }) async {
+    final response = await _api.get(
+      '${AppConstants.paymentsStatusEndpoint}?order_number=${Uri.encodeComponent(orderNumber)}',
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return {};
+  }
+
   Future<List<Order>> fetchOrders() async {
     final response = await _api.get(AppConstants.ordersListEndpoint);
     final data = response.data;
@@ -194,6 +233,35 @@ class OrderService {
     if (data is Map<String, dynamic>) {
       return data;
     }
+    return {};
+  }
+
+  Future<Map<String, dynamic>> generateSellerPickupToken(int assignmentId) async {
+    final path =
+        '${AppConstants.deliveryHandoffTokenPrefix}$assignmentId/handoff/token/';
+    final response = await _api.post(path, data: {'step': 'pickup'});
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return {};
+  }
+
+  Future<Map<String, dynamic>> generateBuyerDropoffToken(int assignmentId) async {
+    final path = '${AppConstants.deliveryHandoffTokenPrefix}$assignmentId/handoff/token/';
+    final response = await _api.post(path, data: {'step': 'dropoff'});
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return {};
+  }
+
+  Future<Map<String, dynamic>> verifyBuyerDropoffToken(int assignmentId, String token) async {
+    final path =
+        '${AppConstants.deliveryHandoffTokenPrefix}$assignmentId/handoff/verify/';
+    final response = await _api.post(path, data: {'step': 'dropoff', 'token': token});
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
     return {};
   }
 

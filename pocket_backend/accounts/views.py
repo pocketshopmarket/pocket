@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import (
+    BuyerPaymentMethod,
     BuyerProfile,
     DeliveryProfile,
     PhoneOTP,
@@ -16,7 +17,9 @@ from .serializers import (
     SellerApplicationSerializer, DeliveryApplicationSerializer, LoginSerializer,
     PasswordResetSendSerializer, PasswordResetConfirmSerializer,
     ChangePasswordSerializer,
+    BuyerPaymentMethodSerializer,
 )
+from .otp_utils import assert_phone_otp_valid
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -450,38 +453,184 @@ class DeliveryApplicationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def _payment_feature_disabled_response():
-    return Response(
-        {'error': 'Payment methods are temporarily disabled.'},
-        status=status.HTTP_503_SERVICE_UNAVAILABLE,
-    )
-
-
 class BuyerPaymentMethodsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        return _payment_feature_disabled_response()
+        if request.user.role != 'buyer':
+            return Response(
+                {'error': 'Only buyers can manage payment methods.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        rows = BuyerPaymentMethod.objects.filter(user=request.user).order_by(
+            '-is_default', '-created_at'
+        )
+        return Response(BuyerPaymentMethodSerializer(rows, many=True).data)
 
     def post(self, request):
-        return _payment_feature_disabled_response()
+        if request.user.role != 'buyer':
+            return Response(
+                {'error': 'Only buyers can manage payment methods.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = BuyerPaymentMethodSerializer(
+            data=request.data, context={'request': request}
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        method = serializer.save(user=request.user, is_verified=False)
+        phone_otp = PhoneOTP.generate_otp(method.account_phone)
+        print(
+            f"[DEV PM OTP] {method.account_phone} ({method.provider}) -> {phone_otp.otp_code}",
+            flush=True,
+        )
+        return Response(
+            BuyerPaymentMethodSerializer(method).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class BuyerPaymentMethodDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def patch(self, request, method_id):
-        return _payment_feature_disabled_response()
+        method = BuyerPaymentMethod.objects.filter(
+            id=method_id, user=request.user
+        ).first()
+        if method is None:
+            return Response({'error': 'Payment method not found'}, status=404)
+        if request.data.get('is_default') is True:
+            BuyerPaymentMethod.objects.filter(user=request.user).update(
+                is_default=False
+            )
+            method.is_default = True
+            method.save(update_fields=['is_default', 'updated_at'])
+        return Response(BuyerPaymentMethodSerializer(method).data)
 
     def delete(self, request, method_id):
-        return _payment_feature_disabled_response()
+        method = BuyerPaymentMethod.objects.filter(
+            id=method_id, user=request.user
+        ).first()
+        if method is None:
+            return Response({'error': 'Payment method not found'}, status=404)
+        method.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class VerifyBuyerPaymentMethodView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, method_id):
-        return _payment_feature_disabled_response()
+        method = BuyerPaymentMethod.objects.filter(
+            id=method_id, user=request.user
+        ).first()
+        if method is None:
+            return Response({'error': 'Payment method not found'}, status=404)
+        otp_code = str(request.data.get('otp_code', '')).strip()
+        if not otp_code:
+            return Response(
+                {'error': 'otp_code is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            otp_instance = assert_phone_otp_valid(method.account_phone, otp_code)
+        except Exception as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        otp_instance.is_verified = True
+        otp_instance.save(update_fields=['is_verified'])
+        method.is_verified = True
+        method.save(update_fields=['is_verified', 'updated_at'])
+        return Response(BuyerPaymentMethodSerializer(method).data)
+
+
+class SellerPayoutMethodsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role not in ['seller', 'delivery']:
+            return Response(
+                {'error': 'Only sellers and delivery agents can manage payout methods.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        rows = BuyerPaymentMethod.objects.filter(user=request.user).order_by(
+            '-is_default', '-created_at'
+        )
+        return Response(BuyerPaymentMethodSerializer(rows, many=True).data)
+
+    def post(self, request):
+        if request.user.role not in ['seller', 'delivery']:
+            return Response(
+                {'error': 'Only sellers and delivery agents can manage payout methods.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = BuyerPaymentMethodSerializer(
+            data=request.data, context={'request': request}
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        method = serializer.save(user=request.user, is_verified=False)
+        phone_otp = PhoneOTP.generate_otp(method.account_phone)
+        print(
+            f"[DEV SELLER PM OTP] {method.account_phone} ({method.provider}) -> {phone_otp.otp_code}",
+            flush=True,
+        )
+        return Response(
+            BuyerPaymentMethodSerializer(method).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class SellerPayoutMethodDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, method_id):
+        method = BuyerPaymentMethod.objects.filter(
+            id=method_id, user=request.user
+        ).first()
+        if method is None:
+            return Response({'error': 'Payout method not found'}, status=404)
+        if request.data.get('is_default') is True:
+            BuyerPaymentMethod.objects.filter(user=request.user).update(
+                is_default=False
+            )
+            method.is_default = True
+            method.save(update_fields=['is_default', 'updated_at'])
+        return Response(BuyerPaymentMethodSerializer(method).data)
+
+    def delete(self, request, method_id):
+        method = BuyerPaymentMethod.objects.filter(
+            id=method_id, user=request.user
+        ).first()
+        if method is None:
+            return Response({'error': 'Payout method not found'}, status=404)
+        method.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class VerifySellerPayoutMethodView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, method_id):
+        method = BuyerPaymentMethod.objects.filter(
+            id=method_id, user=request.user
+        ).first()
+        if method is None:
+            return Response({'error': 'Payout method not found'}, status=404)
+        otp_code = str(request.data.get('otp_code', '')).strip()
+        if not otp_code:
+            return Response(
+                {'error': 'otp_code is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            otp_instance = assert_phone_otp_valid(method.account_phone, otp_code)
+        except Exception as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        otp_instance.is_verified = True
+        otp_instance.save(update_fields=['is_verified'])
+        method.is_verified = True
+        method.save(update_fields=['is_verified', 'updated_at'])
+        return Response(BuyerPaymentMethodSerializer(method).data)
 
 
 @api_view(['POST'])

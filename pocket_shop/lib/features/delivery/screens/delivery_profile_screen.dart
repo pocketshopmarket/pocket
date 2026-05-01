@@ -145,6 +145,16 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
         SizedBox(
           height: 48,
           width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: () => context.push('/delivery/payout-methods'),
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            label: const Text('Manage payout methods'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 48,
+          width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () => context.push('/change-password'),
             icon: const Icon(Icons.lock_outline_rounded),

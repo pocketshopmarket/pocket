@@ -1,6 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+
+/// Provides aggressive local caching for map tiles using [CachedNetworkImageProvider].
+/// Once a tile is loaded, it is saved locally and can be displayed instantly
+/// and offline on future visits.
+class CachedTileProvider extends TileProvider {
+  CachedTileProvider() : super();
+
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) {
+    return CachedNetworkImageProvider(
+      getTileUrl(coordinates, options),
+      headers: const {
+        'User-Agent': 'com.pocket.pocketshop',
+      },
+    );
+  }
+}
 
 /// OpenStreetMap tiles + optional route polyline + markers (lng,lat from API → LatLng).
 ///
@@ -105,7 +123,7 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
       ...widget.routePoints,
       ...widget.trailPoints,
       ...widget.markers.map((m) => m.point),
-    ];
+    ].where((p) => p.latitude.isFinite && p.longitude.isFinite).toList();
   }
 
   int _dataSignatureFor(OsmRouteMap w) {
@@ -131,7 +149,7 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
     if (!mounted || !_mapReady) return;
 
     final follow = widget.followTarget;
-    if (follow != null) {
+    if (follow != null && follow.latitude.isFinite && follow.longitude.isFinite) {
       _didOverviewFit = false;
       if (_lastFollow == null) {
         _lastFollow = follow;
@@ -166,12 +184,18 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
     final shouldRefit =
         (widget.refitBoundsWhenDataChanges && dataChanged) || !_didOverviewFit;
     if (shouldRefit) {
-      _controller.fitCamera(
-        CameraFit.bounds(
-          bounds: LatLngBounds.fromPoints(pts),
-          padding: const EdgeInsets.all(28),
-        ),
-      );
+      final bounds = LatLngBounds.fromPoints(pts);
+      if ((bounds.north - bounds.south).abs() < 0.0001 &&
+          (bounds.east - bounds.west).abs() < 0.0001) {
+        _controller.move(bounds.center, 14);
+      } else {
+        _controller.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.all(28),
+          ),
+        );
+      }
       _didOverviewFit = true;
     }
   }
@@ -206,6 +230,7 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0,
           userAgentPackageName: 'com.pocket.pocketshop',
+          tileProvider: CachedTileProvider(),
         ),
         if (widget.trailPoints.length >= 2)
           PolylineLayer(
@@ -230,7 +255,8 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
         MarkerLayer(
           markers: [
             for (final m in widget.markers)
-              Marker(
+              if (m.point.latitude.isFinite && m.point.longitude.isFinite)
+                Marker(
                 point: m.point,
                 width: m.useBadge ? 36 : 16,
                 height: m.useBadge ? 36 : 16,

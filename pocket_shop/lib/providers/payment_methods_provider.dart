@@ -8,6 +8,7 @@ import 'auth_provider.dart';
 class BuyerPaymentMethod {
   final int id;
   final String provider;
+  final String providerLabel;
   final String phoneNumber;
   final bool isVerified;
   final bool isDefault;
@@ -15,6 +16,7 @@ class BuyerPaymentMethod {
   const BuyerPaymentMethod({
     required this.id,
     required this.provider,
+    required this.providerLabel,
     required this.phoneNumber,
     this.isVerified = false,
     this.isDefault = false,
@@ -23,7 +25,8 @@ class BuyerPaymentMethod {
   factory BuyerPaymentMethod.fromJson(Map<String, dynamic> json) {
     return BuyerPaymentMethod(
       id: json['id'] as int,
-      provider: (json['provider_label'] ?? json['provider'] ?? '').toString(),
+      provider: (json['provider'] ?? '').toString(),
+      providerLabel: (json['provider_label'] ?? json['provider'] ?? '').toString(),
       phoneNumber: (json['account_phone'] ?? '').toString(),
       isVerified: json['is_verified'] == true,
       isDefault: json['is_default'] == true,
@@ -39,6 +42,7 @@ class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
 
   String _providerKey(String label) {
     final v = label.trim().toLowerCase();
+    if (v == 'mtn_momo' || v == 'airtel_money' || v == 'zamtel') return v;
     if (v.contains('airtel')) return 'airtel_money';
     if (v.contains('zamtel')) return 'zamtel';
     return 'mtn_momo';
@@ -50,13 +54,20 @@ class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
       state = const [];
       return;
     }
-    final response = await _api.get(AppConstants.buyerPaymentMethodsEndpoint);
-    final data = response.data;
-    if (data is List) {
-      state = data
-          .map((e) => BuyerPaymentMethod.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
-    } else {
+    try {
+      final response = await _api.get(AppConstants.buyerPaymentMethodsEndpoint);
+      final data = response.data;
+      if (data is List) {
+        state = data
+            .map(
+              (e) =>
+                  BuyerPaymentMethod.fromJson(Map<String, dynamic>.from(e as Map)),
+            )
+            .toList();
+      } else {
+        state = const [];
+      }
+    } catch (_) {
       state = const [];
     }
   }

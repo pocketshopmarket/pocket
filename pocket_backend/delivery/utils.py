@@ -108,8 +108,23 @@ class LocationService:
         return max(min_eta, int(math.ceil(minutes)))
     
     @staticmethod
+    def calculate_delivery_fee(distance_km: float) -> float:
+        """
+        Calculate delivery fee using the platform's live pricing config.
+
+        Short trips (≤ threshold km)  → flat rate   (e.g. ZMW 30)
+        Long  trips (>  threshold km) → distance × per_km_rate  (e.g. 12 km × ZMW 5)
+        """
+        from .models import DeliveryPricingConfig
+        config = DeliveryPricingConfig.get_config()
+        if distance_km <= float(config.short_distance_threshold_km):
+            return float(config.short_distance_flat_rate)
+        return round(distance_km * float(config.per_km_rate), 2)
+
+    # Keep old method as alias so any existing call-sites don't break immediately.
+    @staticmethod
     def calculate_delivery_cost(distance_km, base_rate, per_km_rate):
-        """Calculate delivery cost"""
+        """Legacy helper — prefer calculate_delivery_fee()."""
         return float(base_rate) + (distance_km * float(per_km_rate))
     
     @staticmethod

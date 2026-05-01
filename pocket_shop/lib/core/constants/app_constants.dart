@@ -28,6 +28,7 @@ class AppConstants {
   static const String deliveryReverseGeocodeEndpoint = 'delivery/geocode/reverse/';
   static const String deliveryAddressSearchEndpoint = 'delivery/geocode/search/';
   static const String deliveryStatsEndpoint = 'delivery/stats/';
+  static const String deliveryHandoffTokenPrefix = 'delivery/assignment/';
   static const String refreshEndpoint = 'auth/refresh/';
   static const String loginEndpoint = 'auth/login/';
   static const String logoutEndpoint = 'auth/logout/';
@@ -37,6 +38,11 @@ class AppConstants {
   static const String passwordResetConfirmEndpoint = 'auth/password-reset/confirm/';
   static const String changePasswordEndpoint = 'auth/change-password/';
   static const String buyerPaymentMethodsEndpoint = 'auth/buyer/payment-methods/';
+  static const String sellerPayoutMethodsEndpoint = 'auth/seller/payout-methods/';
+  static const String paymentsInitiateEndpoint = 'payments/initiate/';
+  static const String paymentsStatusEndpoint = 'payments/status/';
+  static const String paymentsEarningsSummaryEndpoint = 'payments/earnings/summary/';
+  static const String paymentsPayoutEndpoint = 'payments/payout/';
 
   // Storage Keys
   static const String accessTokenKey = 'access_token';

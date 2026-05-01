@@ -4,18 +4,21 @@ from accounts.models import User
 MAX_PRODUCT_IMAGES = 5
 
 
-class Product(models.Model):
-    CATEGORY_CHOICES = [
-        ('electronics', 'Electronics'),
-        ('clothing', 'Clothing'),
-        ('food', 'Food'),
-        ('books', 'Books'),
-        ('home', 'Home & Garden'),
-        ('sports', 'Sports'),
-        ('toys', 'Toys'),
-        ('other', 'Other'),
-    ]
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    icon_name = models.CharField(max_length=50, blank=True, null=True)
+    parent = models.ForeignKey('self', null=True, blank=True, related_name='subcategories', on_delete=models.CASCADE)
+    
+    class Meta:
+        verbose_name_plural = 'Categories'
+        ordering = ['name']
+        
+    def __str__(self):
+        return self.name
 
+
+class Product(models.Model):
     QUALITY_CHOICES = [
         ('new', 'New'),
         ('like_new', 'Like new'),
@@ -27,7 +30,7 @@ class Product(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other')
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
     quality = models.CharField(
         max_length=20,
         choices=QUALITY_CHOICES,
@@ -127,3 +130,39 @@ class ProductVariant(models.Model):
 
     def __str__(self):
         return f"{self.product_id} {self.name}:{self.value}"
+
+class UserInterest(models.Model):
+    user = models.ForeignKey('accounts.BuyerProfile', on_delete=models.CASCADE, related_name='interests')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    weight = models.FloatField(default=1.0)
+    
+    class Meta:
+        unique_together = ('user', 'category')
+
+class SearchHistory(models.Model):
+    user = models.ForeignKey('accounts.BuyerProfile', on_delete=models.CASCADE, related_name='search_history')
+    query = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    clicked_product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+class ProductInteraction(models.Model):
+    VIEW = 'view'
+    CLICK = 'click'
+    ADD_TO_CART = 'cart'
+
+    INTERACTION_CHOICES = [
+        (VIEW, 'View'),
+        (CLICK, 'Click'),
+        (ADD_TO_CART, 'Add to Cart'),
+    ]
+
+    user = models.ForeignKey('accounts.BuyerProfile', on_delete=models.CASCADE, related_name='interactions')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    interaction_type = models.CharField(max_length=10, choices=INTERACTION_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']

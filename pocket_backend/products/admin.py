@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Product, ProductImage, ProductVariant
+from .models import Product, ProductImage, ProductVariant, PromoBanner
 
 
 class ProductImageInline(admin.TabularInline):
@@ -42,3 +42,15 @@ class ProductVariantAdmin(admin.ModelAdmin):
     list_display = ['id', 'product', 'name', 'value', 'sku', 'stock_quantity', 'is_active']
     list_filter = ['name', 'is_active']
     search_fields = ['sku', 'product__name', 'product__seller__phone_number']
+
+
+@admin.register(PromoBanner)
+class PromoBannerAdmin(admin.ModelAdmin):
+    list_display = [
+        'title', 'subtitle', 'cta_text', 'bg_color',
+        'action_type', 'is_active', 'priority',
+        'starts_at', 'ends_at', 'created_at',
+    ]
+    list_filter = ['is_active', 'action_type']
+    list_editable = ['is_active', 'priority']
+    search_fields = ['title', 'subtitle']

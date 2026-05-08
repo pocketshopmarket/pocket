@@ -48,7 +48,7 @@ def _api_root(_request):
 
 
 urlpatterns = [
-    path('', _root),
+    path('', include('portal.urls')),
     path('api/', _api_root),
     path('admin/', admin.site.urls),
     # More specific than `api/auth/` include so JWT refresh resolves correctly.
@@ -59,6 +59,7 @@ urlpatterns = [
     path('api/delivery/', include('delivery.urls')),
     path('api/reviews/', include('reviews.urls')),
     path('api/payments/', include('payments.urls')),
+    path('api/notifications/', include('notifications.urls')),
 ]
 
 if settings.DEBUG:

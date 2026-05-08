@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../models/product.dart';
+import '../../../../models/promo_banner.dart';
 import '../../../../widgets/product_list_thumbnail.dart';
 import '../../../../providers/product_provider.dart';
 import '../../../../providers/category_provider.dart';
+import '../../../../providers/banner_provider.dart';
 import '../../../../services/product_service.dart';
 import 'dart:async';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../models/category.dart';
+import '../../../../widgets/notification_bell.dart';
 
 class BuyerHomeScreen extends ConsumerStatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -30,13 +34,59 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   String _sortBy = 'default';
   int _activeBannerIndex = 0;
   Timer? _searchDebounce;
+  Timer? _autoScrollTimer;
+  final TextEditingController _searchController = TextEditingController();
+  List<Product> _searchSuggestions = [];
+  bool _showSuggestions = false;
+  bool _searchLoading = false;
 
   @override
   void dispose() {
+    _autoScrollTimer?.cancel();
     _scrollController.dispose();
     _bannerController.dispose();
     _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _startAutoScroll(int bannerCount) {
+    _autoScrollTimer?.cancel();
+    if (bannerCount < 2) return;
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!_bannerController.hasClients) return;
+      final next = ((_bannerController.page?.round() ?? 0) + 1) % bannerCount;
+      _bannerController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _onBannerTap(PromoBanner banner) {
+    switch (banner.actionType) {
+      case 'category':
+        final categoryId = int.tryParse(banner.actionValue);
+        if (categoryId != null) {
+          ref.read(selectedCategoryProvider.notifier).state = categoryId;
+          ref.read(productProvider.notifier).updateFilters(
+            category: banner.actionValue,
+          );
+          context.go('/buyer/shop');
+        }
+        break;
+      case 'product':
+        context.push('/buyer/product-details/${banner.actionValue}');
+        break;
+      case 'url':
+        final uri = Uri.tryParse(banner.actionValue);
+        if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
+        break;
+      case 'none':
+      default:
+        break;
+    }
   }
 
   String _categoryLabel(String category) {
@@ -260,29 +310,27 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     final cartNotifier = ref.read(cartProvider.notifier);
     final wishlistNotifier = ref.read(wishlistProvider.notifier);
     final firstName = user?.displayName.split(' ').first ?? 'Shopper';
-    final allCategories = ref.watch(categoryProvider).value ?? [];
+    final allCategories = ref.watch(categoryProvider).valueOrNull ?? [];
     final products = productState.products;
     final trendingProducts = productState.trendingProducts.isNotEmpty
         ? productState.trendingProducts
         : products.take(8).toList();
-    const banners = [
-      {
-        'title': 'Fresh picks',
-        'subtitle': 'Delivered faster',
-        'cta': 'Shop now',
-      },
-      {
-        'title': 'Trending deals',
-        'subtitle': 'Save on essentials',
-        'cta': 'View offers',
-      },
-    ];
+    final bannersAsync = ref.watch(bannerProvider);
+    final banners = bannersAsync.valueOrNull ?? PromoBanner.defaults;
+
+    // Start auto-scroll once banners are loaded
+    if (banners.length >= 2 && _autoScrollTimer == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startAutoScroll(banners.length);
+      });
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
+            ref.invalidate(bannerProvider);
             await ref.read(productProvider.notifier).fetchProducts(reset: true);
             await ref.read(productProvider.notifier).fetchTrendingProducts();
           },
@@ -302,37 +350,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     ),
                   ),
                   const Spacer(),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(19),
-                          border: Border.all(color: AppTheme.divider),
-                        ),
-                        child: const Icon(
-                          Icons.notifications_none_rounded,
-                          size: 20,
-                        ),
-                      ),
-                      Positioned(
-                        right: -1,
-                        top: -1,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: AppTheme.accentOrange,
-                            borderRadius: BorderRadius.circular(5),
-                            border: Border.all(color: Colors.white, width: 1.4),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  const NotificationBell(),
                   const SizedBox(width: 8),
                   Container(
                     width: 38,
@@ -350,12 +368,11 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(
                   horizontal: isCompact ? 12 : 14,
-                  vertical: 4,
+                  vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: const Color(0xFFEEEEEE),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.divider),
                 ),
                 child: Row(
                   children: [
@@ -367,22 +384,59 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
+                        controller: _searchController,
                         onChanged: (val) {
-                          if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-                          _searchDebounce = Timer(const Duration(milliseconds: 500), () {
-                            ref.read(productProvider.notifier).updateFilters(searchQuery: val);
+                          _searchDebounce?.cancel();
+                          if (val.trim().isEmpty) {
+                            setState(() {
+                              _showSuggestions = false;
+                              _searchSuggestions = [];
+                            });
+                            ref.read(productProvider.notifier).updateFilters(searchQuery: '');
+                            return;
+                          }
+                          setState(() => _searchLoading = true);
+                          _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
+                            try {
+                              final service = ref.read(productServiceProvider);
+                              final page = await service.getProductsPage(
+                                ProductQuery(search: val.trim(), pageSize: 6),
+                              );
+                              if (mounted) {
+                                setState(() {
+                                  _searchSuggestions = page.items;
+                                  _showSuggestions = true;
+                                  _searchLoading = false;
+                                });
+                              }
+                            } catch (_) {
+                              if (mounted) setState(() => _searchLoading = false);
+                            }
                           });
                         },
                         style: const TextStyle(fontSize: 14),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Search products',
-                          hintStyle: TextStyle(
+                          hintStyle: const TextStyle(
                             fontSize: 13,
                             color: AppTheme.textSecondary,
                           ),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? GestureDetector(
+                                  onTap: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _showSuggestions = false;
+                                      _searchSuggestions = [];
+                                    });
+                                    ref.read(productProvider.notifier).updateFilters(searchQuery: '');
+                                  },
+                                  child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
+                                )
+                              : null,
                         ),
                       ),
                     ),
@@ -405,6 +459,97 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   ],
                 ),
               ),
+              // Search suggestions dropdown
+              if (_showSuggestions && _searchController.text.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: _searchLoading
+                      ? const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primaryCyan,
+                              ),
+                            ),
+                          ),
+                        )
+                      : _searchSuggestions.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'No products found',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              itemCount: _searchSuggestions.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final product = _searchSuggestions[i];
+                                return ListTile(
+                                  dense: true,
+                                  leading: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: SizedBox(
+                                      width: 40,
+                                      height: 40,
+                                      child: ProductListThumbnail(
+                                        product: product,
+                                        compactPlaceholder: true,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    product.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'ZMW ${product.price.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.darkCyan,
+                                    ),
+                                  ),
+                                  trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textSecondary),
+                                  onTap: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      _showSuggestions = false;
+                                      _searchSuggestions = [];
+                                    });
+                                    context.push('/buyer/product-details', extra: product);
+                                  },
+                                );
+                              },
+                            ),
+                ),
               SizedBox(height: isCompact ? 10 : 12),
               Container(
                 width: double.infinity,
@@ -573,9 +718,14 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   itemCount: banners.length,
                   itemBuilder: (_, i) {
                     final banner = banners[i];
-                    final bg = i.isEven
-                        ? AppTheme.accentOrange
-                        : AppTheme.accentBlue;
+                    final bg = banner.backgroundColor;
+                    // CTA button colors: light button on dark bg for first, purple for others
+                    final ctaBg = i.isEven
+                        ? Colors.white
+                        : AppTheme.accentPurple;
+                    final ctaTextColor = i.isEven
+                        ? banner.backgroundColor
+                        : Colors.white;
                     return LayoutBuilder(
                       builder: (context, constraints) {
                         final compact = constraints.maxWidth < 320;
@@ -585,63 +735,65 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         final bannerPadding = compact ? 12.0 : 18.0;
                         final ctaHorizontalPadding = compact ? 12.0 : 18.0;
                         final ctaVerticalPadding = compact ? 6.0 : 8.0;
-                        return Container(
-                          margin: const EdgeInsets.only(right: 10),
-                          padding: EdgeInsets.all(bannerPadding),
-                          decoration: BoxDecoration(
-                            color: bg,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${banner['title']!}\n${banner['subtitle']!}',
-                                      maxLines: compact ? 3 : 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: titleSize,
-                                        height: 1.0,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: ctaHorizontalPadding,
-                                        vertical: ctaVerticalPadding,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: i.isEven
-                                            ? Colors.white
-                                            : AppTheme.accentPurple,
-                                        borderRadius: BorderRadius.circular(22),
-                                      ),
-                                      child: Text(
-                                        banner['cta']!,
+                        return GestureDetector(
+                          onTap: () => _onBannerTap(banner),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 10),
+                            padding: EdgeInsets.all(bannerPadding),
+                            decoration: BoxDecoration(
+                              color: bg,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${banner.title}\n${banner.subtitle}',
+                                        maxLines: compact ? 3 : 2,
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          fontSize: ctaFontSize,
-                                          fontWeight: FontWeight.w700,
-                                          color: i.isEven
-                                              ? const Color(0xFFF97316)
-                                              : Colors.white,
+                                          fontSize: titleSize,
+                                          height: 1.0,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white,
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                      const Spacer(),
+                                      GestureDetector(
+                                        onTap: () => _onBannerTap(banner),
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: ctaHorizontalPadding,
+                                            vertical: ctaVerticalPadding,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: ctaBg,
+                                            borderRadius: BorderRadius.circular(22),
+                                          ),
+                                          child: Text(
+                                            banner.ctaText,
+                                            style: TextStyle(
+                                              fontSize: ctaFontSize,
+                                              fontWeight: FontWeight.w700,
+                                              color: ctaTextColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: compact ? 4 : 8),
-                              Icon(
-                                Icons.shopping_bag_outlined,
-                                size: iconSize,
-                                color: Colors.white70,
-                              ),
-                            ],
+                                SizedBox(width: compact ? 4 : 8),
+                                Icon(
+                                  banner.icon,
+                                  size: iconSize,
+                                  color: Colors.white70,
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -826,14 +978,31 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Popular near you',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      ),
+                  Expanded(
+                    child: Builder(
+                      builder: (_) {
+                        final selectedId = ref.watch(selectedCategoryProvider);
+                        if (selectedId == null) {
+                          return const Text(
+                            'Popular near you',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          );
+                        }
+                        final cats = allCategories;
+                        final name = cats.where((c) => c.id == selectedId).firstOrNull?.name;
+                        return Text(
+                          name ?? 'Popular near you',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary,
+                          ),
+                        );
+                      },
                     ),
                   ),
                   Row(
@@ -889,7 +1058,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                       .read(productProvider.notifier)
                       .fetchProducts(reset: true),
                 )
-              else if (productState.products.isEmpty)
+              else if (productState.products.isEmpty && _selectedCategory == 'all' && ref.watch(selectedCategoryProvider) == null)
                 _InfoBlock(
                   icon: Icons.storefront_outlined,
                   title: 'No listings yet',
@@ -900,12 +1069,130 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                       .read(productProvider.notifier)
                       .fetchProducts(reset: true),
                 )
-              else if (products.isEmpty)
-                const _InfoBlock(
-                  icon: Icons.search_off,
-                  title: 'No matches',
-                  message:
-                      'No products match your search or filters. Try different keywords or clear filters.',
+              else if (productState.products.isEmpty)
+                Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.divider),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.search_off,
+                            size: 40,
+                            color: AppTheme.textSecondary.withValues(alpha: 0.85),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Nothing here yet',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'No products match this category right now.\nCheck back soon or browse other categories!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.35,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          OutlinedButton(
+                            onPressed: () {
+                              ref.read(selectedCategoryProvider.notifier).state = null;
+                              ref.read(productProvider.notifier).updateFilters(category: 'all');
+                            },
+                            child: const Text('Show all products'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // "You might also like" — show popular products across ALL categories
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'You might also like',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    FutureBuilder<List<Product>>(
+                      future: ref.read(productServiceProvider).fetchTrending(pageSize: 6),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(
+                                color: AppTheme.primaryCyan,
+                              ),
+                            ),
+                          );
+                        }
+                        final suggestions = snapshot.data ?? [];
+                        if (suggestions.isEmpty) return const SizedBox.shrink();
+                        return GridView.builder(
+                          itemCount: suggestions.length,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: gridSpacing,
+                            childAspectRatio: gridAspectRatio,
+                          ),
+                          itemBuilder: (_, i) {
+                            final product = suggestions[i];
+                            final inStock = product.isAvailable && product.isInStock;
+                            return _ProductCard(
+                              product: product,
+                              inStock: inStock,
+                              isFavorite: wishlist.contains(product.id),
+                              onToggleFavorite: () => wishlistNotifier.toggle(product.id),
+                              onCardTap: () => context.push(
+                                '/buyer/product-details',
+                                extra: product,
+                              ),
+                              onAdd: () async {
+                                final err = await cartNotifier.addProduct(product);
+                                if (!context.mounted) return;
+                                if (err != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(err),
+                                      backgroundColor: AppTheme.error,
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('${product.name} added to cart'),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
                 )
               else
                 GridView.builder(

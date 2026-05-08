@@ -17,9 +17,9 @@ from django.utils import timezone
 from datetime import timedelta
 
 from accounts.permissions import IsApprovedSeller
-from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction
+from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction, PromoBanner
 from .pagination import ProductPagination
-from .serializers import ProductSerializer, CategorySerializer
+from .serializers import ProductSerializer, CategorySerializer, PromoBannerSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +35,18 @@ class RecommendedProductsView(APIView):
 
     def get(self, request):
         user = request.user
+        category_filter = request.query_params.get('category')
         
         # Make sure user has a buyer profile for advanced recommendations
         if not hasattr(user, 'buyer_profile'):
             # Cold start fallback for non-buyers
-            products = Product.objects.filter(is_available=True).order_by('-created_at', '-views_count')[:20]
+            qs = Product.objects.filter(is_available=True)
+            if category_filter and category_filter.lower() != 'all':
+                try:
+                    qs = qs.filter(category_id=int(category_filter))
+                except (ValueError, TypeError):
+                    qs = qs.filter(category__slug__iexact=category_filter)
+            products = qs.order_by('-created_at', '-views_count')[:20]
             serializer = ProductSerializer(products, many=True, context={'request': request})
             return Response(serializer.data)
 
@@ -49,8 +56,8 @@ class RecommendedProductsView(APIView):
         limit = int(request.query_params.get('limit', 20))
         offset = int(request.query_params.get('offset', 0))
         
-        # Check cache
-        cache_key = f"recommendations_{buyer_profile.id}_{limit}_{offset}"
+        # Check cache (include category in key)
+        cache_key = f"recommendations_{buyer_profile.id}_{limit}_{offset}_{category_filter or 'all'}"
         cached_result = cache.get(cache_key)
         
         if cached_result:
@@ -79,6 +86,11 @@ class RecommendedProductsView(APIView):
 
         # Base Query
         products = Product.objects.filter(is_available=True, stock_quantity__gt=0)
+        if category_filter and category_filter.lower() != 'all':
+            try:
+                products = products.filter(category_id=int(category_filter))
+            except (ValueError, TypeError):
+                products = products.filter(category__slug__iexact=category_filter)
         scored_products = []
 
         for product in products:
@@ -359,4 +371,24 @@ class ProductViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset[:20], many=True)
+        return Response(serializer.data)
+
+
+class PromoBannerListView(APIView):
+    """Active promo banners for the buyer home screen. Public endpoint."""
+    permission_classes = [permissions.AllowAny]
+
+    @method_decorator(cache_page(60))
+    def get(self, request):
+        now = timezone.now()
+        qs = PromoBanner.objects.filter(
+            is_active=True,
+        ).filter(
+            Q(starts_at__isnull=True) | Q(starts_at__lte=now),
+        ).filter(
+            Q(ends_at__isnull=True) | Q(ends_at__gte=now),
+        )
+        serializer = PromoBannerSerializer(
+            qs, many=True, context={'request': request},
+        )
         return Response(serializer.data)

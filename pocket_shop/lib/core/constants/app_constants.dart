@@ -4,7 +4,7 @@ class AppConstants {
   // With trailing slash:    "http://host/api/" + "auth/login/" → "http://host/api/auth/login/" (correct)
   static const String _rawBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://13.222.154.44/api/',
+    defaultValue: 'https://mypocketshop.store/api/',
   );
   static String get baseUrl => _rawBaseUrl.endsWith('/') ? _rawBaseUrl : '$_rawBaseUrl/';
   static const String sendOtpEndpoint = 'auth/send-otp/';
@@ -43,6 +43,9 @@ class AppConstants {
   static const String paymentsStatusEndpoint = 'payments/status/';
   static const String paymentsEarningsSummaryEndpoint = 'payments/earnings/summary/';
   static const String paymentsPayoutEndpoint = 'payments/payout/';
+  static const String notificationsEndpoint = 'notifications/';
+  static const String notificationsUnreadCountEndpoint = 'notifications/unread-count/';
+  static const String notificationsMarkAllReadEndpoint = 'notifications/mark-all-read/';
 
   // Storage Keys
   static const String accessTokenKey = 'access_token';

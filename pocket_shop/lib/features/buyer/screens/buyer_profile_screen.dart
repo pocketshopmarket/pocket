@@ -14,6 +14,35 @@ class BuyerProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
+  void _confirmDelete(dynamic method) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Remove method?'),
+        content: Text(
+          'Delete ${method.providerLabel} · ${method.phoneNumber} from your payment methods?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(paymentMethodsProvider.notifier).deleteMethod(method.id);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   static const List<_PaymentProviderOption> _providerOptions = [
     _PaymentProviderOption(
       label: 'MTN',
@@ -552,6 +581,13 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                                 ),
                               ),
                               child: Text(method.isDefault ? 'Default' : 'Set'),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              onPressed: () => _confirmDelete(method),
+                              icon: const Icon(Icons.delete_outline, color: AppTheme.error, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
                             ),
                           ],
                         ),

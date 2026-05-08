@@ -169,6 +169,19 @@ class PhoneOTP(models.Model):
 
     @classmethod
     def generate_otp(cls, phone_number):
+        from django.utils import timezone
+
+        # --- Rate limit: max 5 OTP requests per phone per hour ---
+        one_hour_ago = timezone.now() - timezone.timedelta(hours=1)
+        recent_count = cls.objects.filter(
+            phone_number=phone_number,
+            created_at__gte=one_hour_ago,
+        ).count()
+        if recent_count >= 5:
+            raise ValueError(
+                'Too many OTP requests. Please wait before requesting a new code.'
+            )
+
         otp = f"{secrets.randbelow(10**6):06d}"
         # Delete any existing unverified OTPs for this number
         cls.objects.filter(phone_number=phone_number, is_verified=False).delete()

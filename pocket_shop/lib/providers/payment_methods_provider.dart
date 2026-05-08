@@ -106,6 +106,11 @@ class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
     await load();
   }
 
+  Future<void> deleteMethod(int id) async {
+    await _api.delete('${AppConstants.buyerPaymentMethodsEndpoint}$id/');
+    await load();
+  }
+
   String? extractError(Object e) {
     if (e is DioException) {
       final data = e.response?.data;

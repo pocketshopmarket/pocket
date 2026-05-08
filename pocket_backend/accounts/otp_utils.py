@@ -22,7 +22,7 @@ def assert_phone_otp_valid(phone_number: str, otp_code: str) -> PhoneOTP:
             {'otp_code': ['Invalid or expired code. Request a new OTP.']}
         )
 
-    if latest_unverified_otp.attempts >= 3:
+    if latest_unverified_otp.attempts >= 5:
         raise serializers.ValidationError(
             {'otp_code': ['Too many attempts. Please request a new OTP.']}
         )
@@ -35,7 +35,7 @@ def assert_phone_otp_valid(phone_number: str, otp_code: str) -> PhoneOTP:
     if latest_unverified_otp.otp_code != otp_code:
         latest_unverified_otp.attempts += 1
         latest_unverified_otp.save(update_fields=['attempts'])
-        remaining_attempts = max(0, 3 - latest_unverified_otp.attempts)
+        remaining_attempts = max(0, 5 - latest_unverified_otp.attempts)
         if remaining_attempts == 0:
             raise serializers.ValidationError(
                 {'otp_code': ['Too many attempts. Please request a new OTP.']}

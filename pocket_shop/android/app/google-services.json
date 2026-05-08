@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "676730922365",
+    "project_id": "pocket-shop-app",
+    "storage_bucket": "pocket-shop-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676730922365:android:ba5a17d4b2549580089814",
+        "android_client_info": {
+          "package_name": "com.example.pocket_shop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDySVAOqnSnDGVeSUCDDTWWXWQtU0Gyf6M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

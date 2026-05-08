@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -20,6 +22,13 @@ from .serializers import (
     BuyerPaymentMethodSerializer,
 )
 from .otp_utils import assert_phone_otp_valid
+from .sms_service import (
+    send_otp_sms,
+    send_password_reset_sms,
+    send_payment_method_verification_sms,
+)
+
+logger = logging.getLogger(__name__)
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -61,13 +70,21 @@ class SendOTPView(APIView):
         serializer = SendOTPSerializer(data=request.data)
         if serializer.is_valid():
             phone_number = serializer.validated_data['phone_number']
-            
-            # Generate OTP
-            phone_otp = PhoneOTP.generate_otp(phone_number)
-            
-            # For development, print OTP to backend terminal.
-            print(f"[DEV OTP] {phone_number} -> {phone_otp.otp_code}", flush=True)
-            
+
+            # Generate OTP (raises ValueError if rate limit hit)
+            try:
+                phone_otp = PhoneOTP.generate_otp(phone_number)
+            except ValueError as e:
+                return Response({
+                    'success': False,
+                    'message': str(e),
+                }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+            # Send OTP via SMS (falls back to console print in dev if no API key).
+            sent = send_otp_sms(str(phone_number), phone_otp.otp_code)
+            if not sent:
+                logger.debug('[OTP] SMS not delivered; code=%s phone=%s', phone_otp.otp_code, phone_number)
+
             return Response({
                 'success': True,
                 'message': 'OTP sent successfully',
@@ -210,10 +227,9 @@ class PasswordResetSendOTPView(APIView):
         phone_number = serializer.validated_data['phone_number']
         if User.objects.filter(phone_number=phone_number).exists():
             phone_otp = PhoneOTP.generate_otp(phone_number)
-            print(
-                f"[DEV PASSWORD RESET OTP] {phone_number} -> {phone_otp.otp_code}",
-                flush=True,
-            )
+            sent = send_password_reset_sms(str(phone_number), phone_otp.otp_code)
+            if not sent:
+                logger.debug('[OTP] Password reset SMS not delivered; code=%s phone=%s', phone_otp.otp_code, phone_number)
 
         return Response({
             'success': True,
@@ -480,10 +496,9 @@ class BuyerPaymentMethodsView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         method = serializer.save(user=request.user, is_verified=False)
         phone_otp = PhoneOTP.generate_otp(method.account_phone)
-        print(
-            f"[DEV PM OTP] {method.account_phone} ({method.provider}) -> {phone_otp.otp_code}",
-            flush=True,
-        )
+        sent = send_payment_method_verification_sms(method.account_phone, phone_otp.otp_code)
+        if not sent:
+            logger.debug('[OTP] Payment method SMS not delivered; code=%s phone=%s', phone_otp.otp_code, method.account_phone)
         return Response(
             BuyerPaymentMethodSerializer(method).data,
             status=status.HTTP_201_CREATED,
@@ -570,10 +585,9 @@ class SellerPayoutMethodsView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         method = serializer.save(user=request.user, is_verified=False)
         phone_otp = PhoneOTP.generate_otp(method.account_phone)
-        print(
-            f"[DEV SELLER PM OTP] {method.account_phone} ({method.provider}) -> {phone_otp.otp_code}",
-            flush=True,
-        )
+        sent = send_payment_method_verification_sms(method.account_phone, phone_otp.otp_code)
+        if not sent:
+            logger.debug('[OTP] Seller payout method SMS not delivered; code=%s phone=%s', phone_otp.otp_code, method.account_phone)
         return Response(
             BuyerPaymentMethodSerializer(method).data,
             status=status.HTTP_201_CREATED,

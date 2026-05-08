@@ -166,3 +166,69 @@ class ProductInteraction(models.Model):
 
     class Meta:
         ordering = ['-timestamp']
+
+
+class PromoBanner(models.Model):
+    """Promotional banners shown on the buyer home screen."""
+
+    ACTION_CHOICES = [
+        ('category', 'Navigate to Category'),
+        ('product', 'Navigate to Product'),
+        ('url', 'Open External URL'),
+        ('none', 'No Action'),
+    ]
+
+    title = models.CharField(max_length=60)
+    subtitle = models.CharField(max_length=80, blank=True)
+    cta_text = models.CharField(
+        max_length=20,
+        default='Shop now',
+        help_text='Button label, e.g. "Shop now", "View offers"',
+    )
+
+    # Visual
+    bg_color = models.CharField(
+        max_length=7,
+        default='#F97316',
+        help_text='Hex color for background, e.g. #F97316 (orange)',
+    )
+    icon_name = models.CharField(
+        max_length=40,
+        default='shopping_bag_outlined',
+        help_text='Flutter Icons name',
+    )
+    image = models.ImageField(
+        upload_to='banners/',
+        null=True,
+        blank=True,
+        help_text='Optional banner image (overrides icon_name when set)',
+    )
+
+    # Action — what happens when user taps
+    action_type = models.CharField(
+        max_length=10,
+        choices=ACTION_CHOICES,
+        default='none',
+    )
+    action_value = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='Category ID, Product ID, or URL depending on action_type',
+    )
+
+    # Scheduling
+    is_active = models.BooleanField(default=True)
+    priority = models.PositiveIntegerField(
+        default=0,
+        help_text='Higher number = shown first',
+    )
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-priority', '-created_at']
+
+    def __str__(self):
+        return f"Banner: {self.title}"

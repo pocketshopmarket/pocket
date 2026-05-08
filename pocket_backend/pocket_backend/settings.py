@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file if present (development convenience — no-op in production)
+load_dotenv(Path(__file__).resolve().parent.parent / '.env')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -149,6 +153,8 @@ INSTALLED_APPS = [
     'delivery',
     'reviews',
     'payments',
+    'portal',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -252,3 +258,8 @@ PLATFORM_COMMISSION_RATE = float(os.environ.get('PLATFORM_COMMISSION_RATE', '0.0
 ORDER_ACCEPTANCE_TIMEOUT_MINUTES = int(
     os.environ.get('ORDER_ACCEPTANCE_TIMEOUT_MINUTES', '30')
 )
+
+# AFRICA'S TALKING CONFIGURATION
+AFRICAS_TALKING_USERNAME = os.environ.get('AFRICAS_TALKING_USERNAME', 'sandbox')
+AFRICAS_TALKING_API_KEY = os.environ.get('AFRICAS_TALKING_API_KEY', '')
+AFRICAS_TALKING_SENDER_ID = os.environ.get('AFRICAS_TALKING_SENDER_ID', '') # Optional

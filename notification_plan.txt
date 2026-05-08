@@ -1,0 +1,276 @@
+===============================================================================
+  POCKET SHOP - NOTIFICATION ARCHITECTURE PLAN
+===============================================================================
+
+CURRENT STACK SUMMARY
+---------------------
+  Backend:    Django 6 + DRF + Gunicorn + SQLite (AWS Docker)
+  Frontend:   Flutter (Riverpod, GoRouter) - Android/iOS
+  Payments:   PawaPay (mobile money)
+  SMS:        Africa's Talking
+  Chat:       Firebase Firestore (explored previously)
+  Real-time:  None currently
+
+  NOTE: Zero Firebase dependencies in Flutter app, no Django Channels in backend.
+  This is a greenfield decision.
+
+===============================================================================
+  1. WHAT NOTIFICATIONS DOES POCKET SHOP NEED?
+===============================================================================
+
+CATEGORY A - Transactional Push (User may be outside the app)
+-------------------------------------------------------------
+  Event                                    | Receiver  | Urgency
+  ---------------------------------------- | --------- | ----------
+  New order placed                         | Seller    | IMMEDIATE
+  Order accepted/rejected                  | Buyer     | IMMEDIATE
+  Order status change (preparing > etc)    | Buyer     | SOON
+  Payment confirmed / failed               | Buyer     | IMMEDIATE
+  Payout processed                         | Seller    | LOW
+  New delivery available                   | Rider     | IMMEDIATE
+  Delivery assigned to you                 | Rider     | IMMEDIATE
+  New review on your shop                  | Seller    | LOW
+
+CATEGORY B - Real-time In-App Updates (User is actively using the app)
+----------------------------------------------------------------------
+  Event                    | Receiver              | Notes
+  ------------------------ | --------------------- | -------------------------
+  Live order status ticker | Buyer (tracking)      | Needs sub-second updates
+  Rider location updates   | Buyer (map)           | Every 5-10 seconds
+  Chat messages            | Buyer <-> Seller/Rider| Explored Firebase for this
+  Live order queue         | Seller dashboard      | New orders appear instantly
+
+CATEGORY C - Marketing / Broadcast
+-----------------------------------
+  Promotions / sales       | All buyers
+  Shop announcements       | Shop followers
+
+===============================================================================
+  2. THE THREE OPTIONS
+===============================================================================
+
+OPTION A: Firebase Cloud Messaging (FCM) Only
+----------------------------------------------
+  Flow: Django -> FCM (HTTP API) -> Flutter device -> Show notification
+        Flutter -> Django (REST poll for fresh data)
+
+  PROS:
+    + Works when app is CLOSED/KILLED (true push notifications)
+    + Very low backend complexity - just HTTP POST calls from Django
+    + No WebSocket server needed - Gunicorn stays as-is
+    + FREE for unlimited pushes (FCM has no per-message cost)
+    + Handles Category A (transactional) and Category C (marketing) perfectly
+    + Firebase Admin SDK for Python is well-maintained
+
+  CONS:
+    - Not real-time for in-app updates - 0.5-5s latency
+    - Cannot stream continuous data (rider location, live chat)
+    - Requires a Firebase project
+    - Not suitable for Category B use cases
+
+OPTION B: Django Channels Only (WebSockets)
+--------------------------------------------
+  Flow: Flutter -> WebSocket connect -> Daphne/Uvicorn -> Redis subscribe
+        Events -> Redis publish -> Daphne fan out -> Flutter via WebSocket
+
+  PROS:
+    + True real-time - sub-second delivery, bidirectional
+    + Perfect for Category B (rider tracking, live order status, chat)
+    + Everything stays in your Django codebase
+    + Can handle chat, presence, typing indicators
+
+  CONS:
+    - Does NOT work when app is closed - no push notifications
+    - Requires Redis on your server (extra infra)
+    - Requires switching from Gunicorn (WSGI) to Daphne/Uvicorn (ASGI)
+    - Battery drain on mobile if WebSocket kept alive
+    - Scaling is harder - WebSocket connections are stateful
+    - Cannot handle Category A or Category C alone
+    - Current Dockerfile + Gunicorn setup needs significant rework
+
+  !! CRITICAL WARNING !!
+  Django Channels alone is NOT a complete notification solution for mobile apps.
+  When the app is closed, WebSocket is disconnected - the user never gets
+  notified about their order being accepted, payment failing, etc.
+  This is a DEALBREAKER for an e-commerce app.
+
+OPTION C: Hybrid - FCM (Push) + Django Channels (Real-time)  [RECOMMENDED]
+---------------------------------------------------------------------------
+  Flow: Event occurs -> Delivery Router decides:
+        - User offline / important alert -> Send FCM Push
+        - User online + needs live data  -> Send via WebSocket
+        - Both needed                    -> Send Both
+
+  PROS:
+    + Complete coverage - push when offline, real-time when online
+    + Best user experience - instant updates on tracking, reliable alerts away
+    + Each technology does what it's best at
+    + Can be built incrementally - FCM first, Channels later
+
+  CONS:
+    - More moving parts (Firebase + Redis + ASGI)
+    - Two notification paths to maintain
+    - Need deduplication logic (don't show same notification twice)
+
+===============================================================================
+  3. RECOMMENDATION
+===============================================================================
+
+  Go with Option C (Hybrid), but build it in phases.
+  Start with FCM for push notifications - this covers 80% of your needs
+  with minimal infrastructure change. Add Django Channels later when you
+  need live tracking and chat.
+
+  WHY?
+  1. Your app is e-commerce - users MUST be notified when app is closed.
+     Only FCM can do this.
+  2. You already explored Firebase for chat - not new territory.
+  3. Current infra is Gunicorn + SQLite - adding Channels requires Redis
+     and ASGI, which is a bigger change. Phase it.
+  4. Rider tracking needs real-time - but this can come in Phase 2.
+
+===============================================================================
+  4. PHASED IMPLEMENTATION PLAN
+===============================================================================
+
+PHASE 1: FCM Push Notifications (Do This First)
+-------------------------------------------------
+
+  BACKEND CHANGES:
+
+    New dependency:
+      firebase-admin>=6.0,<7.0
+
+    New Django app:
+      notifications/
+      ├── __init__.py
+      ├── models.py          # DeviceToken, Notification log
+      ├── services.py        # FCM send logic
+      ├── serializers.py     # Token registration, notification list
+      ├── urls.py
+      └── views.py           # Register token, list notifications
+
+    Key models:
+
+      class DeviceToken(models.Model):
+          user = ForeignKey(User, CASCADE, related_name='device_tokens')
+          token = TextField(unique=True)
+          device_type = CharField(max_length=10)  # 'android' or 'ios'
+          is_active = BooleanField(default=True)
+          created_at = DateTimeField(auto_now_add=True)
+
+      class Notification(models.Model):
+          recipient = ForeignKey(User, CASCADE, related_name='notifications')
+          title = CharField(max_length=255)
+          body = TextField()
+          data = JSONField(default=dict)  # e.g. {"order_id": 42, "type": "order_update"}
+          is_read = BooleanField(default=False)
+          created_at = DateTimeField(auto_now_add=True)
+
+  FLUTTER CHANGES:
+
+    New dependencies (pubspec.yaml):
+      firebase_core: ^3.x
+      firebase_messaging: ^15.x
+
+    New files:
+      lib/services/notification_service.dart       # FCM init, token mgmt, foreground
+      lib/providers/notification_provider.dart      # Riverpod state, unread count
+      lib/features/shared/notifications_screen.dart # In-app notification center
+
+  WHAT YOU GET AFTER PHASE 1:
+    + Sellers get pinged when a new order arrives (even if app is closed)
+    + Buyers get order status updates as push notifications
+    + Riders get notified of available deliveries
+    + In-app notification center with history and unread count
+    + No infrastructure changes needed - Gunicorn stays, no Redis
+
+PHASE 2: Django Channels for Real-time (Later)
+------------------------------------------------
+
+  When to do this: When you're ready to build:
+    - Live rider location on the buyer's map
+    - Real-time order status ticker (no pull-to-refresh)
+    - In-app chat (buyer <-> seller)
+
+  BACKEND CHANGES:
+
+    New dependencies:
+      channels>=4.0,<5.0
+      channels-redis>=4.0,<5.0
+      daphne>=4.0,<5.0
+
+    New/modified files:
+      pocket_backend/asgi.py          # ASGI application with routing
+      pocket_backend/routing.py       # WebSocket URL routing
+      notifications/consumers.py      # WebSocket consumers
+      delivery/consumers.py           # Rider location consumer
+
+  INFRASTRUCTURE CHANGES:
+    - Add Redis to your server (or use AWS ElastiCache)
+    - Switch from Gunicorn to Daphne in Dockerfile
+    - Update nginx to proxy WebSocket connections (ws://)
+
+  FLUTTER CHANGES:
+
+    New dependency:
+      web_socket_channel: ^3.x
+
+    New files:
+      lib/services/websocket_service.dart      # Connect, reconnect, auth
+      lib/providers/realtime_provider.dart      # Live data streams
+
+===============================================================================
+  5. DECISION POINTS (Need Your Input)
+===============================================================================
+
+  1. Do you already have a Firebase project for Pocket Shop?
+     Options: Yes / No
+
+  2. Do you want to start with Phase 1 (FCM only) and add Channels later,
+     or build both now?
+     Options: Phase 1 first / Both now
+
+  3. Should notifications persist in the database (notification center with
+     history), or just fire-and-forget?
+     Options: Persist / Fire-and-forget
+
+  4. What about the chat feature? You explored Firebase Firestore for chat.
+     Do you want chat to stay on Firestore, or move to Django Channels?
+     Options: Firestore / Django Channels
+
+  5. SMS notifications - you already have Africa's Talking. Should critical
+     events (payment confirmed, order delivered) also send an SMS?
+     Options: Push only / Push + SMS for critical
+
+===============================================================================
+  6. COST COMPARISON
+===============================================================================
+
+  Component               | FCM Only | Channels Only | Hybrid
+  ----------------------- | -------- | ------------- | --------
+  Firebase (FCM)          | Free     | --            | Free
+  Redis (ElastiCache)     | --       | ~$13/mo       | ~$13/mo
+  Server change           | None     | Daphne + RAM  | Daphne + RAM
+  Firebase project setup  | ~30 min  | --            | ~30 min
+  Total monthly cost delta| $0       | ~$13          | ~$13
+
+  Phase 1 (FCM only) adds ZERO infrastructure cost.
+  Phase 2 adds Redis (~$13/mo on ElastiCache, or free on same EC2 instance).
+
+===============================================================================
+  TL;DR
+===============================================================================
+
+  Django Channels alone won't work for a mobile e-commerce app - you need
+  push notifications when the app is closed.
+
+  FCM alone won't work for live tracking and chat - you need real-time
+  WebSockets.
+
+  The answer is BOTH, built in phases:
+
+  1. NOW:   Firebase FCM for push notifications (zero infra cost, 80% of needs)
+  2. LATER: Django Channels for live rider tracking, order status streaming, chat
+
+===============================================================================

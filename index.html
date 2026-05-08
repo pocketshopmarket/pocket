@@ -3,139 +3,357 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pocket | The Future of Marketplace Orchestration</title>
-    <meta name="description" content="Secure, instant, and transparent. Join the early access for Pocket, the marketplace payment orchestrator that empowers buyers, sellers, and delivery agents.">
-    
+    <title>Pocket Shop | Zambia's Mobile Marketplace</title>
+    <meta name="description" content="Buy, sell, and deliver across Zambia with instant mobile money payouts via MTN, Airtel, and Zamtel. No wallets. No delays. Just commerce.">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="bg-glow">
-        <div class="glow-1"></div>
-        <div class="glow-2"></div>
-    </div>
 
-    <nav>
-        <div class="logo">
-            <i class="fas fa-wallet"></i>
-            <span>POCKET</span>
-        </div>
-        <div class="nav-links">
-            <a href="#early-access" class="btn btn-primary" id="nav-cta">Early Access</a>
-        </div>
-    </nav>
+    <!-- Header -->
+    <header id="site-header">
+        <nav>
+            <a href="#" class="logo">
+                <img src="logo.jpg" alt="Pocket Shop Logo">
+                <span>Pocket Shop</span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="#features">Features</a>
+                <a href="#sellers">For Sellers</a>
+                <a href="#riders">For Riders</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#early-access" class="btn btn-primary btn-nav" id="nav-cta">Get Early Access</a>
+            </div>
+            <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle navigation">
+                <i class="fas fa-bars"></i>
+            </button>
+        </nav>
+    </header>
 
     <main>
         <!-- Hero Section -->
-        <section class="hero">
+        <section class="hero" id="hero">
             <div class="hero-content reveal">
-                <h1 class="hero-title">
-                    The Marketplace <br>
-                    <span class="gradient-text">Orchestrator.</span>
+                <p class="hero-tag">🇿🇲 Built for Zambia</p>
+                <h1>
+                    Your Marketplace.<br>
+                    <span class="text-cyan">In Your Pocket.</span>
                 </h1>
-                <p class="hero-subtitle">
-                    Effortless payments for the modern marketplace. Connect buyers, sellers, and delivery agents with instant mobile money payouts. No wallets, no holding funds, just pure efficiency.
+                <p>
+                    Buy anything, sell anywhere, deliver everywhere. Pocket Shop connects buyers, sellers, and delivery agents with instant mobile money payouts — no wallets, no delays.
                 </p>
                 <div class="hero-actions">
-                    <button class="btn btn-primary btn-large open-modal">
-                        Join Early Access
+                    <button class="btn btn-primary open-modal" id="hero-cta-seller">
+                        Start Selling
                         <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="btn btn-outline open-modal" id="hero-cta-rider">
+                        Become a Rider
+                        <i class="fas fa-motorcycle"></i>
                     </button>
                 </div>
             </div>
-            <div class="hero-image reveal">
-                <img src="pocket_hero.png" alt="Pocket Visual" class="hero-visual" id="hero-img">
+            <div class="hero-visual reveal">
+                <div class="phone-mockup" id="phone-mockup">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <div class="slideshow" id="slideshow">
+                            <img src="slide-home.jpeg" alt="Pocket Shop Home Screen" class="slide active">
+                            <img src="slide-login.jpeg" alt="Pocket Shop Login" class="slide">
+                            <img src="slide-profile.jpeg" alt="Payment Methods" class="slide">
+                            <img src="slide-delivery-map.jpeg" alt="Live Delivery Tracking" class="slide">
+                            <img src="slide-delivery-details.jpeg" alt="Delivery Route Details" class="slide">
+                        </div>
+                    </div>
+                    <div class="slide-dots" id="slide-dots">
+                        <span class="dot active" data-index="0"></span>
+                        <span class="dot" data-index="1"></span>
+                        <span class="dot" data-index="2"></span>
+                        <span class="dot" data-index="3"></span>
+                        <span class="dot" data-index="4"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trust Bar -->
+        <section class="trust-bar" id="trust-bar">
+            <p>Seamlessly integrated with Zambia's leading networks</p>
+            <div class="network-logos">
+                <img src="mtn.png" alt="MTN Mobile Money" id="logo-mtn">
+                <img src="airtel.png" alt="Airtel Money" id="logo-airtel">
+                <img src="zamtel.png" alt="Zamtel Kwacha" id="logo-zamtel">
             </div>
         </section>
 
         <!-- Features Section -->
-        <section class="features">
+        <section class="section" id="features">
             <div class="section-header reveal">
-                <h2 class="hero-title" style="font-size: 2.5rem;">Built for <span class="gradient-text">Transparency.</span></h2>
+                <h2>Why <span class="text-cyan">Pocket Shop?</span></h2>
+                <p>We're not just another marketplace. We're a marketplace orchestrator — built to move money as fast as you move goods.</p>
             </div>
-            <div class="grid">
-                <div class="card reveal">
-                    <i class="fas fa-shield-alt"></i>
-                    <h3>Zero Trust Funds</h3>
-                    <p>We never hold your money. All transactions are handled exclusively by licensed payment providers for maximum security.</p>
+            <div class="features-grid">
+                <div class="feature-card reveal" id="feature-security">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-halved"></i>
+                    </div>
+                    <h3>Zero-Trust Security</h3>
+                    <p>We never hold your money. All transactions are processed by PawaPay, a licensed payment provider. Your funds stay safe, always.</p>
                 </div>
-                <div class="card reveal">
-                    <i class="fas fa-bolt"></i>
+                <div class="feature-card reveal" id="feature-payouts">
+                    <div class="feature-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
                     <h3>Instant Payouts</h3>
-                    <p>Sellers and delivery agents get paid immediately upon order confirmation. No waiting, no withdrawal requests.</p>
+                    <p>Sellers and delivery agents get paid the moment an order is confirmed. No waiting periods, no withdrawal requests, no hassle.</p>
                 </div>
-                <div class="card reveal">
-                    <i class="fas fa-mobile-alt"></i>
+                <div class="feature-card reveal" id="feature-mobile">
+                    <div class="feature-icon">
+                        <i class="fas fa-mobile-screen-button"></i>
+                    </div>
                     <h3>Mobile Money Native</h3>
-                    <p>Deep integration with MTN, Airtel, and Zamtel via PawaPay. Built for the way you move money.</p>
+                    <p>Deep integration with MTN, Airtel, and Zamtel. Pay and get paid the way Zambia moves money — directly to your mobile.</p>
+                </div>
+                <div class="feature-card reveal" id="feature-tracking">
+                    <div class="feature-icon">
+                        <i class="fas fa-location-dot"></i>
+                    </div>
+                    <h3>Real-Time Tracking</h3>
+                    <p>Track your order from seller to doorstep with live map updates. Know exactly where your delivery is at every moment.</p>
+                </div>
+                <div class="feature-card reveal" id="feature-qr">
+                    <div class="feature-icon">
+                        <i class="fas fa-qrcode"></i>
+                    </div>
+                    <h3>Secure QR Handoff</h3>
+                    <p>Deliveries are confirmed via QR code scanning — ensuring the right person receives the right order. No disputes, no guesswork.</p>
+                </div>
+                <div class="feature-card reveal" id="feature-transparent">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>Full Transparency</h3>
+                    <p>Every transaction is logged. Sellers and riders see exactly what they earned, per order, in real-time. No hidden fees.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- For Sellers -->
+        <section class="persona-section" id="sellers">
+            <div class="section-header reveal" style="max-width: 1200px; margin: 0 auto 4rem;">
+                <h2>Built for Every <span class="text-cyan">Role.</span></h2>
+                <p>Whether you're selling, delivering, or buying — Pocket Shop is designed around you.</p>
+            </div>
+            <div class="persona-container">
+                <div class="persona-card reveal" id="persona-seller">
+                    <div class="persona-header" style="background-color: #E0F7FA; padding: 2.5rem 3rem 1.5rem;">
+                        <i class="fas fa-store" style="font-size: 2.25rem; color: var(--primary);"></i>
+                        <h3 style="margin-top: 1rem;">For Sellers</h3>
+                    </div>
+                    <div class="persona-body">
+                        <p style="color: var(--text-secondary);">Open your shop to all of Zambia. List products, manage orders, and get paid instantly.</p>
+                        <ul>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Instant payouts to your mobile money</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Real-time order management dashboard</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Reach buyers across your city</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>No upfront fees — pay only on sales</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="persona-card reveal" id="persona-rider">
+                    <div class="persona-header" style="background-color: #FFF3E0; padding: 2.5rem 3rem 1.5rem;">
+                        <i class="fas fa-motorcycle" style="font-size: 2.25rem; color: var(--accent);"></i>
+                        <h3 style="margin-top: 1rem;">For Delivery Agents</h3>
+                    </div>
+                    <div class="persona-body">
+                        <p style="color: var(--text-secondary);">Pick up orders, deliver, and earn. You choose when, where, and how much you work.</p>
+                        <ul>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Fair delivery fee bidding system</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Get paid instantly after each delivery</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Flexible — work on your own schedule</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>GPS-optimized routes for efficiency</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="persona-card reveal" id="persona-buyer">
+                    <div class="persona-header" style="background-color: #E3F2FD; padding: 2.5rem 3rem 1.5rem;">
+                        <i class="fas fa-cart-shopping" style="font-size: 2.25rem; color: #2196F3;"></i>
+                        <h3 style="margin-top: 1rem;">For Buyers</h3>
+                    </div>
+                    <div class="persona-body">
+                        <p style="color: var(--text-secondary);">Discover products from local sellers, pay with mobile money, and track your delivery live.</p>
+                        <ul>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Secure mobile money checkout</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Real-time delivery tracking</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>Verified sellers and product listings</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                <span>QR-confirmed delivery for peace of mind</span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- How it Works -->
-        <section class="features" style="background: rgba(255,255,255,0.02);">
+        <section class="section workflow" id="how-it-works">
             <div class="section-header reveal">
-                <h2 class="hero-title" style="font-size: 2.5rem;">How it <span class="gradient-text">Works.</span></h2>
+                <h2>How It <span class="text-cyan">Works.</span></h2>
+                <p>From order to payout in four simple steps. No complexity, no surprises.</p>
             </div>
-            <div class="grid">
-                <div class="card reveal">
-                    <i class="fas fa-shopping-cart"></i>
-                    <h3>1. Order</h3>
-                    <p>Buyer pays via mobile money. Funds are held securely by the payment gateway.</p>
+            <div class="steps">
+                <div class="step reveal" id="step-1">
+                    <div class="step-number">1</div>
+                    <div class="step-icon"><i class="fas fa-shopping-cart" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
+                    <h3>Order</h3>
+                    <p style="color: var(--text-secondary);">Buyer selects a product and pays via mobile money. Funds are held securely by the payment gateway.</p>
                 </div>
-                <div class="card reveal">
-                    <i class="fas fa-truck"></i>
-                    <h3>2. Deliver</h3>
-                    <p>Delivery agent fulfills the order. Confirmation is triggered via secure handoff.</p>
+                <div class="step reveal" id="step-2">
+                    <div class="step-number">2</div>
+                    <div class="step-icon"><i class="fas fa-box" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
+                    <h3>Prepare</h3>
+                    <p style="color: var(--text-secondary);">Seller receives the order notification and prepares the product. A delivery agent is matched.</p>
                 </div>
-                <div class="card reveal">
-                    <i class="fas fa-coins"></i>
-                    <h3>3. Split</h3>
-                    <p>System automatically triggers payouts: Seller gets price, Agent gets fee.</p>
+                <div class="step reveal" id="step-3">
+                    <div class="step-number">3</div>
+                    <div class="step-icon"><i class="fas fa-truck-fast" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
+                    <h3>Deliver</h3>
+                    <p style="color: var(--text-secondary);">Rider picks up the order and delivers it. Buyer scans the QR code to confirm handoff.</p>
                 </div>
+                <div class="step reveal" id="step-4">
+                    <div class="step-number">4</div>
+                    <div class="step-icon"><i class="fas fa-money-bill-transfer" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
+                    <h3>Payout</h3>
+                    <p style="color: var(--text-secondary);">Seller gets the product price, rider gets the delivery fee — instantly to their mobile money.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="cta-section" id="early-access">
+            <div class="cta-container reveal">
+                <h2>Ready to Join <span class="text-cyan">Pocket Shop?</span></h2>
+                <p>Be among the first to experience Zambia's next-generation marketplace. Sign up for early access today.</p>
+                <button class="btn btn-primary open-modal" id="cta-join">
+                    Get Early Access
+                    <i class="fas fa-arrow-right"></i>
+                </button>
             </div>
         </section>
     </main>
 
+    <!-- Footer -->
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <h3>Pocket Shop</h3>
+                <p>Zambia's mobile-first marketplace orchestrator. Connecting buyers, sellers, and delivery agents with instant, transparent mobile money payouts.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Platform</h4>
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#sellers">For Sellers</a>
+                <a href="#riders">For Riders</a>
+            </div>
+            <div class="footer-col">
+                <h4>Company</h4>
+                <a href="#">About Us</a>
+                <a href="#">Careers</a>
+                <a href="#">Blog</a>
+                <a href="#">Contact</a>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Refund Policy</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>&copy; 2026 Pocket Shop. All rights reserved.</span>
+            <div class="social-links">
+                <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+                <a href="#" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
+                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            </div>
+        </div>
+    </footer>
+
     <!-- Modal -->
     <div class="modal-overlay" id="modal">
         <div class="modal">
-            <span class="close-modal">&times;</span>
-            <h2 style="margin-bottom: 1rem;">Reserve Your Spot</h2>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;">Be the first to know when we launch and get exclusive early-bird benefits.</p>
+            <button class="close-modal" id="close-modal" aria-label="Close modal">&times;</button>
+            <h2 style="margin-bottom: 0.5rem;">Reserve Your Spot</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">Be the first to know when we launch and get exclusive early-bird benefits.</p>
             <form id="early-access-form">
                 <div class="form-group">
-                    <label>Full Name</label>
-                    <input type="text" placeholder="John Doe" required>
+                    <label for="full-name">Full Name</label>
+                    <input type="text" id="full-name" placeholder="e.g. Chanda Mulenga" required>
                 </div>
                 <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" placeholder="john@example.com" required>
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" placeholder="you@example.com" required>
                 </div>
                 <div class="form-group">
-                    <label>I am a...</label>
-                    <select style="width: 100%; padding: 1rem; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 0.75rem; color: white; outline: none;">
-                        <option value="seller">Seller</option>
+                    <label for="role-select">I am a...</label>
+                    <select id="role-select">
                         <option value="buyer">Buyer</option>
+                        <option value="seller">Seller</option>
                         <option value="delivery">Delivery Agent</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 0.5rem;" id="submit-btn">
                     Get Early Access
                 </button>
             </form>
-            <div id="success-msg" style="display: none; text-align: center; margin-top: 1rem; color: var(--secondary);">
-                <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+            <div id="success-msg" style="display: none; text-align: center; padding: 2rem 0;">
+                <i class="fas fa-check-circle" style="font-size: 3rem; color: var(--primary); margin-bottom: 1rem; display: block;"></i>
                 <h3>You're on the list!</h3>
-                <p>We've sent a confirmation to your email.</p>
+                <p style="color: var(--text-secondary);">We'll reach out when it's your turn.</p>
             </div>
         </div>
     </div>

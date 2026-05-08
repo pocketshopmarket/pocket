@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import MAX_PRODUCT_IMAGES, Category, Product, ProductVariant
+from .models import MAX_PRODUCT_IMAGES, Category, Product, ProductVariant, PromoBanner
 
 
 def _absolute_media_url(request, relative_url):
@@ -164,3 +164,23 @@ class ProductSerializer(serializers.ModelSerializer):
         if variant_payload is not None:
             self._replace_variants(product, variant_payload)
         return product
+
+
+class PromoBannerSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PromoBanner
+        fields = [
+            'id', 'title', 'subtitle', 'cta_text',
+            'bg_color', 'icon_name', 'image_url',
+            'action_type', 'action_value',
+        ]
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None

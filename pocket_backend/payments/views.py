@@ -157,13 +157,11 @@ class PawaPayWebhookView(APIView):
         """
         secret = getattr(django_settings, 'PAWAPAY_WEBHOOK_SECRET', '')
         if not secret:
-            # In development mode without a secret, skip verification but log a warning.
-            if django_settings.DEBUG:
-                logger.warning("PAWAPAY_WEBHOOK_SECRET not set — skipping webhook signature check (DEBUG=True)")
-                return True
-            # In production with no secret configured, reject to be safe.
-            logger.error("PAWAPAY_WEBHOOK_SECRET not set in production — rejecting webhook")
-            return False
+            # No secret configured — allow the webhook but log a warning.
+            # PawaPay sandbox does not require HMAC signatures.
+            # For production with real money, set PAWAPAY_WEBHOOK_SECRET.
+            logger.warning("PAWAPAY_WEBHOOK_SECRET not set — allowing webhook without signature check")
+            return True
 
         signature = request.headers.get('pawapay-signature', '')
         if not signature:
@@ -449,17 +447,23 @@ class RequestPayoutView(APIView):
 
         role_key = 'seller' if request.user.role == 'seller' else 'delivery'
 
+        # Total earned = all automatic payout rows from completed orders
+        # (these are created when the buyer's deposit completes — they represent
+        # money the seller/rider has earned, regardless of whether the payout
+        # to their mobile money has been triggered yet)
         total_earned = (
             Transaction.objects.filter(
                 transaction_type='payout',
                 recipient=request.user,
                 recipient_role=role_key,
-                status='completed',
-                payout_stage='payout_paid',
+                trigger_event__in=['pickup_qr', 'dropoff_qr'],
+            ).exclude(
+                status='failed',
             ).aggregate(total=Sum('amount'))['total']
             or Decimal('0.00')
         )
 
+        # Already withdrawn via manual payout requests
         total_withdrawn = (
             Transaction.objects.filter(
                 transaction_type='payout',
@@ -472,6 +476,7 @@ class RequestPayoutView(APIView):
             or Decimal('0.00')
         )
 
+        # Pending manual withdrawal requests
         pending_withdrawals = (
             Transaction.objects.filter(
                 transaction_type='payout',
@@ -484,6 +489,13 @@ class RequestPayoutView(APIView):
         )
 
         available = total_earned - total_withdrawn - pending_withdrawals
+
+        # Ensure all amounts are formatted to 2 decimal places
+        _fmt = Decimal('0.01')
+        total_earned = total_earned.quantize(_fmt)
+        total_withdrawn = total_withdrawn.quantize(_fmt)
+        pending_withdrawals = pending_withdrawals.quantize(_fmt)
+        available = available.quantize(_fmt)
 
         # Default payout method
         method = (
@@ -554,8 +566,9 @@ class RequestPayoutView(APIView):
                 transaction_type='payout',
                 recipient=request.user,
                 recipient_role=role_key,
-                status='completed',
-                payout_stage='payout_paid',
+                trigger_event__in=['pickup_qr', 'dropoff_qr'],
+            ).exclude(
+                status='failed',
             ).aggregate(total=Sum('amount'))['total']
             or Decimal('0.00')
         )

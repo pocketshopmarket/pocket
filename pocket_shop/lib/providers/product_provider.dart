@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/product.dart';
 import '../services/product_service.dart';
+import '../providers/category_provider.dart';
 
 class ProductState {
   final List<Product> products;
@@ -80,6 +81,14 @@ class ProductNotifier extends StateNotifier<ProductState> {
     );
   }
 
+  String _extractError(Object e) {
+    final str = e.toString();
+    if (str.contains('SocketException') || str.contains('connection error') || str.contains('Connection refused')) {
+      return 'Could not connect to the server. Please check your internet connection.';
+    }
+    return str.replaceAll('Exception: ', '');
+  }
+
   Future<void> updateFilters({
     String? searchQuery,
     String? category,
@@ -93,6 +102,7 @@ class ProductNotifier extends StateNotifier<ProductState> {
       sortBy: sortBy ?? state.sortBy,
     );
     await fetchProducts(reset: true);
+    await fetchTrendingProducts();
   }
 
   Future<void> fetchProducts({bool reset = false}) async {
@@ -129,14 +139,17 @@ class ProductNotifier extends StateNotifier<ProductState> {
       state = state.copyWith(
         isLoading: false,
         isLoadingMore: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
     }
   }
 
   Future<void> fetchTrendingProducts() async {
     try {
-      final rows = await _productService.fetchTrending();
+      final category = state.selectedCategory;
+      final rows = await _productService.fetchTrending(
+        category: category != 'all' ? category : null,
+      );
       state = state.copyWith(trendingProducts: rows);
     } catch (_) {
       // keep trending optional
@@ -239,5 +252,7 @@ final productProvider = StateNotifierProvider<ProductNotifier, ProductState>((re
 
 final recommendedProvider = FutureProvider<List<Product>>((ref) async {
   final service = ref.read(productServiceProvider);
-  return service.getRecommendedProducts();
+  final selectedId = ref.watch(selectedCategoryProvider);
+  final category = selectedId?.toString();
+  return service.getRecommendedProducts(category: category);
 });

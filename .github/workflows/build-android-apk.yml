@@ -1,9 +1,7 @@
 # Builds a release APK for pocket_shop/ and uploads app-release.apk.
 #
-# Backend URL is NOT GitHub — set your EC2 API base (must end with /api):
-#   Repo → Settings → Secrets and variables → Actions → Variables → POCKET_API_BASE_URL
-#   Example: http://13.222.154.44/api
-# If unset, the default below is used (change IP when your instance changes).
+# Base URL: https://mypocketshop.store/api/
+# Override via workflow_dispatch input or repo variable POCKET_API_BASE_URL.
 
 name: Build Android APK
 
@@ -11,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       api_base_url:
-        description: "Override API base for this run only (e.g. http://1.2.3.4/api)"
+        description: "Override API base for this run only (e.g. https://mypocketshop.store/api/)"
         required: false
         type: string
         default: ""
@@ -26,8 +24,7 @@ defaults:
     working-directory: pocket_shop
 
 env:
-  # Used only when repo variable and workflow input are empty (update when EC2 IP changes).
-  FALLBACK_API_BASE_URL: "http://13.222.154.44/api/"
+  FALLBACK_API_BASE_URL: "https://mypocketshop.store/api/"
 
 jobs:
   android-apk:

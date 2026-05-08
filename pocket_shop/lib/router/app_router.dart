@@ -35,6 +35,7 @@ import '../features/seller/screens/seller_profile_screen.dart';
 import '../features/seller/screens/seller_payout_methods_screen.dart';
 import '../features/seller/screens/seller_payout_history_screen.dart';
 import '../features/shared/screens/payout_screen.dart';
+import '../features/shared/screens/notifications_screen.dart';
 import '../models/product.dart';
 import '../providers/auth_provider.dart' show AuthState, authProvider;
 
@@ -130,6 +131,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: '/phone',

@@ -12,8 +12,8 @@ from .otp_utils import assert_phone_otp_valid
 
 PROVIDER_PREFIX_RULES = {
     'mtn_momo': {'096', '076'},
-    'airtel_money': {'097', '077'},
-    'zamtel': {'095', '075', '057'},
+    'airtel_money': {'097', '077', '057'},
+    'zamtel': {'095', '075', '055'},
 }
 
 
@@ -77,13 +77,12 @@ class BuyerPaymentMethodSerializer(serializers.ModelSerializer):
         exists = BuyerPaymentMethod.objects.filter(
             user=user,
             provider=provider,
-            account_phone=normalized,
         )
         if self.instance is not None:
             exists = exists.exclude(pk=self.instance.pk)
         if exists.exists():
             raise serializers.ValidationError(
-                {'account_phone': ['This payment method is already saved.']}
+                {'provider': [f'You already have an active {provider} payment method. Please delete it first.']}
             )
         return attrs
 

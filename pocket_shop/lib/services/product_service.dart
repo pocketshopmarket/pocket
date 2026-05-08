@@ -129,9 +129,16 @@ class ProductService {
     }
   }
 
-  Future<List<Product>> getRecommendedProducts() async {
+  Future<List<Product>> getRecommendedProducts({String? category}) async {
     try {
-      final response = await _apiService.get('${AppConstants.productsEndpoint}recommended/');
+      final params = <String, dynamic>{};
+      if (category != null && category.isNotEmpty && category != 'all') {
+        params['category'] = category;
+      }
+      final response = await _apiService.get(
+        '${AppConstants.productsEndpoint}recommended/',
+        queryParameters: params.isNotEmpty ? params : null,
+      );
       if (response.data is List) {
         return (response.data as List).map((item) => Product.fromJson(item)).toList();
       }
@@ -152,10 +159,14 @@ class ProductService {
     }
   }
 
-  Future<List<Product>> fetchTrending({int page = 1, int pageSize = 8}) async {
+  Future<List<Product>> fetchTrending({int page = 1, int pageSize = 8, String? category}) async {
+    final params = <String, dynamic>{'page': page, 'page_size': pageSize};
+    if (category != null && category.isNotEmpty && category != 'all') {
+      params['category'] = category;
+    }
     final response = await _apiService.get(
       '${AppConstants.productsEndpoint}trending/',
-      queryParameters: {'page': page, 'page_size': pageSize},
+      queryParameters: params,
     );
     if (response.data is Map<String, dynamic>) {
       final results = (response.data as Map<String, dynamic>)['results'];

@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/delivery_provider.dart';
+import '../../../widgets/notification_bell.dart';
 import '../../../widgets/osm_route_map.dart';
 
 class DeliveryHomeScreen extends ConsumerStatefulWidget {
@@ -490,6 +491,8 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
                   ],
                 ),
               ),
+              const NotificationBell(),
+              const SizedBox(width: 4),
               Switch(
                 value: _online,
                 activeThumbColor: AppTheme.primaryCyan,

@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/order.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/cart_provider.dart';
+import '../../../widgets/notification_bell.dart';
 
 class SellerDashboardScreen extends ConsumerStatefulWidget {
   const SellerDashboardScreen({super.key});
@@ -105,6 +106,10 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
+        actions: const [
+          NotificationBell(),
+          SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(

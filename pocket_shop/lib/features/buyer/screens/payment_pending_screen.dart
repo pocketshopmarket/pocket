@@ -372,20 +372,40 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
       );
     }
 
-    // Pending — animated pulsing icon
+    // Pending — animated pulsing icon with glowing ring
     return ScaleTransition(
       scale: _pulseAnimation,
       child: Container(
-        width: 96,
-        height: 96,
+        width: 110,
+        height: 110,
         decoration: BoxDecoration(
-          color: AppTheme.primaryCyan.withValues(alpha: 0.12),
           shape: BoxShape.circle,
+          border: Border.all(
+            color: AppTheme.primaryCyan.withValues(alpha: 0.25),
+            width: 3,
+          ),
         ),
-        child: const Icon(
-          Icons.phone_android_rounded,
-          size: 52,
-          color: AppTheme.primaryCyan,
+        child: Center(
+          child: Container(
+            width: 86,
+            height: 86,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryCyan.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.phone_android_rounded,
+              size: 46,
+              color: AppTheme.primaryCyan,
+            ),
+          ),
         ),
       ),
     );
@@ -506,6 +526,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
     switch (_orderStatus) {
       case 'pending':
         return 'Awaiting payment';
+      case 'payment_pending':
+        return 'Payment in progress';
       case 'accepted':
         return 'Confirmed';
       case 'preparing':

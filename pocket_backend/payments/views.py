@@ -15,6 +15,7 @@ from .models import Transaction
 from .services.pawapay import PawaPayService
 from accounts.models import BuyerPaymentMethod
 from accounts.phone_utils import normalize_zambia_phone_to_e164
+from notifications.signals import create_payment_notification
 from orders.models import Order
 
 logger = logging.getLogger(__name__)
@@ -75,8 +76,8 @@ class InitiatePaymentView(APIView):
             Order, order_number=order_number, buyer=request.user
         )
 
-        # ── FIX #4: Only allow payment on pending orders ──
-        if order.status != 'pending':
+        # ── FIX #4: Only allow payment on pending/payment_pending orders ──
+        if order.status not in ('pending', 'payment_pending'):
             return Response(
                 {"error": f"Order is already '{order.status}' — cannot initiate payment."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -222,6 +223,12 @@ class PawaPayWebhookView(APIView):
                 transaction.order.status = 'accepted'
                 transaction.order.save()
 
+                # Notify buyer that payment succeeded
+                try:
+                    create_payment_notification(transaction.order, 'completed')
+                except Exception:
+                    logger.exception('Payment notification failed for order %s', transaction.order.order_number)
+
                 # ── FIX #6, #7, #10: Correct payout creation ──
                 self._create_payout_rows(transaction)
 
@@ -241,6 +248,15 @@ class PawaPayWebhookView(APIView):
             if transaction.transaction_type == 'deposit':
                 transaction.order.status = 'cancelled'
                 transaction.order.save()
+
+                # Notify buyer that payment failed
+                try:
+                    create_payment_notification(
+                        transaction.order, 'failed',
+                        failure_message=transaction.failure_message,
+                    )
+                except Exception:
+                    logger.exception('Payment failure notification failed for order %s', transaction.order.order_number)
 
         transaction.save()
 

@@ -267,12 +267,25 @@ class CartNotifier extends StateNotifier<CartState> {
         }
       }
 
-      final items = await _orderService.fetchCart();
-      state = state.copyWith(
-        items: items,
-        isCheckingOut: false,
-        error: null,
-      );
+      // Re-sync cart from server (server clears cart items after order creation)
+      try {
+        final items = await _orderService.fetchCart();
+        state = state.copyWith(
+          items: items,
+          isCheckingOut: false,
+          error: null,
+        );
+        _saveLocalCart(items);
+      } catch (_) {
+        // If re-sync fails, clear locally since order was placed
+        state = state.copyWith(
+          items: [],
+          isCheckingOut: false,
+          error: null,
+        );
+        _saveLocalCart([]);
+      }
+
       return {'success': true, 'order': order, 'payment': paymentResult};
     } catch (e) {
       final msg = e is DioException

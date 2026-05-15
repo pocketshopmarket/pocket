@@ -88,9 +88,24 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   }
 
   void _onOtpChanged(int index, String value) {
+    if (value.length > 1) {
+      // Handle paste: distribute digits across fields
+      final digits = value.replaceAll(RegExp(r'\D'), '');
+      for (int i = 0; i < 6 && i < digits.length; i++) {
+        _otpControllers[i].text = digits[i];
+      }
+      final lastFilled = (digits.length - 1).clamp(0, 5);
+      _focusNodes[lastFilled].requestFocus();
+      return;
+    }
+
     if (value.isNotEmpty && index < 5) {
       _focusNodes[index].unfocus();
       _focusNodes[index + 1].requestFocus();
+    } else if (value.isEmpty && index > 0) {
+      // Backspace: move to previous field
+      _focusNodes[index].unfocus();
+      _focusNodes[index - 1].requestFocus();
     }
   }
 
@@ -139,9 +154,46 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
             GoRouter.of(context).go('/buyer/home');
           }
         } else {
+          // Show specific error messages based on error code
+          final errorCode = result['error_code']?.toString() ?? '';
+          String errorMessage;
+
+          switch (errorCode) {
+            case 'otp_expired':
+              errorMessage =
+                  'Your code has expired. Tap "Resend code" to get a new one.';
+              break;
+            case 'otp_attempts_exceeded':
+              errorMessage =
+                  'Too many incorrect attempts. Please request a new code.';
+              break;
+            case 'otp_invalid':
+              errorMessage =
+                  result['message']?.toString() ?? 'Invalid code. Please try again.';
+              break;
+            case 'password_invalid':
+              errorMessage =
+                  result['message']?.toString() ?? 'Password does not meet requirements.';
+              break;
+            case 'phone_invalid':
+              errorMessage =
+                  'Invalid phone number format. Please go back and re-enter.';
+              break;
+            default:
+              errorMessage =
+                  result['message']?.toString() ?? 'Verification failed. Please try again.';
+          }
+
+          // Clear OTP fields on error so user can retry
+          for (final c in _otpControllers) {
+            c.clear();
+          }
+          if (_focusNodes.isNotEmpty) {
+            _focusNodes[0].requestFocus();
+          }
+
           setState(() {
-            _bannerMessage =
-                result['message']?.toString() ?? 'Failed to verify OTP';
+            _bannerMessage = errorMessage;
             _bannerIsError = true;
           });
         }

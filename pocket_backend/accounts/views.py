@@ -197,17 +197,32 @@ class VerifyOTPView(APIView):
 
         err = serializer.errors
         message = 'Verification failed.'
+        error_code = 'verification_failed'
+
         if err.get('otp_code'):
-            message = str(err['otp_code'][0])
+            raw = str(err['otp_code'][0])
+            message = raw
+            if 'expired' in raw.lower():
+                error_code = 'otp_expired'
+            elif 'attempt' in raw.lower():
+                error_code = 'otp_attempts_exceeded'
+            else:
+                error_code = 'otp_invalid'
         elif err.get('password'):
             message = str(err['password'][0])
+            error_code = 'password_invalid'
         elif err.get('non_field_errors'):
             message = str(err['non_field_errors'][0])
         elif err.get('phone_number'):
             message = str(err['phone_number'][0])
+            error_code = 'phone_invalid'
+
+        logger.info('[VerifyOTP] Failed: code=%s message=%s errors=%s', error_code, message, err)
+
         return Response({
             'success': False,
             'message': message,
+            'error_code': error_code,
             'errors': err,
         }, status=status.HTTP_400_BAD_REQUEST)
 

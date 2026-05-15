@@ -371,7 +371,8 @@ class UpdateOrderStatusView(APIView):
             # Validate status flow
             current_status = order.status
             valid_transitions = {
-                'pending': ['accepted', 'cancelled'],
+                'pending': ['accepted', 'payment_pending', 'cancelled'],
+                'payment_pending': ['accepted', 'cancelled'],
                 'accepted': ['preparing', 'cancelled'],
                 'preparing': ['out_for_delivery'],
                 # Rider marks delivered via delivery assignment flow for 'delivery'.
@@ -419,7 +420,7 @@ class BuyerCancelOrderView(APIView):
             )
 
         # Buyers can only cancel before the seller starts preparing.
-        if order.status not in ('pending', 'accepted'):
+        if order.status not in ('pending', 'payment_pending', 'accepted'):
             return Response(
                 {
                     'error': (

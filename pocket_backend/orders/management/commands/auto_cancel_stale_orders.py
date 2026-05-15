@@ -79,8 +79,10 @@ class Command(BaseCommand):
     def _sweep(self, timeout_minutes: int):
         cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
 
+        # Cancel orders stuck in 'accepted' (seller not preparing)
+        # and 'payment_pending' (buyer never approved payment prompt)
         stale_orders = Order.objects.filter(
-            status='accepted',
+            status__in=['accepted', 'payment_pending'],
             updated_at__lte=cutoff,
         ).order_by('created_at')
 

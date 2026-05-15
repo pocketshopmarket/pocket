@@ -179,7 +179,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: e.toString(),
         isLoading: false,
       );
-      return {'success': false, 'message': e.toString()};
+      return {'success': false, 'message': e.toString(), 'error_code': 'unknown'};
     }
   }
 

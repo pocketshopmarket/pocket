@@ -176,17 +176,20 @@ class AuthService {
         return {
           'success': false,
           'message': body['message'].toString(),
+          'error_code': body['error_code']?.toString() ?? '',
           'errors': body['errors'],
         };
       }
       return {
         'success': false,
         'message': _extractErrorMessage(e, 'Failed to verify OTP'),
+        'error_code': 'network_error',
       };
     } catch (e) {
       return {
         'success': false,
         'message': 'An unexpected error occurred',
+        'error_code': 'unknown',
       };
     }
   }

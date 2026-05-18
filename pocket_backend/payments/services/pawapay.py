@@ -111,8 +111,6 @@ class PawaPayService:
                     "provider": transaction.provider,
                 },
             },
-            "clientReferenceId": transaction.order.order_number,
-            "customerMessage": "Pocket payout",
         }
         try:
             response = requests.post(
@@ -142,21 +140,26 @@ class PawaPayService:
         Calls the PawaPay API to initiate a refund.
         """
         url = f"{settings.PAWAPAY_BASE_URL}/refunds"
-        raw_phone = transaction.payer_number.replace('+', '') if transaction.payer_number else ""
         
+        # Retrieve the original successful deposit to link this refund to
+        from payments.models import Transaction as TxModel
+        deposit_tx = TxModel.objects.filter(
+            order=transaction.order,
+            transaction_type='deposit',
+            status='completed',
+        ).first()
+
+        if not deposit_tx:
+            logger.error("No completed deposit found for order %s. Cannot initiate refund.", transaction.order.order_number)
+            transaction.status = 'failed'
+            transaction.failure_message = "No completed deposit found to refund."
+            transaction.save()
+            return None
+
         payload = {
             "refundId": str(transaction.transaction_id),
+            "depositId": str(deposit_tx.transaction_id),
             "amount": str(transaction.amount),
-            "currency": transaction.currency,
-            "recipient": {
-                "type": "MMO",
-                "accountDetails": {
-                    "phoneNumber": raw_phone,
-                    "provider": transaction.provider,
-                },
-            },
-            "clientReferenceId": transaction.order.order_number,
-            "customerMessage": "Pocket refund",
         }
         try:
             response = requests.post(

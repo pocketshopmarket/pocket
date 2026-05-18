@@ -22,15 +22,23 @@ logger = logging.getLogger(__name__)
 
 # ─── Helpers ────────────────────────────────────────────────────────────
 
+# Direct mapping from user payment method provider to correct PawaPay provider code.
+METHOD_KEY_TO_PROVIDER = {
+    'mtn_momo': 'MTN_MOMO_ZMB',
+    'airtel_money': 'AIRTEL_OAPI_ZMB',
+    'zamtel': 'ZAMTEL_ZMB',
+}
+
+# Reverse mapping for incoming webhooks or resolving method keys from PawaPay codes.
 PROVIDER_TO_METHOD_KEY = {
     'MTN_MOMO_ZMB': 'mtn_momo',
     'AIRTEL_OAPI_ZMB': 'airtel_money',
     'AIRTEL_MOMO_ZMB': 'airtel_money',
     'ZAMTEL_MONEY_ZMB': 'zamtel',
     'ZAMTEL_MOMO_ZMB': 'zamtel',
+    'ZAMTEL_ZMB': 'zamtel',
 }
 
-METHOD_KEY_TO_PROVIDER = {v: k for k, v in PROVIDER_TO_METHOD_KEY.items()}
 
 
 def _resolve_payout_provider(user):

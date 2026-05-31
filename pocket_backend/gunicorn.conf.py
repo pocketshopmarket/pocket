@@ -1,9 +1,10 @@
 import multiprocessing
+import os
 
-bind = "127.0.0.1:8000"
-workers = multiprocessing.cpu_count() * 2 + 1
+bind = f"0.0.0.0:{os.environ.get('PORT', '8000')}"
+workers = 2
 worker_class = "sync"
 timeout = 120
-accesslog = "/var/log/gunicorn/access.log"
-errorlog = "/var/log/gunicorn/error.log"
+accesslog = "-"
+errorlog = "-"
 loglevel = "info"

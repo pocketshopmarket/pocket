@@ -8,6 +8,8 @@ from .views import (
     VerifyBuyerPaymentMethodView,
     SellerPayoutMethodsView, SellerPayoutMethodDetailView,
     VerifySellerPayoutMethodView,
+    RegisterFCMTokenView,
+    MyQRView,
 )
 
 urlpatterns = [
@@ -47,4 +49,6 @@ urlpatterns = [
         name='verify-seller-payout-method',
     ),
     path('logout/', logout_view, name='logout'),
+    path('fcm-token/', RegisterFCMTokenView.as_view(), name='register-fcm-token'),
+    path('my-qr/', MyQRView.as_view(), name='my-qr'),
 ]

@@ -45,6 +45,7 @@ class CartScreen extends ConsumerWidget {
     final payerNumberController = TextEditingController();
     Timer? manualSearchDebounce;
     bool searchingAddress = false;
+    bool addressSearchFailed = false;
     List<Map<String, dynamic>> addressSuggestions = [];
 
     String methodKeyForProvider(String providerCode) {
@@ -104,6 +105,16 @@ class CartScreen extends ConsumerWidget {
                     setModalState(() {
                       locating = false;
                     });
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Location services are off. Enter your address manually.',
+                          ),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
                     return;
                   }
                   var permission = await Geolocator.checkPermission();
@@ -115,6 +126,16 @@ class CartScreen extends ConsumerWidget {
                     setModalState(() {
                       locating = false;
                     });
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Location permission denied. Enter your address manually.',
+                          ),
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
                     return;
                   }
                   final pos = await Geolocator.getCurrentPosition();
@@ -141,6 +162,16 @@ class CartScreen extends ConsumerWidget {
                   setModalState(() {
                     locating = false;
                   });
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Could not detect your location. Enter it manually.',
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
                 }
               });
             }
@@ -374,11 +405,13 @@ class CartScreen extends ConsumerWidget {
                               setModalState(() {
                                 searchingAddress = false;
                                 addressSuggestions = [];
+                                addressSearchFailed = false;
                               });
                               return;
                             }
                             setModalState(() {
                               searchingAddress = true;
+                              addressSearchFailed = false;
                             });
                             manualSearchDebounce = Timer(
                               const Duration(milliseconds: 350),
@@ -394,12 +427,14 @@ class CartScreen extends ConsumerWidget {
                                   setModalState(() {
                                     addressSuggestions = results;
                                     searchingAddress = false;
+                                    addressSearchFailed = false;
                                   });
                                 } catch (_) {
                                   if (!context.mounted) return;
                                   setModalState(() {
                                     searchingAddress = false;
                                     addressSuggestions = [];
+                                    addressSearchFailed = true;
                                   });
                                 }
                               },
@@ -420,6 +455,27 @@ class CartScreen extends ConsumerWidget {
                             padding: EdgeInsets.only(top: 8),
                             child: LinearProgressIndicator(
                               color: AppTheme.primaryCyan,
+                            ),
+                          ),
+                        if (addressSearchFailed && !searchingAddress)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.cloud_off_rounded,
+                                  size: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Address search unavailable',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         if (addressSuggestions.isNotEmpty)
@@ -564,63 +620,95 @@ class CartScreen extends ConsumerWidget {
                     const Text(
                       'Payment method',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEEEEE),
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppTheme.divider),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Select mobile money provider',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryCyan.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.phonelink_ring_rounded,
+                                  size: 16,
+                                  color: AppTheme.primaryCyan,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Mobile money provider',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                          Row(
                             children: [
-                              _providerCard(
-                                keyName: 'AIRTEL_OAPI_ZMB',
-                                label: 'Airtel',
-                                imageAsset: 'airtel.png',
-                                selectedProvider: selectedProvider,
-                                onTap: (value) => setModalState(() {
-                                  selectedProvider = value;
-                                  syncNumberFromSavedMethods();
-                                }),
+                              Expanded(
+                                child: _providerCard(
+                                  keyName: 'AIRTEL_OAPI_ZMB',
+                                  label: 'Airtel',
+                                  imageAsset: 'airtel.png',
+                                  selectedProvider: selectedProvider,
+                                  onTap: (value) => setModalState(() {
+                                    selectedProvider = value;
+                                    syncNumberFromSavedMethods();
+                                  }),
+                                ),
                               ),
-                              _providerCard(
-                                keyName: 'MTN_MOMO_ZMB',
-                                label: 'MTN',
-                                imageAsset: 'mtn.png',
-                                selectedProvider: selectedProvider,
-                                onTap: (value) => setModalState(() {
-                                  selectedProvider = value;
-                                  syncNumberFromSavedMethods();
-                                }),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _providerCard(
+                                  keyName: 'MTN_MOMO_ZMB',
+                                  label: 'MTN',
+                                  imageAsset: 'mtn.png',
+                                  selectedProvider: selectedProvider,
+                                  onTap: (value) => setModalState(() {
+                                    selectedProvider = value;
+                                    syncNumberFromSavedMethods();
+                                  }),
+                                ),
                               ),
-                              _providerCard(
-                                keyName: 'ZAMTEL_MONEY_ZMB',
-                                label: 'Zamtel',
-                                imageAsset: 'zamtel.png',
-                                selectedProvider: selectedProvider,
-                                onTap: (value) => setModalState(() {
-                                  selectedProvider = value;
-                                  syncNumberFromSavedMethods();
-                                }),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _providerCard(
+                                  keyName: 'ZAMTEL_MONEY_ZMB',
+                                  label: 'Zamtel',
+                                  imageAsset: 'zamtel.png',
+                                  selectedProvider: selectedProvider,
+                                  onTap: (value) => setModalState(() {
+                                    selectedProvider = value;
+                                    syncNumberFromSavedMethods();
+                                  }),
+                                ),
                               ),
                             ],
                           ),
@@ -628,19 +716,39 @@ class CartScreen extends ConsumerWidget {
                           TextField(
                             controller: payerNumberController,
                             keyboardType: TextInputType.phone,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                             decoration: InputDecoration(
-                              labelText: 'Payer phone number',
-                              hintText: 'e.g. 0973714666',
+                              labelText: 'Mobile money number',
+                              hintText: '97 XXX XXXX',
+                              prefixIcon: const Icon(
+                                Icons.phone_rounded,
+                                size: 20,
+                                color: AppTheme.textSecondary,
+                              ),
                               prefixText: '+260 ',
                               filled: true,
-                              fillColor: Colors.white,
+                              fillColor: const Color(0xFFF8F8F8),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
+                                borderSide: const BorderSide(color: AppTheme.divider),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: AppTheme.divider),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryCyan,
+                                  width: 1.5,
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Builder(
                             builder: (_) {
                               final methods = ref.watch(paymentMethodsProvider);
@@ -648,30 +756,73 @@ class CartScreen extends ConsumerWidget {
                               final hasVerified = methods.any(
                                 (m) => m.isVerified && m.provider == key,
                               );
-                              if (hasVerified) {
+                              if (hasVerified || payerNumberController.text.trim().isNotEmpty) {
                                 return const SizedBox.shrink();
                               }
-                              if (payerNumberController.text.trim().isNotEmpty) {
-                                return const SizedBox.shrink();
-                              }
-                              return const Padding(
-                                padding: EdgeInsets.only(bottom: 6),
-                                child: Text(
-                                  'Enter your mobile money number for this network.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.warning,
-                                    fontWeight: FontWeight.w600,
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.warning.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppTheme.warning.withValues(alpha: 0.3),
                                   ),
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Icon(
+                                      Icons.info_outline_rounded,
+                                      size: 14,
+                                      color: AppTheme.warning,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Enter your mobile money number for this network',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.warning,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               );
                             },
                           ),
-                          const Text(
-                            'OTP/PIN authorization happens on customer phone via pawaPay.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 13,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'OTP/PIN authorization happens on your phone via USSD and SMS',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondary,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -1434,37 +1585,84 @@ class CartScreen extends ConsumerWidget {
     required ValueChanged<String> onTap,
   }) {
     final selected = keyName == selectedProvider;
-    return InkWell(
+    return GestureDetector(
       onTap: () => onTap(keyName),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 96,
-        padding: const EdgeInsets.all(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        height: 68,
         decoration: BoxDecoration(
-          color: selected ? AppTheme.lightCyan : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: selected
+              ? AppTheme.primaryCyan.withValues(alpha: 0.07)
+              : const Color(0xFFF8F8F8),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? AppTheme.primaryCyan : AppTheme.divider,
+            width: selected ? 2.0 : 1.0,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primaryCyan.withValues(alpha: 0.18),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
         ),
-        child: Column(
+        child: Stack(
           children: [
-            SizedBox(
-              height: 32,
-              child: Image.asset(
-                imageAsset,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(Icons.sim_card_rounded),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 28,
+                      child: Image.asset(
+                        imageAsset,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.sim_card_rounded,
+                          size: 24,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: selected
+                            ? AppTheme.primaryCyan
+                            : AppTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+            if (selected)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.primaryCyan,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 11,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),

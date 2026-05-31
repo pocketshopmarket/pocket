@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem
+from .models import Cart, CartItem, Order, OrderItem, RefundRequest
 from .models import OrderRating
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -69,7 +69,13 @@ class OrderSerializer(serializers.ModelSerializer):
     payment_method_id = serializers.IntegerField(source='payment_method.id', read_only=True)
     delivery_assignment_id = serializers.SerializerMethodField()
     ratings = serializers.SerializerMethodField()
-    
+    seller_phone = serializers.SerializerMethodField()
+    buyer_phone = serializers.SerializerMethodField()
+    seller_shop_name = serializers.SerializerMethodField()
+    seller_shop_location = serializers.SerializerMethodField()
+    seller_shop_lat = serializers.SerializerMethodField()
+    seller_shop_lng = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = ['id', 'order_number', 'buyer', 'buyer_name', 'seller', 'seller_name',
@@ -77,6 +83,8 @@ class OrderSerializer(serializers.ModelSerializer):
                  'special_instructions', 'payment_method_id',
                  'delivery_assignment_id',
                  'payment_provider_snapshot', 'payment_account_snapshot',
+                 'seller_phone', 'buyer_phone',
+                 'seller_shop_name', 'seller_shop_location', 'seller_shop_lat', 'seller_shop_lng',
                  'items', 'ratings', 'created_at', 'updated_at']
         read_only_fields = ['order_number', 'buyer', 'seller', 'total_price', 'delivery_lat', 'delivery_lng']
 
@@ -86,6 +94,57 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_delivery_assignment_id(self, obj):
         assignment = getattr(obj, 'deliveryassignment', None)
         return getattr(assignment, 'id', None)
+
+    def get_seller_phone(self, obj):
+        try:
+            return obj.seller.phone_number
+        except Exception:
+            return None
+
+    def get_buyer_phone(self, obj):
+        try:
+            request = self.context.get('request')
+            viewer = getattr(request, 'user', None)
+            if viewer and viewer == obj.buyer:
+                return obj.buyer.phone_number
+            # Only approved sellers may see the buyer's phone number.
+            if viewer and viewer == obj.seller:
+                try:
+                    if viewer.seller_profile.can_sell:
+                        return obj.buyer.phone_number
+                except Exception:
+                    pass
+                return None
+            # Riders always need the buyer phone for delivery coordination.
+            if viewer and getattr(viewer, 'role', None) == 'delivery':
+                return obj.buyer.phone_number
+            return None
+        except Exception:
+            return None
+
+    def get_seller_shop_name(self, obj):
+        try:
+            return obj.seller.sellerprofile.shop_name
+        except Exception:
+            return None
+
+    def get_seller_shop_location(self, obj):
+        try:
+            return obj.seller.sellerprofile.shop_location
+        except Exception:
+            return None
+
+    def get_seller_shop_lat(self, obj):
+        try:
+            return obj.seller.sellerprofile.shop_lat
+        except Exception:
+            return None
+
+    def get_seller_shop_lng(self, obj):
+        try:
+            return obj.seller.sellerprofile.shop_lng
+        except Exception:
+            return None
 
 class CreateOrderSerializer(serializers.Serializer):
     delivery_address = serializers.CharField(max_length=500)
@@ -127,3 +186,40 @@ class OrderRatingSerializer(serializers.ModelSerializer):
         if value < 1 or value > 5:
             raise serializers.ValidationError('Score must be between 1 and 5.')
         return value
+
+
+class RefundRequestSerializer(serializers.ModelSerializer):
+    buyer_name = serializers.CharField(source='requested_by.full_name', read_only=True)
+    order_number = serializers.CharField(source='order.order_number', read_only=True)
+    order_total = serializers.DecimalField(
+        source='order.total_price', max_digits=10, decimal_places=2, read_only=True
+    )
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = RefundRequest
+        fields = [
+            'id', 'order', 'order_number', 'order_total',
+            'requested_by', 'buyer_name',
+            'reason', 'status', 'status_display',
+            'seller_note', 'admin_note',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'order', 'requested_by', 'status',
+            'seller_note', 'admin_note', 'created_at', 'updated_at',
+        ]
+
+
+class CreateRefundRequestSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=1000)
+
+
+class SellerRespondRefundSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['approve', 'reject', 'escalate'])
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class AdminRespondRefundSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['approve', 'reject'])
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True)

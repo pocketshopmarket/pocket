@@ -8,6 +8,7 @@ import '../../../models/order.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/cart_provider.dart';
 import '../../../widgets/notification_bell.dart';
+import '../../../widgets/qr_identity_sheet.dart';
 
 class SellerDashboardScreen extends ConsumerStatefulWidget {
   const SellerDashboardScreen({super.key});
@@ -25,6 +26,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
   List<Map<String, dynamic>> _trends = [];
   List<Map<String, dynamic>> _topProducts = [];
   List<Map<String, dynamic>> _payouts = [];
+  int _days = 7;
 
   @override
   void initState() {
@@ -41,7 +43,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
     if (!mounted) return;
     final svc = ref.read(orderServiceProvider);
     try {
-      final raw = await svc.fetchSellerDashboardStats();
+      final raw = await svc.fetchSellerDashboardStats(days: _days);
       if (!mounted) return;
       final m = raw['metrics'];
       final recentRaw = raw['recent_orders'];
@@ -106,9 +108,14 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
-        actions: const [
-          NotificationBell(),
-          SizedBox(width: 8),
+        actions: [
+          IconButton(
+            tooltip: 'My QR code',
+            onPressed: () => QrIdentitySheet.show(context),
+            icon: const Icon(Icons.qr_code_rounded),
+          ),
+          const NotificationBell(),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
@@ -151,6 +158,39 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                         color: Color(0xFFD1D5DB),
                         height: 1.35,
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Date range filter
+                    Row(
+                      children: [7, 30, 90].map((d) {
+                        final selected = _days == d;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: GestureDetector(
+                            onTap: () {
+                              if (_days != d) {
+                                setState(() => _days = d);
+                                _load();
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: selected ? AppTheme.primaryCyan : Colors.white12,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${d}d',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: selected ? Colors.black : Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -226,7 +266,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                   child: FilledButton.icon(
                     onPressed: () => context.push('/seller/payout'),
                     icon: const Icon(Icons.payments_outlined),
-                    label: const Text('Request Payout'),
+                    label: const Text('Claim earnings'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.success,
                     ),

@@ -13,22 +13,25 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (kDebugMode) debugPrint('[FCM] Background message: ${message.messageId}');
 }
 
-/// Initialize Firebase on platforms that support it (Android, iOS, Web).
-/// On Windows/Linux desktop this is a no-op — notifications fall back to
-/// pure API polling via the NotificationProvider.
+/// Initialize Firebase only on Android and iOS.
+/// Other platforms continue using in-app API polling for notifications.
 Future<void> initFirebaseIfSupported() async {
-  // Firebase C++ SDK does not support Windows/Linux desktop builds.
-  if (!kIsWeb) {
-    try {
-      if (Platform.isWindows || Platform.isLinux) {
-        if (kDebugMode) {
-          debugPrint('[Firebase] Skipped — desktop platform (using API polling)');
-        }
-        return;
-      }
-    } catch (_) {
-      // Platform detection may fail on web; kIsWeb check above handles it.
+  if (kIsWeb) {
+    if (kDebugMode) {
+      debugPrint('[Firebase] Skipped - mobile push is Android/iOS only');
     }
+    return;
+  }
+
+  try {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      if (kDebugMode) {
+        debugPrint('[Firebase] Skipped - using API polling on this platform');
+      }
+      return;
+    }
+  } catch (_) {
+    return;
   }
 
   try {

@@ -426,7 +426,30 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                     );
                   },
                   loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
+                  error: (_, __) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(
+                          Icons.local_shipping_outlined,
+                          size: 15,
+                          color: AppTheme.textSecondary,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Delivery fee calculated at checkout',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

@@ -27,6 +27,7 @@ class DeliveryService {
     required int orderId,
     required double lat,
     required double lng,
+    int? offerId,
   }) async {
     final response = await _api.post(
       AppConstants.deliveryAcceptEndpoint,
@@ -34,6 +35,7 @@ class DeliveryService {
         'order_id': orderId,
         'lat': double.parse(lat.toStringAsFixed(8)),
         'lng': double.parse(lng.toStringAsFixed(8)),
+        if (offerId != null) 'offer_id': offerId,
       },
     );
     final data = response.data;
@@ -100,6 +102,17 @@ class DeliveryService {
     if (a is Map<String, dynamic>) return a;
     if (a is Map) return Map<String, dynamic>.from(a);
     return null;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchOffers() async {
+    final response = await _api.get(AppConstants.deliveryOffersEndpoint);
+    final data = response.data;
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map<dynamic, dynamic>))
+          .toList();
+    }
+    return [];
   }
 
   Future<List<Map<String, dynamic>>> fetchZones() async {
@@ -198,14 +211,47 @@ class DeliveryService {
     required double lat,
     required double lng,
   }) async {
-    final response = await _api.get(
-      AppConstants.deliveryReverseGeocodeEndpoint,
-      queryParameters: {'lat': lat, 'lng': lng},
-    );
-    final data = response.data;
-    if (data is Map<String, dynamic>) return data;
-    if (data is Map) return Map<String, dynamic>.from(data);
+    // Call Nominatim directly from the device — avoids the backend proxy
+    // which fails on localhost because the server has no outbound internet.
+    try {
+      final dio = Dio();
+      final response = await dio.get<Map<String, dynamic>>(
+        'https://nominatim.openstreetmap.org/reverse',
+        queryParameters: {
+          'lat': lat,
+          'lon': lng,
+          'format': 'jsonv2',
+          'zoom': 16,
+          'addressdetails': 1,
+        },
+        options: Options(
+          headers: {
+            'User-Agent': 'PocketShop/1.0 (geocoder)',
+            'Accept-Language': 'en',
+          },
+          receiveTimeout: const Duration(seconds: 8),
+        ),
+      );
+      final data = response.data;
+      final name = data?['display_name']?.toString().trim();
+      if (name != null && name.isNotEmpty) {
+        return {'lat': lat, 'lng': lng, 'display_name': _shortenAddress(name)};
+      }
+    } catch (_) {}
+
     return null;
+  }
+
+  /// Keeps only the first 3 comma-separated parts of a Nominatim display_name
+  /// so it fits comfortably in a single-line field.
+  String _shortenAddress(String full) {
+    final parts = full
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (parts.length <= 3) return full;
+    return parts.take(3).join(', ');
   }
 
   Future<List<Map<String, dynamic>>> searchAddressSuggestions(
@@ -227,6 +273,23 @@ class DeliveryService {
       }
     }
     return [];
+  }
+
+  Future<Map<String, dynamic>> verifyIdentityQR({
+    required int assignmentId,
+    required String step,
+    required String qrData,
+  }) async {
+    final path =
+        '${AppConstants.verifyIdentityQRPrefix}$assignmentId/verify-identity-qr/';
+    final response = await _api.post(
+      path,
+      data: {'step': step, 'qr_data': qrData},
+    );
+    final data = response.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return {};
   }
 
   String? extractErrorMessage(DioException e) {

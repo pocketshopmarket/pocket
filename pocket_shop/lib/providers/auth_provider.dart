@@ -129,8 +129,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
       }
     } catch (e) {
+      final message = _authService.extractFriendlyMessage(
+        e,
+        defaultMessage: 'Could not send the verification code. Please try again.',
+      );
       state = state.copyWith(
-        error: e.toString(),
+        error: message,
         isLoading: false,
       );
     }
@@ -175,11 +179,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       return result;
     } catch (e) {
+      final message = _authService.extractFriendlyMessage(
+        e,
+        defaultMessage: 'Could not verify the code. Please try again.',
+      );
       state = state.copyWith(
-        error: e.toString(),
+        error: message,
         isLoading: false,
       );
-      return {'success': false, 'message': e.toString(), 'error_code': 'unknown'};
+      return {'success': false, 'message': message, 'error_code': 'unknown'};
     }
   }
 
@@ -206,11 +214,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       return result;
     } catch (e) {
+      final message = _authService.extractFriendlyMessage(
+        e,
+        defaultMessage: 'Could not sign you in. Please try again.',
+      );
       state = state.copyWith(
-        error: e.toString(),
+        error: message,
         isLoading: false,
       );
-      return {'success': false, 'message': e.toString()};
+      return {'success': false, 'message': message};
     }
   }
 
@@ -222,8 +234,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _authService.logout();
       clearAuth();
     } catch (e) {
+      final message = _authService.extractFriendlyMessage(
+        e,
+        defaultMessage: 'Could not sign you out. Please try again.',
+      );
       state = state.copyWith(
-        error: e.toString(),
+        error: message,
         isLoading: false,
         isInitialized: true,
       );
@@ -267,7 +283,12 @@ final authInitializationProvider = FutureProvider<void>((ref) async {
         authNotifier.clearAuth();
       }
   } catch (e) {
-    authNotifier.setError(e.toString());
+    authNotifier.setError(
+      authService.extractFriendlyMessage(
+        e,
+        defaultMessage: 'Could not restore your session. Please sign in again.',
+      ),
+    );
   }
 });
 

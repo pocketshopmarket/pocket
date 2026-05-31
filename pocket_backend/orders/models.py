@@ -122,6 +122,39 @@ class OrderItem(models.Model):
         return f"{self.quantity} x {self.product.name} in Order {self.order.order_number}"
 
 
+class RefundRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending_seller', 'Pending Seller Review'),
+        ('approved_by_seller', 'Approved by Seller'),
+        ('rejected_by_seller', 'Rejected by Seller'),
+        ('escalated', 'Escalated to Admin'),
+        ('approved_by_admin', 'Approved by Admin'),
+        ('rejected_by_admin', 'Rejected by Admin'),
+        ('refunded', 'Refunded'),
+    ]
+
+    order = models.OneToOneField(
+        Order, on_delete=models.CASCADE, related_name='refund_request'
+    )
+    requested_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='refund_requests'
+    )
+    reason = models.TextField()
+    status = models.CharField(
+        max_length=30, choices=STATUS_CHOICES, default='pending_seller'
+    )
+    seller_note = models.TextField(blank=True)
+    admin_note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'RefundRequest {self.order.order_number} [{self.status}]'
+
+
 class OrderRating(models.Model):
     ROLE_CHOICES = [
         ('buyer_to_rider', 'Buyer to Rider'),

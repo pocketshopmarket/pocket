@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/notification_service.dart';
+import 'auth_provider.dart';
 
 /// Holds the notification state: unread count + list of notifications.
 class NotificationState {
@@ -36,9 +37,8 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
 
   /// Start polling for unread count every [intervalSeconds].
   void startPolling({int intervalSeconds = 30}) {
-    // Fetch immediately then start periodic timer.
+    if (_pollTimer != null && _pollTimer!.isActive) return;
     fetchUnreadCount();
-    _pollTimer?.cancel();
     _pollTimer = Timer.periodic(
       Duration(seconds: intervalSeconds),
       (_) => fetchUnreadCount(),
@@ -105,6 +105,11 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     }
   }
 
+  void reset() {
+    stopPolling();
+    state = const NotificationState();
+  }
+
   @override
   void dispose() {
     stopPolling();
@@ -115,7 +120,15 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
 final notificationProvider =
     StateNotifierProvider<NotificationNotifier, NotificationState>((ref) {
   final notifier = NotificationNotifier();
-  notifier.startPolling();
+
+  ref.listen<AuthState>(authProvider, (prev, next) {
+    if (next.isAuthenticated && prev?.isAuthenticated != true) {
+      notifier.startPolling();
+    } else if (!next.isAuthenticated && prev?.isAuthenticated == true) {
+      notifier.reset();
+    }
+  }, fireImmediately: true);
+
   ref.onDispose(() => notifier.stopPolling());
   return notifier;
 });

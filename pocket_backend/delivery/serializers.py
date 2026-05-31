@@ -24,8 +24,10 @@ class DeliveryAssignmentSerializer(serializers.ModelSerializer):
     delivery_person_name = serializers.CharField(source='delivery_person.full_name', read_only=True)
     buyer_phone = serializers.CharField(source='order.buyer.phone_number', read_only=True)
     delivery_address = serializers.CharField(source='order.delivery_address', read_only=True)
+    seller_phone = serializers.SerializerMethodField()
+    delivery_person_phone = serializers.SerializerMethodField()
     estimated_time = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = DeliveryAssignment
         fields = ['id', 'order', 'order_number', 'delivery_person', 'delivery_person_name',
@@ -33,13 +35,25 @@ class DeliveryAssignmentSerializer(serializers.ModelSerializer):
                  'assigned_at', 'accepted_at', 'picked_up_at', 'delivered_at',
                  'location_updated_at',
                  'estimated_distance', 'estimated_duration', 'estimated_time', 'buyer_name',
-                 'buyer_phone', 'delivery_address',
+                 'buyer_phone', 'seller_phone', 'delivery_person_phone', 'delivery_address',
                  'route_coordinates', 'route_distance_m', 'route_duration_s',
                  'route_source', 'route_confidence', 'last_eta_recomputed_at',
                  'reroute_count', 'initial_estimated_duration',
                  'final_eta_error_minutes']
         read_only_fields = ['assigned_at']
     
+    def get_seller_phone(self, obj):
+        try:
+            return obj.order.seller.phone_number
+        except Exception:
+            return None
+
+    def get_delivery_person_phone(self, obj):
+        try:
+            return obj.delivery_person.phone_number
+        except Exception:
+            return None
+
     def get_estimated_time(self, obj):
         if obj.estimated_duration:
             return f"{obj.estimated_duration} minutes"

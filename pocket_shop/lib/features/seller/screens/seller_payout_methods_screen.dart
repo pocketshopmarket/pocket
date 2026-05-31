@@ -486,7 +486,7 @@ class _SellerPayoutMethodsScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '$roleName payout wallet',
+                              '$roleName payment methods',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,

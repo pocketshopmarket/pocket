@@ -4,20 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
 import 'core/constants/app_constants.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'router/app_router.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
-import 'services/firebase_init.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Firebase: only on Android / iOS / Web (skipped on Windows desktop)
-  await initFirebaseIfSupported();
 
   await ApiService().initialize();
   await AuthService().initialize();

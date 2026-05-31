@@ -8,13 +8,17 @@ from django.db.models.functions import TruncDate
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
-from .models import Cart, CartItem, Order, OrderItem
+from .models import Cart, CartItem, Order, OrderItem, RefundRequest
 from .serializers import (
     CartSerializer,
     OrderSerializer,
     CreateOrderSerializer,
     AddToCartSerializer,
     OrderRatingSerializer,
+    RefundRequestSerializer,
+    CreateRefundRequestSerializer,
+    SellerRespondRefundSerializer,
+    AdminRespondRefundSerializer,
 )
 from products.models import Product, ProductImage, ProductVariant
 from delivery.coordinates import resolve_delivery_coordinates
@@ -307,7 +311,8 @@ class CreateOrderView(APIView):
                 # Clear cart only after successful order creation.
                 cart.items.all().delete()
 
-            resolve_delivery_coordinates(order)
+            if order.fulfillment_type != 'pickup':
+                resolve_delivery_coordinates(order)
 
             serializer = OrderSerializer(order)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -355,7 +360,7 @@ class UpdateOrderStatusView(APIView):
         if request.user.role != 'seller':
             return Response({'error': 'Only sellers can update order status'}, status=status.HTTP_403_FORBIDDEN)
         seller_profile = getattr(request.user, 'seller_profile', None)
-        if not seller_profile or not seller_profile.is_approved:
+        if not seller_profile or not seller_profile.can_sell:
             return Response(
                 {'error': 'Seller approval is required'},
                 status=status.HTTP_403_FORBIDDEN,
@@ -455,17 +460,24 @@ class SellerDashboardStatsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
         seller_profile = getattr(request.user, 'seller_profile', None)
-        if not seller_profile or not seller_profile.is_approved:
+        if not seller_profile or not seller_profile.can_sell:
             return Response(
                 {'error': 'Seller approval is required'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        try:
+            days = max(1, min(365, int(request.query_params.get('days', 7))))
+        except (ValueError, TypeError):
+            days = 7
+
         orders = Order.objects.filter(seller=request.user)
-        orders_count = orders.count()
-        delivered_count = orders.filter(status='delivered').count()
-        pending_count = orders.filter(status='pending').count()
-        revenue = orders.filter(status='delivered').aggregate(
+        cutoff = timezone.now() - timedelta(days=days - 1)
+        orders_in_range = orders.filter(created_at__gte=cutoff)
+        orders_count = orders_in_range.count()
+        delivered_count = orders_in_range.filter(status='delivered').count()
+        pending_count = orders_in_range.filter(status='pending').count()
+        revenue = orders_in_range.filter(status='delivered').aggregate(
             total=Sum('total_price')
         )['total'] or 0
         low_stock_products = Product.objects.filter(
@@ -474,9 +486,8 @@ class SellerDashboardStatsView(APIView):
         ).count()
 
         recent_orders = orders.select_related('buyer').order_by('-created_at')[:5]
-        seven_days_ago = timezone.now() - timedelta(days=6)
         trend_rows = (
-            orders.filter(created_at__gte=seven_days_ago)
+            orders_in_range
             .annotate(day=TruncDate('created_at'))
             .values('day')
             .annotate(
@@ -552,6 +563,7 @@ class SellerDashboardStatsView(APIView):
 
         return Response(
             {
+                'days': days,
                 'metrics': {
                     'orders_count': orders_count,
                     'delivered_count': delivered_count,
@@ -628,3 +640,111 @@ class OrderRatingListCreateView(APIView):
         )
         code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(OrderRatingSerializer(rating).data, status=code)
+
+
+class RefundRequestCreateView(APIView):
+    """Buyer creates a refund request for a delivered order."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id, buyer=request.user)
+        if order.status != 'delivered':
+            return Response(
+                {'error': 'Refund requests can only be made for delivered orders.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if hasattr(order, 'refund_request'):
+            return Response(
+                {'error': 'A refund request already exists for this order.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = CreateRefundRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        refund = RefundRequest.objects.create(
+            order=order,
+            requested_by=request.user,
+            reason=serializer.validated_data['reason'],
+        )
+        return Response(
+            RefundRequestSerializer(refund).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        user = request.user
+        if user != order.buyer and user != order.seller and user.role != 'admin':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        try:
+            refund = order.refund_request
+        except RefundRequest.DoesNotExist:
+            return Response({'detail': 'No refund request.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(RefundRequestSerializer(refund).data)
+
+
+class RefundRequestListView(APIView):
+    """List refund requests filtered by the caller's role."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role == 'buyer':
+            qs = RefundRequest.objects.filter(requested_by=user)
+        elif user.role == 'seller':
+            qs = RefundRequest.objects.filter(order__seller=user)
+        elif user.role == 'admin' or user.is_staff:
+            qs = RefundRequest.objects.all()
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return Response(RefundRequestSerializer(qs, many=True).data)
+
+
+class RefundRequestRespondView(APIView):
+    """Seller approves / rejects / escalates. Admin approves / rejects."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        refund = get_object_or_404(RefundRequest, pk=pk)
+        user = request.user
+
+        if user.role == 'seller' and refund.order.seller == user:
+            if refund.status != 'pending_seller':
+                return Response(
+                    {'error': 'Already responded.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            serializer = SellerRespondRefundSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            action = serializer.validated_data['action']
+            note = serializer.validated_data.get('note', '')
+            mapping = {
+                'approve': 'approved_by_seller',
+                'reject': 'rejected_by_seller',
+                'escalate': 'escalated',
+            }
+            refund.status = mapping[action]
+            refund.seller_note = note
+            refund.save(update_fields=['status', 'seller_note', 'updated_at'])
+            if action == 'approve':
+                cancel_order_with_refund(refund.order, reason='Seller approved refund request')
+
+        elif user.role == 'admin' or user.is_staff:
+            if refund.status not in ('escalated', 'rejected_by_seller'):
+                return Response(
+                    {'error': 'Not available for admin action at this stage.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            serializer = AdminRespondRefundSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            action = serializer.validated_data['action']
+            note = serializer.validated_data.get('note', '')
+            mapping = {'approve': 'approved_by_admin', 'reject': 'rejected_by_admin'}
+            refund.status = mapping[action]
+            refund.admin_note = note
+            refund.save(update_fields=['status', 'admin_note', 'updated_at'])
+            if action == 'approve':
+                cancel_order_with_refund(refund.order, reason='Admin approved refund request')
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        return Response(RefundRequestSerializer(refund).data)

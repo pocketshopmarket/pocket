@@ -16,7 +16,7 @@ class BuyerOrdersScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
-        title: const Text('Order history'),
+        title: const Text('My Orders'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () =>
@@ -92,7 +92,7 @@ class BuyerOrdersScreen extends ConsumerWidget {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '${orders.length} order(s) in your history',
+                            '${orders.length} order${orders.length == 1 ? '' : 's'}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -119,11 +119,35 @@ class BuyerOrdersScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(e.toString(), textAlign: TextAlign.center),
+                Icon(
+                  Icons.wifi_off_rounded,
+                  size: 52,
+                  color: AppTheme.textSecondary.withValues(alpha: 0.4),
+                ),
                 const SizedBox(height: 16),
-                FilledButton(
+                const Text(
+                  'Could not load orders',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Check your connection and try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
                   onPressed: () => ref.invalidate(buyerOrdersProvider),
-                  child: const Text('Retry'),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Retry'),
                 ),
               ],
             ),

@@ -28,6 +28,9 @@ class CachedTileProvider extends TileProvider {
 class OsmRouteMap extends StatefulWidget {
   final List<LatLng> routePoints;
 
+  /// Alternative route polylines shown as semi-transparent background routes.
+  final List<List<LatLng>> alternativeRoutes;
+
   /// Optional GPS trail (e.g. recent tracking points), drawn under the main route.
   final List<LatLng> trailPoints;
   final List<MapMarker> markers;
@@ -55,6 +58,7 @@ class OsmRouteMap extends StatefulWidget {
   const OsmRouteMap({
     super.key,
     this.routePoints = const [],
+    this.alternativeRoutes = const [],
     this.trailPoints = const [],
     this.markers = const [],
     this.height = 220,
@@ -134,6 +138,7 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
       final p = w.routePoints.last;
       h ^= p.latitude.hashCode ^ p.longitude.hashCode;
     }
+    h ^= w.alternativeRoutes.length.hashCode * 11;
     if (w.trailPoints.isNotEmpty) {
       final p = w.trailPoints.last;
       h ^= p.latitude.hashCode ^ p.longitude.hashCode;
@@ -232,6 +237,17 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
           userAgentPackageName: 'com.pocket.pocketshop',
           tileProvider: CachedTileProvider(),
         ),
+        for (final alt in widget.alternativeRoutes)
+          if (alt.length >= 2)
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: alt,
+                  strokeWidth: 4,
+                  color: const Color(0x609CA3AF),
+                ),
+              ],
+            ),
         if (widget.trailPoints.length >= 2)
           PolylineLayer(
             polylines: [

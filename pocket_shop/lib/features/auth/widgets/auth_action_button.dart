@@ -79,7 +79,8 @@ class _LoadingLabelState extends State<_LoadingLabel>
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(
           width: 16,
@@ -90,29 +91,34 @@ class _LoadingLabelState extends State<_LoadingLabel>
           ),
         ),
         const SizedBox(width: 10),
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final slide = (_controller.value * 2) - 1;
-            return ShaderMask(
-              blendMode: BlendMode.srcIn,
-              shaderCallback: (bounds) {
-                return LinearGradient(
-                  begin: Alignment(-1 + slide, 0),
-                  end: Alignment(1 + slide, 0),
-                  colors: const [Colors.white70, Colors.white, Colors.white70],
-                  stops: const [0.2, 0.5, 0.8],
-                ).createShader(bounds);
-              },
-              child: child,
-            );
-          },
-          child: Text(
-            widget.text,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
+        Flexible(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final slide = (_controller.value * 2) - 1;
+              return ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (bounds) {
+                  return LinearGradient(
+                    begin: Alignment(-1 + slide, 0),
+                    end: Alignment(1 + slide, 0),
+                    colors: const [Colors.white70, Colors.white, Colors.white70],
+                    stops: const [0.2, 0.5, 0.8],
+                  ).createShader(bounds);
+                },
+                child: child,
+              );
+            },
+            child: Text(
+              widget.text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ),

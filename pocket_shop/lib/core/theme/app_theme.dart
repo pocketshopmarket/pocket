@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Colors - User Specified
@@ -21,12 +20,10 @@ class AppTheme {
 
   // Light Theme
   static ThemeData get lightTheme {
-    final baseTextTheme = GoogleFonts.interTextTheme();
-    final fontFamily = GoogleFonts.inter().fontFamily;
+    const baseTextTheme = TextTheme();
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      fontFamily: fontFamily,
       scaffoldBackgroundColor: surfaceWhite,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryCyan,
@@ -45,12 +42,11 @@ class AppTheme {
         scrolledUnderElevation: 0.5,
         centerTitle: false,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: TextStyle(
+        titleTextStyle: const TextStyle(
           color: textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
-          fontFamily: fontFamily,
         ),
         iconTheme: const IconThemeData(color: textPrimary),
       ),
@@ -164,30 +160,30 @@ class AppTheme {
       ),
       dividerTheme: const DividerThemeData(color: divider, thickness: 1),
       textTheme: baseTextTheme.copyWith(
-        headlineSmall: baseTextTheme.headlineSmall?.copyWith(
+        headlineSmall: const TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w800,
           color: textPrimary,
         ),
-        titleLarge: baseTextTheme.titleLarge?.copyWith(
+        titleLarge: const TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: textPrimary,
         ),
-        titleMedium: baseTextTheme.titleMedium?.copyWith(
+        titleMedium: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w700,
           color: textPrimary,
         ),
-        bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+        bodyLarge: const TextStyle(
           fontSize: 15,
           color: textPrimary,
         ),
-        bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+        bodyMedium: const TextStyle(
           fontSize: 14,
           color: textPrimary,
         ),
-        bodySmall: baseTextTheme.bodySmall?.copyWith(
+        bodySmall: const TextStyle(
           fontSize: 12,
           color: textSecondary,
         ),
@@ -196,30 +192,27 @@ class AppTheme {
   }
 
   // Text Styles
-  static TextStyle get headline1 => GoogleFonts.inter(
+  static const TextStyle headline1 = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.bold,
     color: textPrimary,
   );
 
-  static TextStyle get headline2 => GoogleFonts.inter(
+  static const TextStyle headline2 = TextStyle(
     fontSize: 24,
     fontWeight: FontWeight.w600,
     color: textPrimary,
   );
 
-  static TextStyle get headline3 => GoogleFonts.inter(
+  static const TextStyle headline3 = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: textPrimary,
   );
 
-  static TextStyle get bodyLarge =>
-      GoogleFonts.inter(fontSize: 16, color: textPrimary);
+  static const TextStyle bodyLarge = TextStyle(fontSize: 16, color: textPrimary);
 
-  static TextStyle get bodyMedium =>
-      GoogleFonts.inter(fontSize: 14, color: textPrimary);
+  static const TextStyle bodyMedium = TextStyle(fontSize: 14, color: textPrimary);
 
-  static TextStyle get bodySmall =>
-      GoogleFonts.inter(fontSize: 12, color: textSecondary);
+  static const TextStyle bodySmall = TextStyle(fontSize: 12, color: textSecondary);
 }

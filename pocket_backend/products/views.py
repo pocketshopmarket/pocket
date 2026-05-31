@@ -219,7 +219,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         if self.request.user.role != 'seller':
             raise PermissionDenied('Only sellers can manage products.')
         seller_profile = getattr(self.request.user, 'seller_profile', None)
-        if not seller_profile or not seller_profile.is_approved:
+        if not seller_profile or not seller_profile.can_sell:
             raise PermissionDenied('Seller approval is required to manage products.')
 
     def get_queryset(self):

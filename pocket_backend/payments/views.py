@@ -15,7 +15,10 @@ from .models import Transaction
 from .services.pawapay import PawaPayService
 from accounts.models import BuyerPaymentMethod
 from accounts.phone_utils import normalize_zambia_phone_to_e164
-from notifications.signals import create_payment_notification
+from notifications.signals import (
+    create_payment_notification,
+    create_payout_completed_notification,
+)
 from orders.models import Order
 
 logger = logging.getLogger(__name__)
@@ -37,6 +40,16 @@ PROVIDER_TO_METHOD_KEY = {
     'ZAMTEL_MONEY_ZMB': 'zamtel',
     'ZAMTEL_MOMO_ZMB': 'zamtel',
     'ZAMTEL_ZMB': 'zamtel',
+}
+
+# Human-readable network label shown in payout confirmation messages.
+PROVIDER_TO_NETWORK_LABEL = {
+    'MTN_MOMO_ZMB': 'MTN MoMo',
+    'AIRTEL_OAPI_ZMB': 'Airtel Money',
+    'AIRTEL_MOMO_ZMB': 'Airtel Money',
+    'ZAMTEL_MONEY_ZMB': 'Zamtel Kwacha',
+    'ZAMTEL_MOMO_ZMB': 'Zamtel Kwacha',
+    'ZAMTEL_ZMB': 'Zamtel Kwacha',
 }
 
 
@@ -166,11 +179,8 @@ class PawaPayWebhookView(APIView):
         """
         secret = getattr(django_settings, 'PAWAPAY_WEBHOOK_SECRET', '')
         if not secret:
-            # No secret configured — allow the webhook but log a warning.
-            # PawaPay sandbox does not require HMAC signatures.
-            # For production with real money, set PAWAPAY_WEBHOOK_SECRET.
-            logger.warning("PAWAPAY_WEBHOOK_SECRET not set — allowing webhook without signature check")
-            return True
+            logger.error("PAWAPAY_WEBHOOK_SECRET is not configured — rejecting all webhooks")
+            return False
 
         signature = request.headers.get('pawapay-signature', '')
         if not signature:
@@ -221,10 +231,13 @@ class PawaPayWebhookView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+        send_payout_completed_notification = False
+
         if status_value == 'COMPLETED':
             transaction.status = 'completed'
             if transaction.transaction_type == 'payout':
                 transaction.payout_stage = 'payout_paid'
+                send_payout_completed_notification = True
 
             if transaction.transaction_type == 'deposit':
                 # Payment received — mark order as accepted.
@@ -268,6 +281,15 @@ class PawaPayWebhookView(APIView):
 
         transaction.save()
 
+        if send_payout_completed_notification:
+            try:
+                create_payout_completed_notification(transaction)
+            except Exception:
+                logger.exception(
+                    'Payout completion notification failed for tx %s',
+                    transaction.transaction_id,
+                )
+
         return Response(
             {"message": "Webhook processed"},
             status=status.HTTP_200_OK,
@@ -296,6 +318,8 @@ class PawaPayWebhookView(APIView):
         # ── FIX #6: Use seller's OWN registered payment method ──
         seller_provider, seller_phone = _resolve_payout_provider(order.seller)
 
+        payout_method = getattr(django_settings, 'PAYOUT_METHOD', 'manual')
+
         # Seller payout — triggered when rider scans seller QR (pickup).
         if seller_share > 0 and not Transaction.objects.filter(
             order=order,
@@ -313,6 +337,7 @@ class PawaPayWebhookView(APIView):
                 recipient_role='seller',
                 trigger_event='pickup_qr',
                 payout_stage='pickup_pending_scan',
+                payout_method=payout_method,
                 status='pending',
             )
 
@@ -342,6 +367,7 @@ class PawaPayWebhookView(APIView):
                         recipient_role='delivery',
                         trigger_event='dropoff_qr',
                         payout_stage='dropoff_pending_scan',
+                        payout_method=payout_method,
                         status='pending',
                     )
 
@@ -536,7 +562,7 @@ class RequestPayoutView(APIView):
             'total_earned': str(total_earned),
             'total_paid_out': str(total_withdrawn),
             'pending_payouts': str(pending_withdrawals),
-            'available_balance': str(available),
+            'available_earnings': str(available),
             'has_payout_method': method is not None,
             'payout_method': {
                 'id': method.id,
@@ -621,7 +647,7 @@ class RequestPayoutView(APIView):
 
         if amount > available:
             return Response(
-                {'error': f'Insufficient balance. Available: ZMW {available}'},
+                {'error': f'Amount exceeds available earnings. Available: ZMW {available}'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -652,6 +678,8 @@ class RequestPayoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        payout_method = getattr(django_settings, 'PAYOUT_METHOD', 'manual')
+
         tx = Transaction.objects.create(
             order=latest_order,
             transaction_type='payout',
@@ -662,33 +690,52 @@ class RequestPayoutView(APIView):
             recipient=request.user,
             recipient_role=role_key,
             trigger_event='manual',
-            payout_stage='payout_sent',
+            payout_stage='ready_for_payout',
+            payout_method=payout_method,
             status='pending',
         )
 
-        # Initiate actual payout via PawaPay
-        try:
-            result = PawaPayService.initiate_payout(tx)
-            logger.info(
-                'Manual payout initiated: tx=%s amount=%s user=%s',
-                tx.transaction_id, amount, request.user.id,
-            )
-        except Exception as exc:
-            logger.error('PawaPay payout initiation failed: %s', exc)
-            tx.status = 'failed'
-            tx.failure_message = str(exc)
-            tx.payout_stage = 'payout_failed'
-            tx.save()
-            return Response(
-                {'error': 'Payout initiation failed. Please try again.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        if payout_method == 'gateway':
+            try:
+                PawaPayService.initiate_payout(tx)
+                logger.info(
+                    'Gateway payout initiated: tx=%s amount=%s user=%s',
+                    tx.transaction_id, amount, request.user.id,
+                )
+            except Exception as exc:
+                logger.error('PawaPay payout initiation failed: %s', exc)
+                tx.status = 'failed'
+                tx.failure_message = str(exc)
+                tx.payout_stage = 'payout_failed'
+                tx.save()
+                return Response(
+                    {'error': 'Payout initiation failed. Please try again.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            return Response({
+                'success': True,
+                'message': 'Payout requested successfully',
+                'transaction_id': str(tx.transaction_id),
+                'amount': str(amount),
+                'status': tx.status,
+                'payout_to': phone,
+            }, status=status.HTTP_201_CREATED)
 
+        # Manual mode — admin will action the payment from their own phone.
+        network_label = PROVIDER_TO_NETWORK_LABEL.get(provider_code, provider_code)
+        phone_hint = phone[-4:] if len(phone) >= 4 else phone
+        logger.info(
+            'Manual claim queued: tx=%s amount=%s user=%s',
+            tx.transaction_id, amount, request.user.id,
+        )
         return Response({
-            'message': 'Payout requested successfully',
-            'transaction_id': str(tx.transaction_id),
+            'success': True,
+            'message': (
+                f'Your payment of ZMW {amount} will be sent to your '
+                f'{network_label} number ending in {phone_hint} shortly.'
+            ),
             'amount': str(amount),
-            'status': tx.status,
-            'payout_to': phone,
+            'network': network_label,
+            'phone_hint': f'ending in {phone_hint}',
+            'transaction_id': str(tx.transaction_id),
         }, status=status.HTTP_201_CREATED)
-

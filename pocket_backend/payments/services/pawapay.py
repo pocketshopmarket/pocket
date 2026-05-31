@@ -20,8 +20,14 @@ class PawaPayService:
         """
         url = f"{settings.PAWAPAY_BASE_URL}/deposits"
         
-        # PawaPay strictly requires no '+' sign or whitespace (e.g. '260973714666')
-        raw_phone = transaction.payer_number.replace('+', '') if transaction.payer_number else ""
+        # PawaPay strictly requires no '+' sign, leading '0', or whitespace (e.g. '260973714666')
+        raw_phone = str(transaction.payer_number).strip().replace(" ", "").replace("-", "")
+        if raw_phone.startswith("+"):
+            raw_phone = raw_phone[1:]
+        if raw_phone.startswith("0"):
+            raw_phone = "260" + raw_phone[1:]
+        elif not raw_phone.startswith("260") and len(raw_phone) == 9:
+            raw_phone = "260" + raw_phone
         
         payload = {
             "depositId": str(transaction.transaction_id),
@@ -98,7 +104,15 @@ class PawaPayService:
         Uses transaction.payer_number as beneficiary account number.
         """
         url = f"{settings.PAWAPAY_BASE_URL}/payouts"
-        raw_phone = transaction.payer_number.replace('+', '') if transaction.payer_number else ""
+        
+        # PawaPay strictly requires no '+' sign, leading '0', or whitespace (e.g. '260973714666')
+        raw_phone = str(transaction.payer_number).strip().replace(" ", "").replace("-", "")
+        if raw_phone.startswith("+"):
+            raw_phone = raw_phone[1:]
+        if raw_phone.startswith("0"):
+            raw_phone = "260" + raw_phone[1:]
+        elif not raw_phone.startswith("260") and len(raw_phone) == 9:
+            raw_phone = "260" + raw_phone
         
         payload = {
             "payoutId": str(transaction.transaction_id),
@@ -160,6 +174,7 @@ class PawaPayService:
             "refundId": str(transaction.transaction_id),
             "depositId": str(deposit_tx.transaction_id),
             "amount": str(transaction.amount),
+            "currency": transaction.currency,
         }
         try:
             response = requests.post(

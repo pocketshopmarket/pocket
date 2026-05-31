@@ -45,7 +45,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
   String? _error;
 
   // Data from backend
-  String _availableBalance = '0.00';
+  String _availableEarnings = '0.00';
   String _totalEarned = '0.00';
   String _totalPaidOut = '0.00';
   String _pendingPayouts = '0.00';
@@ -55,7 +55,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBalance());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEarnings());
   }
 
   @override
@@ -64,7 +64,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
     super.dispose();
   }
 
-  Future<void> _loadBalance() async {
+  Future<void> _loadEarnings() async {
     setState(() {
       _loading = true;
       _error = null;
@@ -74,7 +74,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
       final data = resp.data as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
-        _availableBalance = data['available_balance']?.toString() ?? '0.00';
+        _availableEarnings = data['available_earnings']?.toString() ?? '0.00';
         _totalEarned = data['total_earned']?.toString() ?? '0.00';
         _totalPaidOut = data['total_paid_out']?.toString() ?? '0.00';
         _pendingPayouts = data['pending_payouts']?.toString() ?? '0.00';
@@ -95,7 +95,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
     }
   }
 
-  Future<void> _submitPayout() async {
+  Future<void> _claimEarnings() async {
     final amount = _amountController.text.trim();
     if (amount.isEmpty) return;
 
@@ -110,24 +110,15 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
       _amountController.clear();
 
       final data = resp.data as Map<String, dynamic>;
-      final txId = data['transaction_id']?.toString() ?? '';
+      final message = data['message']?.toString() ??
+          'Your payment of ZMW $amount will be sent shortly.';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Payout of ZMW $amount initiated ✓'),
-          backgroundColor: AppTheme.success,
-        ),
-      );
-
-      // Show success dialog
-      _showSuccessDialog(amount, data['payout_to']?.toString() ?? '');
-
-      // Reload balance
-      _loadBalance();
+      _showConfirmationDialog(message);
+      _loadEarnings();
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      String msg = 'Payout failed';
+      String msg = 'Could not process claim. Please try again.';
       if (e is DioException && e.response?.data is Map) {
         msg = e.response!.data['error']?.toString() ?? msg;
       }
@@ -137,7 +128,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
     }
   }
 
-  void _showSuccessDialog(String amount, String phone) {
+  void _showConfirmationDialog(String message) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -160,7 +151,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
             ),
             const SizedBox(height: 14),
             const Text(
-              'Payout Initiated',
+              'Earnings Claimed',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -169,7 +160,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'ZMW $amount is being sent to $phone. You will receive the funds shortly.',
+              message,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 13,
@@ -226,12 +217,12 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
     final roleName = user?.isSeller == true ? 'Seller' : 'Rider';
-    final available = double.tryParse(_availableBalance) ?? 0.0;
+    final available = double.tryParse(_availableEarnings) ?? 0.0;
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
-        title: const Text('Payout'),
+        title: const Text('Claim Earnings'),
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
@@ -254,7 +245,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
-                          onPressed: _loadBalance,
+                          onPressed: _loadEarnings,
                           child: const Text('Retry'),
                         ),
                       ],
@@ -263,12 +254,12 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                 )
               : RefreshIndicator(
                   color: AppTheme.primaryCyan,
-                  onRefresh: _loadBalance,
+                  onRefresh: _loadEarnings,
                   child: ListView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                     children: [
-                      // ─── Balance card ───
+                      // ─── Earnings summary card ───
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
@@ -294,14 +285,14 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Icon(
-                                    Icons.account_balance_wallet_rounded,
+                                    Icons.payments_rounded,
                                     color: Colors.white,
                                     size: 18,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 Text(
-                                  '$roleName wallet',
+                                  '$roleName earnings',
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -312,7 +303,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                             ),
                             const SizedBox(height: 18),
                             const Text(
-                              'Available balance',
+                              'Earnings available',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF94A3B8),
@@ -320,7 +311,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'ZMW $_availableBalance',
+                              'ZMW $_availableEarnings',
                               style: const TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w900,
@@ -335,7 +326,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                     'Total earned', 'ZMW $_totalEarned'),
                                 const SizedBox(width: 12),
                                 _miniStat(
-                                    'PaidOut', 'ZMW $_totalPaidOut'),
+                                    'Paid out', 'ZMW $_totalPaidOut'),
                                 const SizedBox(width: 12),
                                 _miniStat(
                                     'Pending', 'ZMW $_pendingPayouts'),
@@ -347,10 +338,10 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
 
                       const SizedBox(height: 24),
 
-                      // ─── Payout method card ───
+                      // ─── Payment destination card ───
                       if (_payoutMethod != null) ...[
                         const Text(
-                          'Payout destination',
+                          'Payment will be sent to',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -428,17 +419,17 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                   AppTheme.warning.withValues(alpha: 0.3),
                             ),
                           ),
-                          child: Row(
+                          child: const Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.warning_amber_rounded,
                                 color: AppTheme.warning,
                                 size: 22,
                               ),
-                              const SizedBox(width: 10),
-                              const Expanded(
+                              SizedBox(width: 10),
+                              Expanded(
                                 child: Text(
-                                  'No verified payout method. Add one in your profile before Payouting.',
+                                  'No verified payment method on file. Add one in your profile to claim earnings.',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: AppTheme.textPrimary,
@@ -454,7 +445,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
 
                       // ─── Amount input ───
                       const Text(
-                        'Payout amount',
+                        'Amount to claim',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -573,7 +564,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                 child: TextButton(
                                   onPressed: () {
                                     _amountController.text =
-                                        _availableBalance;
+                                        _availableEarnings;
                                   },
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppTheme.primaryCyan,
@@ -584,7 +575,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  child: const Text('Payout all'),
+                                  child: const Text('Claim all'),
                                 ),
                               ),
                             ],
@@ -594,7 +585,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
 
                       const SizedBox(height: 10),
                       Text(
-                        'Minimum Payout: ZMW 5.00',
+                        'Minimum claim: ZMW 5.00',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondary
@@ -604,7 +595,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
 
                       const SizedBox(height: 24),
 
-                      // ─── Submit button ───
+                      // ─── Claim button ───
                       SizedBox(
                         height: 52,
                         width: double.infinity,
@@ -613,7 +604,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                   !_hasPayoutMethod ||
                                   available <= 0)
                               ? null
-                              : _submitPayout,
+                              : _claimEarnings,
                           icon: _submitting
                               ? const SizedBox(
                                   width: 18,
@@ -624,11 +615,11 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                   ),
                                 )
                               : const Icon(
-                                  Icons.send_rounded,
+                                  Icons.payments_rounded,
                                   size: 18,
                                 ),
                           label: Text(
-                            _submitting ? 'Processing...' : 'Payout funds',
+                            _submitting ? 'Claiming...' : 'Claim earnings',
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,

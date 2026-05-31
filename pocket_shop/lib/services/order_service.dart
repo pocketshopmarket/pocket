@@ -215,8 +215,11 @@ class OrderService {
   }
 
   /// Metrics + recent orders for seller dashboard (403 if not approved).
-  Future<Map<String, dynamic>> fetchSellerDashboardStats() async {
-    final response = await _api.get(AppConstants.sellerDashboardStatsEndpoint);
+  Future<Map<String, dynamic>> fetchSellerDashboardStats({int days = 7}) async {
+    final response = await _api.get(
+      AppConstants.sellerDashboardStatsEndpoint,
+      queryParameters: {'days': days},
+    );
     final data = response.data;
     if (data is Map<String, dynamic>) {
       return data;

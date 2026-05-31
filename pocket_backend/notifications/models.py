@@ -18,6 +18,8 @@ class Notification(models.Model):
         ('payment_failed', 'Payment Failed'),
         ('payout_completed', 'Payout Completed'),
         ('delivery_assigned', 'Delivery Assigned'),
+        ('verification_approved', 'Verification Approved'),
+        ('verification_rejected', 'Verification Rejected'),
         ('general', 'General'),
     ]
 

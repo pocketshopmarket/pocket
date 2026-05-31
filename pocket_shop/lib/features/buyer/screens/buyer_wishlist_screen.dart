@@ -33,49 +33,80 @@ class BuyerWishlistScreen extends ConsumerWidget {
         .whereType<Product>()
         .toList();
 
+    Widget emptyBody;
+    if (wishlist.isEmpty) {
+      emptyBody = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.divider),
+            ),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.favorite_border_rounded, size: 42, color: AppTheme.textSecondary),
+                SizedBox(height: 10),
+                Text(
+                  'No favorites yet',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Tap hearts on products to save them here.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else {
+      emptyBody = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.divider),
+            ),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 42, color: AppTheme.textSecondary),
+                SizedBox(height: 10),
+                Text(
+                  'Items unavailable',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Your saved items could not be loaded. Browse the shop to find them again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(title: const Text('Wishlist')),
       body: items.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.divider),
-                  ),
-                  child: const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.favorite_border_rounded,
-                        size: 42,
-                        color: AppTheme.textSecondary,
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        'No favorites yet',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Tap hearts on products to save them here.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: AppTheme.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
+          ? emptyBody
           : GridView.builder(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
               itemCount: items.length,

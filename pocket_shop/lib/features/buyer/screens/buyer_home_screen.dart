@@ -16,6 +16,7 @@ import '../../../../providers/wishlist_provider.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../models/category.dart';
 import '../../../../widgets/notification_bell.dart';
+import '../../../../widgets/qr_identity_sheet.dart';
 
 class BuyerHomeScreen extends ConsumerStatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -39,6 +40,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   List<Product> _searchSuggestions = [];
   bool _showSuggestions = false;
   bool _searchLoading = false;
+  bool _searchFailed = false;
 
   @override
   void dispose() {
@@ -77,7 +79,20 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
         }
         break;
       case 'product':
-        context.push('/buyer/product-details/${banner.actionValue}');
+        final productId = int.tryParse(banner.actionValue);
+        if (productId != null) {
+          final state = ref.read(productProvider);
+          Product? product;
+          for (final p in [...state.trendingProducts, ...state.products]) {
+            if (p.id == productId) {
+              product = p;
+              break;
+            }
+          }
+          if (product != null) {
+            context.push('/buyer/product-details', extra: product);
+          }
+        }
         break;
       case 'url':
         final uri = Uri.tryParse(banner.actionValue);
@@ -350,17 +365,15 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     ),
                   ),
                   const Spacer(),
-                  const NotificationBell(),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppTheme.lightCyan,
-                      borderRadius: BorderRadius.circular(19),
+                  IconButton(
+                    tooltip: 'My QR code',
+                    onPressed: () => QrIdentitySheet.show(context),
+                    icon: const Icon(
+                      Icons.qr_code_rounded,
+                      color: AppTheme.textPrimary,
                     ),
-                    child: const Icon(Icons.person_rounded, size: 20),
                   ),
+                  const NotificationBell(),
                 ],
               ),
               SizedBox(height: isCompact ? 10 : 12),
@@ -407,10 +420,18 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                   _searchSuggestions = page.items;
                                   _showSuggestions = true;
                                   _searchLoading = false;
+                                  _searchFailed = false;
                                 });
                               }
                             } catch (_) {
-                              if (mounted) setState(() => _searchLoading = false);
+                              if (mounted) {
+                                setState(() {
+                                  _searchLoading = false;
+                                  _showSuggestions = true;
+                                  _searchSuggestions = [];
+                                  _searchFailed = true;
+                                });
+                              }
                             }
                           });
                         },
@@ -490,14 +511,28 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                           ),
                         )
                       : _searchSuggestions.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text(
-                                'No products found',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.textSecondary,
-                                ),
+                          ? Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _searchFailed
+                                        ? Icons.cloud_off_rounded
+                                        : Icons.search_off_rounded,
+                                    size: 16,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _searchFailed
+                                        ? 'Search unavailable, check your connection'
+                                        : 'No products found',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             )
                           : ListView.separated(
@@ -973,7 +1008,32 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, __) => Padding(
+                  padding: const EdgeInsets.only(bottom: 18),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.cloud_off_rounded,
+                        size: 15,
+                        color: AppTheme.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text(
+                          'Could not load recommendations',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => ref.invalidate(recommendedProvider),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1316,28 +1376,6 @@ class _ProductCard extends StatelessWidget {
                         child: ProductListThumbnail(
                           product: product,
                           compactPlaceholder: true,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Text(
-                          'Top deal',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
                         ),
                       ),
                     ),

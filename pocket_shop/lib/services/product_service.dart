@@ -109,6 +109,15 @@ class ProductService {
     }
   }
 
+  Future<Product> getProduct(int productId) async {
+    try {
+      final response = await _apiService.get('${AppConstants.productsEndpoint}$productId/');
+      return Product.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_extractDioError(e));
+    }
+  }
+
   Future<List<Product>> getProducts({int? categoryId, String? search}) async {
     try {
       final Map<String, dynamic> queryParams = {};

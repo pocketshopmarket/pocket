@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
@@ -14,6 +16,39 @@ class BuyerProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
+  bool _isUploadingPhoto = false;
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 800,
+    );
+    if (picked == null) return;
+    if (!mounted) return;
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final authService = ref.read(authServiceProvider);
+      final result = await authService.uploadProfilePhoto(picked.path);
+      if (!mounted) return;
+      if (result['success'] == true) {
+        await ref.read(authProvider.notifier).refreshUser();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Could not upload photo')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not upload photo')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
   void _confirmDelete(dynamic method) {
     showDialog(
       context: context,
@@ -392,10 +427,55 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
               ),
               child: Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 32,
-                    backgroundColor: AppTheme.primaryCyan,
-                    child: Icon(Icons.person, color: Colors.white, size: 28),
+                  GestureDetector(
+                    onTap: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundColor: AppTheme.primaryCyan,
+                          backgroundImage: user.profilePhoto != null
+                              ? CachedNetworkImageProvider(user.profilePhoto!)
+                              : null,
+                          child: user.profilePhoto == null
+                              ? const Icon(Icons.person, color: Colors.white, size: 28)
+                              : null,
+                        ),
+                        if (_isUploadingPhoto)
+                          const Positioned.fill(
+                            child: CircleAvatar(
+                              radius: 32,
+                              backgroundColor: Colors.black45,
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.primaryCyan,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -439,15 +519,6 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
               _InfoRow(label: 'Email', value: user.email!),
               const SizedBox(height: 8),
             ],
-            _InfoRow(
-              label: 'Default Address',
-              value: user.buyerProfile?.defaultAddress ?? 'Not set',
-            ),
-            const SizedBox(height: 8),
-            _InfoRow(
-              label: 'Preferred Payment',
-              value: user.buyerProfile?.preferredPaymentMethod ?? 'cash',
-            ),
             const SizedBox(height: 16),
             const Text(
               'Payments',
@@ -635,8 +706,14 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                   const SizedBox(height: 8),
                   _ActionTile(
                     icon: Icons.receipt_long_outlined,
-                    title: 'View order history',
+                    title: 'My Orders',
                     onTap: () => context.push('/buyer/orders'),
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionTile(
+                    icon: Icons.assignment_return_outlined,
+                    title: 'Refund requests',
+                    onTap: () => context.push('/refund-requests'),
                   ),
                 ],
               ),
@@ -667,7 +744,7 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                   _ActionTile(
                     icon: Icons.local_shipping_outlined,
                     title: 'Track Order',
-                    onTap: () => context.go('/buyer/track-order'),
+                    onTap: () => context.push('/buyer/orders'),
                   ),
                 ],
               ),

@@ -466,7 +466,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   child: SizedBox(
                     height: 44.h,
                     child: AuthActionButton(
-                      label: 'Send verification code',
+                      label: 'Send code',
                       onPressed: _sendOtpAndContinue,
                       isLoading: _isLoading,
                       loadingLabel: 'Preparing verification...',

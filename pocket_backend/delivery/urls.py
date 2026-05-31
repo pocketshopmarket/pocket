@@ -16,6 +16,7 @@ from .views import (
     UpdateDeliveryStatusView,
     UpdateLocationView,
     VerifyHandoffTokenView,
+    VerifyIdentityQRView,
 )
 
 urlpatterns = [
@@ -50,4 +51,9 @@ urlpatterns = [
     path('geocode/reverse/', ReverseGeocodeView.as_view(), name='reverse-geocode'),
     path('geocode/search/', AddressAutocompleteView.as_view(), name='address-autocomplete'),
     path('stats/', DeliveryStatsView.as_view(), name='delivery-stats'),
+    path(
+        'assignment/<int:assignment_id>/verify-identity-qr/',
+        VerifyIdentityQRView.as_view(),
+        name='verify-identity-qr',
+    ),
 ]

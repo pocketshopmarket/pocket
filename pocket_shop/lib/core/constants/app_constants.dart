@@ -4,7 +4,7 @@ class AppConstants {
   // With trailing slash:    "http://host/api/" + "auth/login/" → "http://host/api/auth/login/" (correct)
   static const String _rawBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://mypocketshop.store/api/',
+    defaultValue: 'http://127.0.0.1:8000/api/',
   );
   static String get baseUrl => _rawBaseUrl.endsWith('/') ? _rawBaseUrl : '$_rawBaseUrl/';
   static const String sendOtpEndpoint = 'auth/send-otp/';
@@ -28,6 +28,7 @@ class AppConstants {
   static const String deliveryReverseGeocodeEndpoint = 'delivery/geocode/reverse/';
   static const String deliveryAddressSearchEndpoint = 'delivery/geocode/search/';
   static const String deliveryStatsEndpoint = 'delivery/stats/';
+  static const String deliveryOffersEndpoint = 'delivery/offers/';
   static const String deliveryHandoffTokenPrefix = 'delivery/assignment/';
   static const String refreshEndpoint = 'auth/refresh/';
   static const String loginEndpoint = 'auth/login/';
@@ -46,6 +47,10 @@ class AppConstants {
   static const String notificationsEndpoint = 'notifications/';
   static const String notificationsUnreadCountEndpoint = 'notifications/unread-count/';
   static const String notificationsMarkAllReadEndpoint = 'notifications/mark-all-read/';
+  static const String myQREndpoint = 'auth/my-qr/';
+  static const String verifyIdentityQRPrefix = 'delivery/assignment/';
+  static const String refundRequestsEndpoint = 'orders/refund-requests/';
+  static const String sellerProductReviewsPrefix = 'reviews/products/';
 
   // Storage Keys
   static const String accessTokenKey = 'access_token';

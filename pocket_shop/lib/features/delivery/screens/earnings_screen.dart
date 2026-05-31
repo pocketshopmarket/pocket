@@ -216,8 +216,8 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                   height: 48,
                   child: FilledButton.icon(
                     onPressed: () => context.push('/delivery/payout'),
-                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                    label: const Text('Request Payout'),
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('Claim earnings'),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.success,
                     ),
@@ -226,7 +226,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                 const SizedBox(height: 16),
                 if (payouts.isNotEmpty) ...[
                   const Text(
-                    'Recent payout status',
+                    'Earnings history',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -266,7 +266,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                   }),
                 ] else
                   Text(
-                    'Payout rows will appear here once pickup/dropoff scans trigger payouts.',
+                    'Earnings from completed deliveries will appear here.',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary.withValues(alpha: 0.9),

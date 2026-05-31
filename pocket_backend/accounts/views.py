@@ -4,6 +4,7 @@ from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import (
     BuyerPaymentMethod,
@@ -45,7 +46,7 @@ class LoginView(APIView):
                 'data': {
                     'access_token': str(refresh.access_token),
                     'refresh_token': str(refresh),
-                    'user': UserProfileSerializer(user).data
+                    'user': UserProfileSerializer(user, context={'request': request}).data
                 }
             }, status=status.HTTP_200_OK)
 
@@ -134,7 +135,7 @@ class VerifyOTPView(APIView):
                     'data': {
                         'access_token': str(refresh.access_token),
                         'refresh_token': str(refresh),
-                        'user': UserProfileSerializer(user).data,
+                        'user': UserProfileSerializer(user, context={'request': request}).data,
                         'is_new_user': False
                     }
                 }, status=status.HTTP_200_OK)
@@ -179,7 +180,11 @@ class VerifyOTPView(APIView):
                         shop_location='Pending setup',
                     )
                 elif role == 'delivery':
-                    DeliveryProfile.objects.create(user=user)
+                    DeliveryProfile.objects.create(
+                        user=user,
+                        vehicle_type='motorcycle',
+                        license_number='PENDING',
+                    )
                 
                 # Generate tokens
                 refresh = RefreshToken.for_user(user)
@@ -190,7 +195,7 @@ class VerifyOTPView(APIView):
                     'data': {
                         'access_token': str(refresh.access_token),
                         'refresh_token': str(refresh),
-                        'user': UserProfileSerializer(user).data,
+                        'user': UserProfileSerializer(user, context={'request': request}).data,
                         'is_new_user': True
                     }
                 }, status=status.HTTP_201_CREATED)
@@ -324,7 +329,8 @@ class ChangePasswordView(APIView):
 
 class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-    
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
     def get(self, request):
         user = request.user
         
@@ -356,7 +362,7 @@ class ProfileView(APIView):
         return Response({
             'success': True,
             'data': {
-                'user': UserProfileSerializer(user).data,
+                'user': UserProfileSerializer(user, context={'request': request}).data,
                 'profile': profile_data
             }
         }, status=status.HTTP_200_OK)
@@ -379,7 +385,9 @@ class ProfileView(APIView):
             else:
                 parsed = parse_date(str(raw_dob)) if isinstance(raw_dob, str) else raw_dob
                 user.date_of_birth = parsed
-        
+        if 'profile_photo' in request.FILES:
+            user.profile_photo = request.FILES['profile_photo']
+
         user.save()
         
         # Update profile based on role
@@ -434,7 +442,7 @@ class ProfileView(APIView):
             'success': True,
             'message': 'Profile updated successfully',
             'data': {
-                'user': UserProfileSerializer(user).data,
+                'user': UserProfileSerializer(user, context={'request': request}).data,
                 'profile': profile_data
             }
         }, status=status.HTTP_200_OK)
@@ -442,6 +450,7 @@ class ProfileView(APIView):
 
 class SellerApplicationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     
     def post(self, request):
         if request.user.role != 'seller':
@@ -464,6 +473,7 @@ class SellerApplicationView(APIView):
 
 class DeliveryApplicationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     
     def post(self, request):
         if request.user.role != 'delivery':
@@ -680,3 +690,30 @@ def logout_view(request):
             'success': False,
             'message': 'Logout failed'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MyQRView(APIView):
+    """Return the authenticated user's permanent identity QR data."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            'qr_data': f'pocket:{request.user.qr_secret}',
+            'name': request.user.full_name,
+            'role': request.user.role,
+        })
+
+
+class RegisterFCMTokenView(APIView):
+    """Called by the app after login to register / refresh the device FCM token."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        token = (request.data.get('fcm_token') or '').strip()
+        if not token:
+            return Response(
+                {'error': 'fcm_token is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        User.objects.filter(pk=request.user.pk).update(fcm_token=token)
+        return Response({'success': True})

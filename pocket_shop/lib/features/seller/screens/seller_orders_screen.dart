@@ -3,11 +3,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/order.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/cart_provider.dart';
+import '../../shared/screens/refund_requests_screen.dart';
 
 class SellerOrdersScreen extends ConsumerStatefulWidget {
   const SellerOrdersScreen({super.key});
@@ -54,6 +56,9 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
 
   bool get _sellerApproved =>
       ref.watch(userProvider)?.sellerProfile?.isApproved == true;
+
+  bool get _sellerVerified =>
+      ref.watch(userProvider)?.isVerified == true;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +133,26 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
                       ],
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const _RefundRequestsWrapper(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.assignment_return_outlined, size: 18),
+                  label: const Text('Refund requests'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.warning,
+                    side: BorderSide(
+                        color: AppTheme.warning.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -419,6 +444,8 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
   late Order _order;
   bool _busy = false;
   bool _tokenBusy = false;
+
+  bool get _sellerVerified => ref.watch(userProvider)?.isVerified == true;
 
   @override
   void initState() {
@@ -768,6 +795,43 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                 ),
               ),
             ),
+            if (_order.buyerPhone?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 10),
+              if (_sellerVerified)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final uri = Uri(scheme: 'tel', path: _order.buyerPhone!);
+                      if (await canLaunchUrl(uri)) await launchUrl(uri);
+                    },
+                    icon: const Icon(Icons.call_outlined),
+                    label: const Text('Call buyer'),
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warning.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.warning),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Verify your account to call buyers directly.',
+                          style: TextStyle(fontSize: 12, color: AppTheme.warning),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
             if (widget.canUpdateStatus && actions.isNotEmpty) ...[
               const SizedBox(height: 20),
               const Text(
@@ -857,6 +921,13 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
       ),
     );
   }
+}
+
+class _RefundRequestsWrapper extends StatelessWidget {
+  const _RefundRequestsWrapper();
+
+  @override
+  Widget build(BuildContext context) => const RefundRequestsScreen();
 }
 
 class _CountdownTimer extends StatefulWidget {

@@ -79,10 +79,12 @@ class Command(BaseCommand):
     def _sweep(self, timeout_minutes: int):
         cutoff = timezone.now() - timedelta(minutes=timeout_minutes)
 
-        # Cancel orders stuck in 'accepted' (seller not preparing)
-        # and 'payment_pending' (buyer never approved payment prompt)
+        # Cancel orders stuck in:
+        #   'pending'         – seller never accepted
+        #   'payment_pending' – buyer never completed payment
+        #   'accepted'        – seller accepted but never started preparing
         stale_orders = Order.objects.filter(
-            status__in=['accepted', 'payment_pending'],
+            status__in=['pending', 'payment_pending', 'accepted'],
             updated_at__lte=cutoff,
         ).order_by('created_at')
 
@@ -95,8 +97,13 @@ class Command(BaseCommand):
 
         cancelled = 0
         for order in stale_orders:
+            status_label = {
+                'pending': 'seller did not accept',
+                'payment_pending': 'payment was not completed',
+                'accepted': 'seller did not prepare',
+            }.get(order.status, 'no action taken')
             reason = (
-                f'Auto-cancelled: seller did not prepare within '
+                f'Auto-cancelled: {status_label} within '
                 f'{timeout_minutes} minutes'
             )
             ok = cancel_order_with_refund(order, reason=reason)

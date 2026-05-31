@@ -31,9 +31,10 @@ from .serializers import (
     UpdateLocationSerializer,
 )
 from accounts.models import SellerProfile
+from accounts.permissions import IsApprovedDelivery
+from notifications.signals import create_delivery_assignment_notification
 from orders.models import Order
 from payments.models import Transaction
-from payments.services.pawapay import PawaPayService
 
 from .coordinates import (
     build_pickup_coords_for_orders,
@@ -71,7 +72,7 @@ def _delivery_fee_for_order(order: Order) -> Decimal:
         return Decimal('0')
 
 class AvailableOrdersView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
     
     def get(self, request):
         if request.user.role != 'delivery':
@@ -126,7 +127,7 @@ class AvailableOrdersView(APIView):
         return Response(payload)
 
 class AcceptDeliveryView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
 
     def _reconcile_stale_active_assignments(self, rider):
         stale_qs = DeliveryAssignment.objects.select_for_update().filter(
@@ -297,6 +298,7 @@ class AcceptDeliveryView(APIView):
                         estimated_duration=duration_min,
                         initial_estimated_duration=duration_min,
                     )
+                    create_delivery_assignment_notification(assignment)
 
                     # Seed first tracking point so future pings produce telemetry segments.
                     DeliveryTracking.objects.create(
@@ -801,7 +803,7 @@ class TrackDeliveryView(APIView):
 class ActiveAssignmentView(APIView):
     """Current in-progress job for the logged-in rider."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
 
     def get(self, request):
         if request.user.role != 'delivery':
@@ -829,7 +831,7 @@ class ActiveAssignmentView(APIView):
 
 
 class DeliveryOffersView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
 
     def get(self, request):
         if request.user.role != 'delivery':
@@ -947,109 +949,7 @@ class VerifyHandoffTokenView(APIView):
             .first()
         )
         if deposit_tx is not None:
-            delivery_fee = _delivery_fee_for_order(assignment.order)
-            order_total = Decimal(str(assignment.order.total_price))
-            seller_share = max(order_total - delivery_fee, Decimal('0'))
-
-            if step == 'pickup':
-                seller_tx = Transaction.objects.filter(
-                    order=assignment.order,
-                    transaction_type='payout',
-                    recipient=assignment.order.seller,
-                    recipient_role='seller',
-                    trigger_event='pickup_qr',
-                ).order_by('-created_at').first()
-                if seller_tx is None and seller_share > 0:
-                    seller_tx = Transaction.objects.create(
-                        order=assignment.order,
-                        transaction_type='payout',
-                        amount=seller_share,
-                        currency=deposit_tx.currency,
-                        provider=deposit_tx.provider,
-                        payer_number=assignment.order.seller.phone_number,
-                        recipient=assignment.order.seller,
-                        recipient_role='seller',
-                        trigger_event='pickup_qr',
-                        payout_stage='pickup_pending_scan',
-                        status='pending',
-                    )
-                if seller_tx is not None and seller_tx.payout_stage in [
-                    'pickup_pending_scan',
-                    'ready_for_payout',
-                ]:
-                    seller_tx.payout_stage = 'ready_for_payout'
-                    seller_tx.save(update_fields=['payout_stage', 'updated_at'])
-                    payout_resp = PawaPayService.initiate_payout(seller_tx)
-                    if payout_resp:
-                        seller_tx.payout_stage = (
-                            'payout_paid'
-                            if seller_tx.status == 'completed'
-                            else 'payout_sent'
-                        )
-                    else:
-                        seller_tx.payout_stage = 'payout_failed'
-                    seller_tx.save(update_fields=['payout_stage', 'updated_at'])
-
-                rider_tx = Transaction.objects.filter(
-                    order=assignment.order,
-                    transaction_type='payout',
-                    recipient=assignment.delivery_person,
-                    recipient_role='delivery',
-                    trigger_event='dropoff_qr',
-                ).order_by('-created_at').first()
-                if rider_tx is None and delivery_fee > 0:
-                    Transaction.objects.create(
-                        order=assignment.order,
-                        transaction_type='payout',
-                        amount=delivery_fee,
-                        currency=deposit_tx.currency,
-                        provider=deposit_tx.provider,
-                        payer_number=assignment.delivery_person.phone_number,
-                        recipient=assignment.delivery_person,
-                        recipient_role='delivery',
-                        trigger_event='dropoff_qr',
-                        payout_stage='dropoff_pending_scan',
-                        status='pending',
-                    )
-
-            if step == 'dropoff':
-                rider_tx = Transaction.objects.filter(
-                    order=assignment.order,
-                    transaction_type='payout',
-                    recipient=assignment.delivery_person,
-                    recipient_role='delivery',
-                    trigger_event='dropoff_qr',
-                ).order_by('-created_at').first()
-                if rider_tx is None and delivery_fee > 0:
-                    rider_tx = Transaction.objects.create(
-                        order=assignment.order,
-                        transaction_type='payout',
-                        amount=delivery_fee,
-                        currency=deposit_tx.currency,
-                        provider=deposit_tx.provider,
-                        payer_number=assignment.delivery_person.phone_number,
-                        recipient=assignment.delivery_person,
-                        recipient_role='delivery',
-                        trigger_event='dropoff_qr',
-                        payout_stage='dropoff_pending_scan',
-                        status='pending',
-                    )
-                if rider_tx is not None and rider_tx.payout_stage in [
-                    'dropoff_pending_scan',
-                    'ready_for_payout',
-                ]:
-                    rider_tx.payout_stage = 'ready_for_payout'
-                    rider_tx.save(update_fields=['payout_stage', 'updated_at'])
-                    payout_resp = PawaPayService.initiate_payout(rider_tx)
-                    if payout_resp:
-                        rider_tx.payout_stage = (
-                            'payout_paid'
-                            if rider_tx.status == 'completed'
-                            else 'payout_sent'
-                        )
-                    else:
-                        rider_tx.payout_stage = 'payout_failed'
-                    rider_tx.save(update_fields=['payout_stage', 'updated_at'])
+            _advance_payout_for_step(assignment, step, deposit_tx)
 
         return Response(
             {
@@ -1057,6 +957,192 @@ class VerifyHandoffTokenView(APIView):
                 'token': DeliveryHandoffTokenSerializer(token).data,
             }
         )
+
+
+def _advance_payout_for_step(assignment, step, deposit_tx):
+    """
+    Advance payout rows after a QR handoff is verified.
+    Called by both VerifyHandoffTokenView and VerifyIdentityQRView.
+    """
+    from django.conf import settings as _s
+    from payments.views import _resolve_payout_provider
+    payout_method = getattr(_s, 'PAYOUT_METHOD', 'manual')
+    delivery_fee = _delivery_fee_for_order(assignment.order)
+    order_total = Decimal(str(assignment.order.total_price))
+    seller_share = max(order_total - delivery_fee, Decimal('0'))
+
+    if step == 'pickup':
+        seller_tx = Transaction.objects.filter(
+            order=assignment.order,
+            transaction_type='payout',
+            recipient=assignment.order.seller,
+            recipient_role='seller',
+            trigger_event='pickup_qr',
+        ).order_by('-created_at').first()
+        if seller_tx is None and seller_share > 0:
+            provider, phone = _resolve_payout_provider(assignment.order.seller)
+            seller_tx = Transaction.objects.create(
+                order=assignment.order,
+                transaction_type='payout',
+                amount=seller_share,
+                currency=deposit_tx.currency,
+                provider=provider,
+                payer_number=phone,
+                recipient=assignment.order.seller,
+                recipient_role='seller',
+                trigger_event='pickup_qr',
+                payout_stage='pickup_pending_scan',
+                payout_method=payout_method,
+                status='pending',
+            )
+        if seller_tx is not None and seller_tx.payout_stage == 'pickup_pending_scan':
+            seller_tx.payout_stage = 'ready_for_payout'
+            seller_tx.save(update_fields=['payout_stage', 'updated_at'])
+
+        rider_tx = Transaction.objects.filter(
+            order=assignment.order,
+            transaction_type='payout',
+            recipient=assignment.delivery_person,
+            recipient_role='delivery',
+            trigger_event='dropoff_qr',
+        ).order_by('-created_at').first()
+        if rider_tx is None and delivery_fee > 0:
+            provider, phone = _resolve_payout_provider(assignment.delivery_person)
+            Transaction.objects.create(
+                order=assignment.order,
+                transaction_type='payout',
+                amount=delivery_fee,
+                currency=deposit_tx.currency,
+                provider=provider,
+                payer_number=phone,
+                recipient=assignment.delivery_person,
+                recipient_role='delivery',
+                trigger_event='dropoff_qr',
+                payout_stage='dropoff_pending_scan',
+                payout_method=payout_method,
+                status='pending',
+            )
+
+    elif step == 'dropoff':
+        rider_tx = Transaction.objects.filter(
+            order=assignment.order,
+            transaction_type='payout',
+            recipient=assignment.delivery_person,
+            recipient_role='delivery',
+            trigger_event='dropoff_qr',
+        ).order_by('-created_at').first()
+        if rider_tx is None and delivery_fee > 0:
+            provider, phone = _resolve_payout_provider(assignment.delivery_person)
+            rider_tx = Transaction.objects.create(
+                order=assignment.order,
+                transaction_type='payout',
+                amount=delivery_fee,
+                currency=deposit_tx.currency,
+                provider=provider,
+                payer_number=phone,
+                recipient=assignment.delivery_person,
+                recipient_role='delivery',
+                trigger_event='dropoff_qr',
+                payout_stage='dropoff_pending_scan',
+                payout_method=payout_method,
+                status='pending',
+            )
+        if rider_tx is not None and rider_tx.payout_stage == 'dropoff_pending_scan':
+            rider_tx.payout_stage = 'ready_for_payout'
+            rider_tx.save(update_fields=['payout_stage', 'updated_at'])
+
+
+class VerifyIdentityQRView(APIView):
+    """
+    Rider scans seller QR (pickup) or buyer QR (dropoff).
+    Replaces the old token-based verify flow — no token generation needed.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, assignment_id):
+        step = str(request.data.get('step', '')).strip()
+        qr_data = str(request.data.get('qr_data', '')).strip()
+
+        if step not in ['pickup', 'dropoff']:
+            return Response(
+                {'error': 'step must be pickup or dropoff'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not qr_data.startswith('pocket:'):
+            return Response(
+                {'error': 'Invalid QR code — not a Pocket identity QR'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qr_secret = qr_data[len('pocket:'):]
+        try:
+            from accounts.models import User
+            scanned_user = User.objects.get(qr_secret=qr_secret)
+        except (User.DoesNotExist, Exception):
+            return Response(
+                {'error': 'QR code not recognised'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        assignment = (
+            DeliveryAssignment.objects.filter(id=assignment_id)
+            .select_related('order', 'order__seller', 'order__buyer', 'delivery_person')
+            .first()
+        )
+        if assignment is None:
+            return Response({'error': 'Assignment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user = request.user
+        if user.role != 'delivery' or assignment.delivery_person_id != user.id:
+            return Response(
+                {'error': 'Only the assigned rider can verify QR codes'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if step == 'pickup' and scanned_user.id != assignment.order.seller_id:
+            return Response(
+                {'error': "This QR does not belong to this order's seller"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if step == 'dropoff' and scanned_user.id != assignment.order.buyer_id:
+            return Response(
+                {'error': "This QR does not belong to this order's buyer"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Expire any active tokens for this step, then record a used one
+        # so UpdateDeliveryStatusView's handoff check passes.
+        DeliveryHandoffToken.objects.filter(
+            assignment=assignment, step=step, status='active'
+        ).update(status='expired')
+        DeliveryHandoffToken.objects.create(
+            order=assignment.order,
+            assignment=assignment,
+            step=step,
+            token=DeliveryHandoffToken.generate_token(),
+            expires_at=timezone.now() + timedelta(minutes=5),
+            status='used',
+            used_at=timezone.now(),
+            created_by=user,
+        )
+
+        deposit_tx = (
+            Transaction.objects.filter(
+                order=assignment.order,
+                transaction_type='deposit',
+                status='completed',
+            )
+            .order_by('-created_at')
+            .first()
+        )
+        if deposit_tx is not None:
+            _advance_payout_for_step(assignment, step, deposit_tx)
+
+        return Response({
+            'verified': True,
+            'step': step,
+            'message': f'{"Pickup" if step == "pickup" else "Drop-off"} verified successfully.',
+        })
 
 
 class DeliveryZonesListView(APIView):
@@ -1174,7 +1260,7 @@ class DeliveryQuoteView(APIView):
 
 
 class DeliveryStatsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
 
     def get(self, request):
         if request.user.role != 'delivery':

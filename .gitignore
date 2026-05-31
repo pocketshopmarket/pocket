@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Django
+*.log
+local_settings.py
+pocket_backend/.env
+pocket_backend/media/
+pocket_backend/staticfiles/
+pocket_backend/db.sqlite3
+pocket_backend/pocket_data.json
+
+# Secrets / test scripts
+check_active_conf.py
+find_completed_deposit.py
+run_refund_test.py
+launch_readiness_notes.txt
+
+# Flutter
+pocket_shop/.dart_tool/
+pocket_shop/build/
+pocket_shop/.flutter-plugins
+pocket_shop/.flutter-plugins-dependencies
+pocket_shop/devtools_options.yaml
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,9 +1,11 @@
-import 'dart:math' as math;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
@@ -14,189 +16,156 @@ class NotificationsScreen extends ConsumerStatefulWidget {
       _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
-    with TickerProviderStateMixin {
-  late final AnimationController _pulseController;
-  late final AnimationController _bounceController;
-  late final AnimationController _shakeController;
-  late final AnimationController _slideController;
-
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
     Future.microtask(
       () => ref.read(notificationProvider.notifier).fetchNotifications(),
     );
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    _bounceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..repeat(reverse: true);
-
-    _shakeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    )..repeat();
-
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    _bounceController.dispose();
-    _shakeController.dispose();
-    _slideController.dispose();
-    super.dispose();
+  // ── Back navigation ───────────────────────────────────────────────────────
+
+  void _goBack() {
+    // Always navigate home — never pop back to whatever screen opened the bell,
+    // because the bell appears on many screens and the user expects "back" to
+    // mean "go home", not "go back to orders/search/wherever I was".
+    final role = ref.read(authProvider).user?.role ?? AppConstants.buyerRole;
+    switch (role) {
+      case AppConstants.sellerRole:
+        context.go('/seller/dashboard');
+      case AppConstants.deliveryRole:
+        context.go('/delivery/home');
+      default:
+        context.go('/buyer/home');
+    }
   }
+
+  // ── Notification tap ──────────────────────────────────────────────────────
+
+  void _handleNotificationTap(Map<String, dynamic> n) {
+    if (n['is_read'] != true) {
+      ref.read(notificationProvider.notifier).markAsRead(n['id'] as int);
+    }
+
+    final userRole = ref.read(authProvider).user?.role ?? AppConstants.buyerRole;
+    final type = n['notification_type'] as String? ?? '';
+    final data = n['data'] as Map<String, dynamic>?;
+    final orderId = data?['order_id']?.toString() ?? '';
+    final orderNumber = data?['order_number']?.toString() ?? '';
+
+    // Pop notifications first so the user can press back naturally
+    final router = GoRouter.of(context);
+    if (context.canPop()) context.pop();
+
+    if (userRole == AppConstants.deliveryRole) {
+      router.go('/delivery/active');
+      return;
+    }
+
+    if (userRole == AppConstants.sellerRole) {
+      router.go(type == 'payout_completed' ? '/seller/payout' : '/seller/orders');
+      return;
+    }
+
+    // Buyer
+    switch (type) {
+      case 'order_out_for_delivery':
+      case 'delivery_assigned':
+        router.go(
+          orderNumber.isNotEmpty
+              ? '/buyer/track-order?order=${Uri.encodeComponent(orderNumber)}'
+              : '/buyer/orders',
+        );
+      case 'payment_pending':
+      case 'payment_failed':
+        router.go(
+          orderNumber.isNotEmpty
+              ? '/buyer/payment-pending?order=${Uri.encodeComponent(orderNumber)}'
+              : '/buyer/orders',
+        );
+      default:
+        router.go(
+          orderId.isNotEmpty ? '/buyer/orders/$orderId' : '/buyer/orders',
+        );
+    }
+  }
+
+  // ── Type helpers ──────────────────────────────────────────────────────────
 
   IconData _iconForType(String type) {
     switch (type) {
-      case 'order_placed':
-        return Icons.shopping_bag_rounded;
-      case 'order_accepted':
-        return Icons.check_circle_rounded;
-      case 'order_preparing':
-        return Icons.restaurant_rounded;
-      case 'order_ready':
-        return Icons.inventory_2_rounded;
-      case 'order_out_for_delivery':
-        return Icons.delivery_dining_rounded;
-      case 'order_delivered':
-        return Icons.done_all_rounded;
-      case 'order_cancelled':
-        return Icons.cancel_rounded;
-      case 'payment_pending':
-        return Icons.hourglass_top_rounded;
-      case 'payment_completed':
-        return Icons.verified_rounded;
-      case 'payment_failed':
-        return Icons.error_rounded;
-      case 'payout_completed':
-        return Icons.account_balance_wallet_rounded;
-      case 'delivery_assigned':
-        return Icons.local_shipping_rounded;
-      default:
-        return Icons.notifications_rounded;
+      case 'order_placed':            return Icons.shopping_bag_rounded;
+      case 'order_accepted':          return Icons.check_circle_rounded;
+      case 'order_preparing':         return Icons.restaurant_rounded;
+      case 'order_ready':             return Icons.inventory_2_rounded;
+      case 'order_out_for_delivery':  return Icons.delivery_dining_rounded;
+      case 'order_delivered':         return Icons.done_all_rounded;
+      case 'order_cancelled':         return Icons.cancel_rounded;
+      case 'payment_pending':         return Icons.hourglass_top_rounded;
+      case 'payment_completed':       return Icons.verified_rounded;
+      case 'payment_failed':          return Icons.error_rounded;
+      case 'payout_completed':        return Icons.account_balance_wallet_rounded;
+      case 'delivery_assigned':       return Icons.local_shipping_rounded;
+      default:                        return Icons.notifications_rounded;
     }
   }
 
   Color _colorForType(String type) {
     switch (type) {
-      case 'order_placed':
-        return AppTheme.accentBlue;
-      case 'order_accepted':
-        return AppTheme.success;
-      case 'order_preparing':
-        return AppTheme.accentOrange;
-      case 'order_ready':
-        return AppTheme.primaryCyan;
-      case 'order_out_for_delivery':
-        return AppTheme.accentPurple;
-      case 'order_delivered':
-        return AppTheme.success;
-      case 'order_cancelled':
-        return AppTheme.error;
-      case 'payment_pending':
-        return const Color(0xFFF59E0B);
-      case 'payment_completed':
-        return const Color(0xFF10B981);
-      case 'payment_failed':
-        return const Color(0xFFEF4444);
-      case 'payout_completed':
-        return const Color(0xFF10B981);
-      case 'delivery_assigned':
-        return AppTheme.darkCyan;
-      default:
-        return AppTheme.textSecondary;
+      case 'order_placed':            return AppTheme.accentBlue;
+      case 'order_accepted':          return AppTheme.success;
+      case 'order_preparing':         return AppTheme.accentOrange;
+      case 'order_ready':             return AppTheme.primaryCyan;
+      case 'order_out_for_delivery':  return AppTheme.accentPurple;
+      case 'order_delivered':         return AppTheme.success;
+      case 'order_cancelled':         return AppTheme.error;
+      case 'payment_pending':         return const Color(0xFFF59E0B);
+      case 'payment_completed':       return const Color(0xFF10B981);
+      case 'payment_failed':          return const Color(0xFFEF4444);
+      case 'payout_completed':        return const Color(0xFF10B981);
+      case 'delivery_assigned':       return AppTheme.darkCyan;
+      default:                        return AppTheme.textSecondary;
     }
   }
 
-  /// Returns the animated icon widget based on notification type.
-  Widget _animatedIconForType(String type, Color color) {
-    final icon = _iconForType(type);
-    const double iconSize = 22;
-
+  /// Colorful status badge shown on every notification card.
+  _BadgeConfig _badgeForType(String type) {
     switch (type) {
-      // Pulsing glow for pending payment
-      case 'payment_pending':
-        return AnimatedBuilder(
-          animation: _pulseController,
-          builder: (_, child) {
-            final scale = 1.0 + (_pulseController.value * 0.15);
-            final opacity = 0.3 + (_pulseController.value * 0.4);
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 44 * scale,
-                  height: 44 * scale,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14 * scale),
-                    color: color.withValues(alpha: opacity * 0.15),
-                  ),
-                ),
-                Icon(icon, color: color, size: iconSize),
-              ],
-            );
-          },
-        );
-
-      // Bounce for delivered / payment success
-      case 'order_delivered':
-      case 'payment_completed':
-        return AnimatedBuilder(
-          animation: _bounceController,
-          builder: (_, __) {
-            final offset = math.sin(_bounceController.value * math.pi) * -3;
-            return Transform.translate(
-              offset: Offset(0, offset),
-              child: Icon(icon, color: color, size: iconSize),
-            );
-          },
-        );
-
-      // Shake for failures / cancellations
-      case 'order_cancelled':
-      case 'payment_failed':
-        return AnimatedBuilder(
-          animation: _shakeController,
-          builder: (_, __) {
-            final offset =
-                math.sin(_shakeController.value * math.pi * 4) * 2;
-            return Transform.translate(
-              offset: Offset(offset, 0),
-              child: Icon(icon, color: color, size: iconSize),
-            );
-          },
-        );
-
-      // Slide for delivery in progress
+      case 'order_placed':
+        return _BadgeConfig('New order', Icons.shopping_bag_rounded, AppTheme.accentBlue);
+      case 'order_accepted':
+        return _BadgeConfig('Accepted', Icons.check_circle_rounded, AppTheme.success);
+      case 'order_preparing':
+        return _BadgeConfig('Preparing', Icons.restaurant_rounded, AppTheme.accentOrange);
+      case 'order_ready':
+        return _BadgeConfig('Ready for pickup', Icons.inventory_2_rounded, AppTheme.primaryCyan);
       case 'order_out_for_delivery':
+        return _BadgeConfig('Out for delivery', Icons.delivery_dining_rounded, AppTheme.accentPurple);
+      case 'order_delivered':
+        return _BadgeConfig('Delivered', Icons.done_all_rounded, AppTheme.success);
+      case 'order_cancelled':
+        return _BadgeConfig('Cancelled', Icons.cancel_rounded, AppTheme.error);
+      case 'payment_pending':
+        return _BadgeConfig('Payment pending', Icons.hourglass_top_rounded, const Color(0xFFF59E0B));
+      case 'payment_completed':
+        return _BadgeConfig('Payment successful', Icons.check_circle_rounded, const Color(0xFF10B981));
+      case 'payment_failed':
+        return _BadgeConfig('Payment failed', Icons.cancel_rounded, const Color(0xFFEF4444));
+      case 'payout_completed':
+        return _BadgeConfig('Earnings paid', Icons.payments_rounded, const Color(0xFF10B981));
       case 'delivery_assigned':
-        return AnimatedBuilder(
-          animation: _slideController,
-          builder: (_, __) {
-            final offset =
-                math.sin(_slideController.value * math.pi * 2) * 4;
-            return Transform.translate(
-              offset: Offset(offset, 0),
-              child: Icon(icon, color: color, size: iconSize),
-            );
-          },
-        );
-
+        return _BadgeConfig('Rider assigned', Icons.local_shipping_rounded, AppTheme.darkCyan);
       default:
-        return Icon(icon, color: color, size: iconSize);
+        return _BadgeConfig('Notification', Icons.notifications_rounded, AppTheme.textSecondary);
     }
+  }
+
+  String _toAbsoluteUrl(String path) {
+    if (path.startsWith('http')) return path;
+    final base = Uri.parse(AppConstants.baseUrl);
+    return '${base.scheme}://${base.host}:${base.port}$path';
   }
 
   String _timeAgo(String dateStr) {
@@ -213,34 +182,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
     }
   }
 
-  void _handleNotificationTap(Map<String, dynamic> n) {
-    if (n['is_read'] != true) {
-      ref.read(notificationProvider.notifier).markAsRead(n['id'] as int);
-    }
-
-    // Navigate to relevant screen based on notification type
-    final type = n['notification_type'] as String? ?? '';
-    final data = n['data'] as Map<String, dynamic>?;
-
-    if (data != null && data.containsKey('order_number')) {
-      final orderNumber = data['order_number']?.toString() ?? '';
-      if (orderNumber.isNotEmpty) {
-        switch (type) {
-          case 'order_out_for_delivery':
-          case 'delivery_assigned':
-            context.push('/buyer/track-order', extra: {'order_number': orderNumber});
-            return;
-          case 'payment_pending':
-          case 'payment_failed':
-            context.push('/buyer/payment-pending/$orderNumber');
-            return;
-          default:
-            context.push('/buyer/orders');
-            return;
-        }
-      }
-    }
-  }
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -251,43 +193,56 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Notifications'),
-        backgroundColor: AppTheme.softSurface,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _goBack,
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: AppTheme.divider.withValues(alpha: 0.6)),
+        ),
         actions: [
           if (state.unreadCount > 0)
-            TextButton.icon(
-              onPressed: () =>
-                  ref.read(notificationProvider.notifier).markAllAsRead(),
-              icon: const Icon(Icons.done_all_rounded, size: 18),
-              label: const Text('Read all'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.primaryCyan,
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton.icon(
+                onPressed: () =>
+                    ref.read(notificationProvider.notifier).markAllAsRead(),
+                icon: const Icon(Icons.done_all_rounded, size: 16),
+                label: const Text('Mark all read'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.primaryCyan,
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
-          const SizedBox(width: 8),
         ],
       ),
       body: state.isLoading && notifications.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryCyan),
+            )
           : notifications.isEmpty
               ? _buildEmptyState()
               : RefreshIndicator(
                   color: AppTheme.primaryCyan,
-                  onRefresh: () => ref
-                      .read(notificationProvider.notifier)
-                      .fetchNotifications(),
-                  child: ListView.separated(
+                  onRefresh: () =>
+                      ref.read(notificationProvider.notifier).fetchNotifications(),
+                  child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: notifications.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: AppTheme.divider.withValues(alpha: 0.5),
-                      indent: 72,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    itemBuilder: (context, index) {
-                      final n = notifications[index];
-                      return _buildNotificationTile(n);
-                    },
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) =>
+                        _buildNotificationCard(notifications[index]),
                   ),
                 ),
     );
@@ -298,205 +253,305 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (_, __) {
-              final scale = 1.0 + (_pulseController.value * 0.08);
-              return Transform.scale(
-                scale: scale,
-                child: Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightCyan.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.notifications_off_outlined,
-                    size: 40,
-                    color: AppTheme.primaryCyan.withValues(alpha: 0.6),
-                  ),
-                ),
-              );
-            },
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              color: AppTheme.lightCyan.withValues(alpha: 0.5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.notifications_off_outlined,
+              size: 44,
+              color: AppTheme.primaryCyan.withValues(alpha: 0.55),
+            ),
           ),
-          const SizedBox(height: 16),
-          Text(
+          const SizedBox(height: 20),
+          const Text(
             'No notifications yet',
-            style: AppTheme.headline3.copyWith(color: AppTheme.textPrimary),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'You\'ll be notified about order updates here.',
-            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textSecondary),
+          const Text(
+            "You'll be notified about order and payment updates here.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.textSecondary,
+              height: 1.4,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationTile(Map<String, dynamic> n) {
+  Widget _buildNotificationCard(Map<String, dynamic> n) {
     final isRead = n['is_read'] == true;
     final type = n['notification_type'] as String? ?? 'general';
     final color = _colorForType(type);
+    final icon = _iconForType(type);
+    final badge = _badgeForType(type);
+    final data = n['data'] as Map<String, dynamic>?;
+    final rawImageUrl = data?['image_url']?.toString();
+    final imageUrl = (rawImageUrl != null && rawImageUrl.isNotEmpty)
+        ? _toAbsoluteUrl(rawImageUrl)
+        : null;
+    final actionChip = _buildActionChip(type, color);
 
-    return InkWell(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        _handleNotificationTap(n);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        color: isRead
-            ? Colors.transparent
-            : AppTheme.lightCyan.withValues(alpha: 0.15),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Animated Icon
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: _animatedIconForType(type, color),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _handleNotificationTap(n);
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            decoration: BoxDecoration(
+              color: isRead
+                  ? Colors.white
+                  : AppTheme.lightCyan.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isRead
+                    ? AppTheme.divider.withValues(alpha: 0.7)
+                    : AppTheme.primaryCyan.withValues(alpha: 0.25),
               ),
             ),
-            const SizedBox(width: 12),
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon / avatar
+                _buildLeadingIcon(icon, color, imageUrl),
+                const SizedBox(width: 12),
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          n['title'] as String? ?? '',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                isRead ? FontWeight.w500 : FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                      // Title + time
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              n['title'] as String? ?? '',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: isRead
+                                    ? FontWeight.w500
+                                    : FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                                height: 1.2,
+                              ),
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _timeAgo(n['created_at'] as String? ?? ''),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondary
+                                  .withValues(alpha: 0.65),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 3),
+                      // Message
                       Text(
-                        _timeAgo(n['created_at'] as String? ?? ''),
+                        n['message'] as String? ?? '',
                         style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textSecondary
-                              .withValues(alpha: 0.7),
+                          fontSize: 13,
+                          color: isRead
+                              ? AppTheme.textSecondary
+                              : AppTheme.textPrimary.withValues(alpha: 0.75),
+                          fontWeight: isRead
+                              ? FontWeight.w400
+                              : FontWeight.w500,
+                          height: 1.4,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 7),
+                      // Colorful status badge — always visible
+                      _buildBadge(badge),
+                      // Action chip
+                      if (actionChip != null) ...[
+                        const SizedBox(height: 5),
+                        actionChip,
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    n['message'] as String? ?? '',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textSecondary,
-                      fontWeight:
-                          isRead ? FontWeight.w400 : FontWeight.w500,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  // Action chip for actionable notifications
-                  if (!isRead && _isActionable(type)) ...[
-                    const SizedBox(height: 8),
-                    _buildActionChip(type, color),
-                  ],
-                ],
-              ),
-            ),
-            // Unread dot
-            if (!isRead) ...[
-              const SizedBox(width: 8),
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(top: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryCyan,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryCyan.withValues(alpha: 0.4),
-                      blurRadius: 6,
-                    ),
-                  ],
                 ),
-              ),
-            ],
-          ],
+                // Unread dot
+                if (!isRead) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryCyan,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryCyan.withValues(alpha: 0.45),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  bool _isActionable(String type) {
-    return const {
-      'order_out_for_delivery',
-      'delivery_assigned',
-      'payment_pending',
-      'payment_failed',
-    }.contains(type);
-  }
-
-  Widget _buildActionChip(String type, Color color) {
-    String label;
-    IconData chipIcon;
-
-    switch (type) {
-      case 'order_out_for_delivery':
-      case 'delivery_assigned':
-        label = 'Track Order';
-        chipIcon = Icons.map_outlined;
-        break;
-      case 'payment_pending':
-        label = 'View Payment';
-        chipIcon = Icons.payment_rounded;
-        break;
-      case 'payment_failed':
-        label = 'Retry Payment';
-        chipIcon = Icons.refresh_rounded;
-        break;
-      default:
-        label = 'View';
-        chipIcon = Icons.arrow_forward_rounded;
-    }
-
+  Widget _buildBadge(_BadgeConfig badge) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: badge.color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: badge.color.withValues(alpha: 0.4),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(chipIcon, size: 14, color: color),
-          const SizedBox(width: 4),
+          Icon(badge.icon, size: 13, color: badge.color),
+          const SizedBox(width: 5),
           Text(
-            label,
+            badge.label,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: badge.color,
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildLeadingIcon(IconData icon, Color color, String? imageUrl) {
+    if (imageUrl != null) {
+      return SizedBox(
+        width: 50,
+        height: 50,
+        child: Stack(
+          children: [
+            CircleAvatar(
+              radius: 25,
+              backgroundColor: color.withValues(alpha: 0.12),
+              backgroundImage: CachedNetworkImageProvider(imageUrl),
+            ),
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                width: 19,
+                height: 19,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Icon(icon, color: Colors.white, size: 10),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+      ),
+      child: Icon(icon, color: color, size: 20),
+    );
+  }
+
+  Widget? _buildActionChip(String type, Color color) {
+    final String? label;
+    final IconData? icon;
+
+    switch (type) {
+      case 'order_out_for_delivery':
+      case 'delivery_assigned':
+        label = 'Track order';
+        icon = Icons.map_outlined;
+      case 'payment_pending':
+        label = 'View payment';
+        icon = Icons.payment_rounded;
+      case 'payment_failed':
+        label = 'Retry payment';
+        icon = Icons.refresh_rounded;
+      case 'order_placed':
+      case 'order_accepted':
+      case 'order_preparing':
+      case 'order_ready':
+      case 'order_delivered':
+        label = 'View order';
+        icon = Icons.receipt_long_outlined;
+      default:
+        return null;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 3),
+          Icon(Icons.arrow_forward_ios_rounded, size: 10, color: color.withValues(alpha: 0.7)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Badge data class ──────────────────────────────────────────────────────────
+
+class _BadgeConfig {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _BadgeConfig(this.label, this.icon, this.color);
 }

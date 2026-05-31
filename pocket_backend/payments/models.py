@@ -42,6 +42,11 @@ class Transaction(models.Model):
         ('order_cancelled', 'Order Cancelled'),
     ]
 
+    PAYOUT_METHOD_CHOICES = [
+        ('manual', 'Manual (platform sends from own phone)'),
+        ('gateway', 'Gateway (PawaPay payout API)'),
+    ]
+
     transaction_id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
     )
@@ -76,6 +81,9 @@ class Transaction(models.Model):
     )
     trigger_event = models.CharField(
         max_length=20, choices=TRIGGER_EVENT_CHOICES, default='manual'
+    )
+    payout_method = models.CharField(
+        max_length=10, choices=PAYOUT_METHOD_CHOICES, default='manual'
     )
     failure_message = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')

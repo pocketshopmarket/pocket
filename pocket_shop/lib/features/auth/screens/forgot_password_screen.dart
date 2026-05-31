@@ -92,7 +92,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                   SizedBox(height: 8.h),
                   Text(
-                    'Enter the phone number for your account. If it is registered, we will send a verification code (check the server log in development).',
+                    'Enter the phone number for your account. If it is registered, we will send a verification code .',
                     style: TextStyle(
                       fontSize: 14.sp,
                       color: AppTheme.textSecondary,

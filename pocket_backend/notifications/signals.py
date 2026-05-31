@@ -5,14 +5,71 @@ Listens to the Order post_save signal and creates relevant
 notifications for buyers, sellers, and delivery agents.
 """
 
+import json
 import logging
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from orders.models import Order
+from accounts.models import VerificationRequest
 from .models import Notification
 
 logger = logging.getLogger(__name__)
+
+
+def _get_firebase_app():
+    """
+    Return the initialized Firebase app, or None if credentials are not configured.
+    Safe to call on any platform — returns None silently when Firebase is not set up.
+    """
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+
+        if firebase_admin._apps:
+            return firebase_admin.get_app()
+
+        from django.conf import settings as django_settings
+        cred_json = getattr(django_settings, 'FIREBASE_CREDENTIALS_JSON', '')
+        if not cred_json:
+            return None
+
+        cred_dict = json.loads(cred_json)
+        cred = credentials.Certificate(cred_dict)
+        return firebase_admin.initialize_app(cred)
+    except Exception:
+        return None
+
+
+def _send_push(recipient, title, message, data_payload):
+    """
+    Send an FCM push notification to a single device.
+    Silently skips if:
+      - firebase-admin is not installed
+      - FIREBASE_CREDENTIALS_JSON is not configured
+      - The recipient has no FCM token registered
+    Never raises — failures are logged only.
+    """
+    try:
+        token = getattr(recipient, 'fcm_token', '') or ''
+        if not token:
+            return
+
+        app = _get_firebase_app()
+        if app is None:
+            return
+
+        from firebase_admin import messaging
+        str_data = {k: str(v) for k, v in (data_payload or {}).items()}
+        msg = messaging.Message(
+            notification=messaging.Notification(title=title, body=message),
+            data=str_data,
+            token=token,
+        )
+        messaging.send(msg, app=app)
+        logger.info('FCM push sent to user %s', recipient.id)
+    except Exception as exc:
+        logger.warning('FCM push failed for user %s: %s', getattr(recipient, 'id', '?'), exc)
 
 # Map order status → (notification_type, title_template, message_template, recipient_field)
 # Recipient field: 'buyer', 'seller', or 'both'
@@ -68,8 +125,39 @@ _STATUS_MAP = {
 }
 
 
+def _get_order_image_url(order):
+    """Return relative media URL for the best image representing this order, or None."""
+    try:
+        first_item = order.items.select_related('product').first()
+        if first_item:
+            product = first_item.product
+            if product.image:
+                return product.image.url
+            if product.image_url:
+                return product.image_url
+    except Exception:
+        pass
+    try:
+        if order.seller.profile_photo:
+            return order.seller.profile_photo.url
+    except Exception:
+        pass
+    return None
+
+
+def _get_rider_image_url(assignment):
+    """Return relative media URL for the rider's profile photo, or None."""
+    try:
+        dp = assignment.delivery_person.delivery_profile
+        if dp.profile_photo:
+            return dp.profile_photo.url
+    except Exception:
+        pass
+    return None
+
+
 def _create_notification(recipient, notification_type, title, message, data_payload):
-    """Helper to create a notification and log failures."""
+    """Save in-app notification and fire FCM push if the device token is registered."""
     try:
         Notification.objects.create(
             recipient=recipient,
@@ -83,6 +171,19 @@ def _create_notification(recipient, notification_type, title, message, data_payl
             'Failed to create %s notification for user %s',
             notification_type, recipient.id,
         )
+    _send_push(recipient, title, message, data_payload)
+
+
+@receiver(pre_save, sender=Order)
+def store_previous_order_status(sender, instance, **kwargs):
+    """Attach the persisted status before save so post_save can detect real changes."""
+    if not instance.pk:
+        instance._previous_status = None
+        return
+
+    instance._previous_status = (
+        sender.objects.filter(pk=instance.pk).values_list('status', flat=True).first()
+    )
 
 
 @receiver(post_save, sender=Order)
@@ -99,6 +200,9 @@ def order_status_notification(sender, instance, created, **kwargs):
     # On update, skip 'pending' because it was already sent on create
     if not created and status == 'pending':
         return
+    # Ignore unrelated saves when the order remains in the same status.
+    if not created and getattr(instance, '_previous_status', None) == status:
+        return
 
     order_number = instance.order_number
     data_payload = {
@@ -106,6 +210,9 @@ def order_status_notification(sender, instance, created, **kwargs):
         'order_number': order_number,
         'status': status,
     }
+    image_url = _get_order_image_url(instance)
+    if image_url:
+        data_payload['image_url'] = image_url
 
     for role in mapping['recipients']:
         if role == 'buyer':
@@ -143,6 +250,9 @@ def create_payment_notification(order, payment_status, failure_message=''):
         'order_number': order_number,
         'payment_status': payment_status,
     }
+    image_url = _get_order_image_url(order)
+    if image_url:
+        data_payload['image_url'] = image_url
 
     if payment_status == 'completed':
         _create_notification(
@@ -163,3 +273,111 @@ def create_payment_notification(order, payment_status, failure_message=''):
             message=msg,
             data_payload=data_payload,
         )
+
+
+def create_delivery_assignment_notification(assignment):
+    """Notify the buyer that a rider has been assigned to their order."""
+    order = assignment.order
+    data_payload = {
+        'order_id': order.id,
+        'order_number': order.order_number,
+        'assignment_id': assignment.id,
+        'status': order.status,
+    }
+    image_url = _get_rider_image_url(assignment) or _get_order_image_url(order)
+    if image_url:
+        data_payload['image_url'] = image_url
+
+    _create_notification(
+        recipient=order.buyer,
+        notification_type='delivery_assigned',
+        title='Delivery Assigned',
+        message=(
+            f'A delivery rider has been assigned to order #{order.order_number}. '
+            'You can now track your order.'
+        ),
+        data_payload=data_payload,
+    )
+
+
+@receiver(post_save, sender=VerificationRequest)
+def verification_request_notification(sender, instance, created, **kwargs):
+    """Notify user when their verification request is approved or rejected."""
+    if created:
+        return
+    prev_status = getattr(instance, '_prev_status', None)
+    if prev_status == instance.status:
+        return
+
+    user = instance.user
+    vtype_labels = {
+        'seller_tier1': 'Seller Tier 1',
+        'seller_tier2': 'Seller Tier 2',
+        'delivery': 'Delivery',
+    }
+    label = vtype_labels.get(instance.verification_type, 'Account')
+
+    if instance.status == 'approved':
+        _create_notification(
+            recipient=user,
+            notification_type='verification_approved',
+            title='Verification Approved!',
+            message=f'Your {label} verification has been approved. You can now start using all features.',
+            data_payload={
+                'verification_type': instance.verification_type,
+                'status': 'approved',
+            },
+        )
+    elif instance.status == 'rejected':
+        reason = instance.rejection_reason or 'Please review your submitted documents.'
+        _create_notification(
+            recipient=user,
+            notification_type='verification_rejected',
+            title='Verification Rejected',
+            message=f'Your {label} verification was not approved. Reason: {reason}',
+            data_payload={
+                'verification_type': instance.verification_type,
+                'status': 'rejected',
+                'rejection_reason': reason,
+            },
+        )
+
+
+@receiver(pre_save, sender=VerificationRequest)
+def store_prev_verification_status(sender, instance, **kwargs):
+    """Store the current status before save so post_save can detect real changes."""
+    if not instance.pk:
+        instance._prev_status = None
+        return
+    instance._prev_status = (
+        sender.objects.filter(pk=instance.pk)
+        .values_list('status', flat=True)
+        .first()
+    )
+
+
+def create_payout_completed_notification(transaction):
+    """Notify the payout recipient after a payout completes successfully."""
+    recipient = transaction.recipient
+    if recipient is None:
+        return
+
+    role_label = 'delivery earnings' if transaction.recipient_role == 'delivery' else 'payout'
+    order = transaction.order
+    _create_notification(
+        recipient=recipient,
+        notification_type='payout_completed',
+        title='Payout Completed',
+        message=(
+            f'Your {role_label} of {transaction.amount} {transaction.currency} '
+            f'for order #{order.order_number} has been paid successfully.'
+        ),
+        data_payload={
+            'order_id': order.id,
+            'order_number': order.order_number,
+            'transaction_id': str(transaction.transaction_id),
+            'amount': str(transaction.amount),
+            'currency': transaction.currency,
+            'recipient_role': transaction.recipient_role,
+        },
+    )

@@ -105,6 +105,12 @@ class Order {
   final List<OrderItemLine> items;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? sellerPhone;
+  final String? buyerPhone;
+  final String? sellerShopName;
+  final String? sellerShopLocation;
+  final double? sellerShopLat;
+  final double? sellerShopLng;
 
   Order({
     required this.id,
@@ -132,6 +138,12 @@ class Order {
     required this.items,
     required this.createdAt,
     required this.updatedAt,
+    this.sellerPhone,
+    this.buyerPhone,
+    this.sellerShopName,
+    this.sellerShopLocation,
+    this.sellerShopLat,
+    this.sellerShopLng,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -188,25 +200,25 @@ class Order {
       items: items,
       createdAt: DateTime.parse(json['created_at'].toString()),
       updatedAt: DateTime.parse(json['updated_at'].toString()),
+      sellerPhone: json['seller_phone']?.toString(),
+      buyerPhone: json['buyer_phone']?.toString(),
+      sellerShopName: json['seller_shop_name']?.toString(),
+      sellerShopLocation: json['seller_shop_location']?.toString(),
+      sellerShopLat: double.tryParse((json['seller_shop_lat'] ?? '').toString()),
+      sellerShopLng: double.tryParse((json['seller_shop_lng'] ?? '').toString()),
     );
   }
 
   String get statusLabel {
     switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'accepted':
-        return 'Accepted';
-      case 'preparing':
-        return 'Preparing';
-      case 'out_for_delivery':
-        return 'Out for delivery';
-      case 'delivered':
-        return 'Delivered';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return status;
+      case 'pending':         return 'Pending';
+      case 'payment_pending': return 'Payment pending';
+      case 'accepted':        return 'Accepted';
+      case 'preparing':       return 'Preparing';
+      case 'out_for_delivery': return 'Out for delivery';
+      case 'delivered':       return 'Delivered';
+      case 'cancelled':       return 'Cancelled';
+      default:                return status;
     }
   }
 

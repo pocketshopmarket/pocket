@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -73,10 +74,16 @@ CACHES = {
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-ku3o848_ofvh&of-x9i+0&c6l98=^^xxffu0%al*wkv519)j)6',
-)
+_secret = os.environ.get('DJANGO_SECRET_KEY', '')
+if not _secret:
+    if ENVIRONMENT == 'development':
+        _secret = 'django-insecure-dev-only-key-do-not-use-in-production'
+    else:
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured(
+            'DJANGO_SECRET_KEY environment variable must be set in production.'
+        )
+SECRET_KEY = _secret
 
 DEBUG = ENVIRONMENT == 'development'
 
@@ -88,8 +95,16 @@ _allowed = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
 ALLOWED_HOSTS = (
     [h.strip() for h in _allowed.split(',') if h.strip()]
     if _allowed
-    else ['*']
+    else (['*'] if DEBUG else ['localhost', '127.0.0.1'])
 )
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 _csrf = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').strip()
 CSRF_TRUSTED_ORIGINS = [o.strip().rstrip('/') for o in _csrf.split(',') if o.strip()]
@@ -111,6 +126,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'accounts.error_logging.api_exception_handler',
 }
 
 # JWT Configuration
@@ -155,10 +171,13 @@ INSTALLED_APPS = [
     'payments',
     'portal',
     'notifications',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -190,12 +209,20 @@ WSGI_APPLICATION = 'pocket_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+_database_url = os.environ.get('DATABASE_URL')
+if _database_url:
+    DATABASES = {'default': dj_database_url.parse(_database_url, conn_max_age=600)}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'pocket_db'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
 
 
 # Password validation
@@ -234,6 +261,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -263,3 +291,11 @@ ORDER_ACCEPTANCE_TIMEOUT_MINUTES = int(
 AFRICAS_TALKING_USERNAME = os.environ.get('AFRICAS_TALKING_USERNAME', 'sandbox')
 AFRICAS_TALKING_API_KEY = os.environ.get('AFRICAS_TALKING_API_KEY', '')
 AFRICAS_TALKING_SENDER_ID = os.environ.get('AFRICAS_TALKING_SENDER_ID', '') # Optional
+
+# FIREBASE: set FIREBASE_CREDENTIALS_JSON to the full service-account JSON string in production.
+# Leave empty in dev — push notifications are silently skipped when not configured.
+FIREBASE_CREDENTIALS_JSON = os.environ.get('FIREBASE_CREDENTIALS_JSON', '')
+
+# PAYOUT_METHOD: 'manual' = admin pays from their own phone, 'gateway' = PawaPay payout API.
+# Switch to 'gateway' in env when PawaPay grants payout access — no code change needed.
+PAYOUT_METHOD = os.environ.get('PAYOUT_METHOD', 'manual')

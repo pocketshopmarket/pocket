@@ -72,7 +72,44 @@ class AuthService {
         return firstError.toString();
       }
     }
+    // Network-level errors (no HTTP response received).
+    if (e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.unknown) {
+      return "Can't connect to the server. Please check your internet connection and try again.";
+    }
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'Request timed out. Please try again.';
+    }
+    final status = e.response?.statusCode;
+    if (status == 401) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (status == 403) {
+      return 'You do not have permission to perform this action.';
+    }
+    if (status == 404) {
+      return 'We could not find what you requested.';
+    }
+    if (status == 429) {
+      return 'Too many attempts. Please wait and try again.';
+    }
+    if (status != null && status >= 500) {
+      return 'Something went wrong on our side. Please try again shortly.';
+    }
     return defaultMessage;
+  }
+
+  String extractFriendlyMessage(
+    Object error, {
+    String defaultMessage = 'Something went wrong. Please try again.',
+  }) {
+    if (error is DioException) {
+      return _extractErrorMessage(error, defaultMessage);
+    }
+    final raw = error.toString().replaceAll('Exception: ', '').trim();
+    return raw.isEmpty ? defaultMessage : raw;
   }
 
   // Send OTP
@@ -377,6 +414,101 @@ class AuthService {
     }
   }
 
+  Future<Map<String, dynamic>> submitSellerVerification({
+    required String shopName,
+    required String shopLocation,
+    required String nrcNumber,
+    required String nrcFrontPath,
+    required String nrcBackPath,
+    required String livePhotoPath,
+    String tier = 'tier1',
+    String? businessLicensePath,
+    String? businessName,
+    String? businessRegistrationNumber,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final data = FormData.fromMap({
+        'tier': tier,
+        'shop_name': shopName,
+        'shop_location': shopLocation,
+        'nrc_number': nrcNumber,
+        'nrc_front_image': await MultipartFile.fromFile(nrcFrontPath),
+        'nrc_back_image': await MultipartFile.fromFile(nrcBackPath),
+        'live_verification_photo': await MultipartFile.fromFile(livePhotoPath),
+        if (businessLicensePath != null && businessLicensePath.isNotEmpty)
+          'business_license': await MultipartFile.fromFile(businessLicensePath),
+        if (businessName != null && businessName.trim().isNotEmpty)
+          'business_name': businessName.trim(),
+        if (businessRegistrationNumber != null &&
+            businessRegistrationNumber.trim().isNotEmpty)
+          'business_registration_number': businessRegistrationNumber.trim(),
+      });
+      final response = await _apiService.post(
+        AppConstants.sellerApplyEndpoint,
+        data: data,
+      );
+      return {
+        'success': response.data['success'] == true,
+        'message': response.data['message']?.toString() ??
+            'Seller verification submitted.',
+        'data': response.data['data'],
+      };
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _extractErrorMessage(e, 'Could not submit verification'),
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'An unexpected error occurred'};
+    }
+  }
+
+  Future<Map<String, dynamic>> submitDeliveryVerification({
+    required String vehicleType,
+    required String licenseNumber,
+    required String licenseFrontPath,
+    required String licenseBackPath,
+    required String province,
+    required String town,
+    required String area,
+    required String livePhotoPath,
+    String? profilePhotoPath,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final data = FormData.fromMap({
+        'vehicle_type': vehicleType,
+        'license_number': licenseNumber,
+        'license_front_image': await MultipartFile.fromFile(licenseFrontPath),
+        'license_back_image': await MultipartFile.fromFile(licenseBackPath),
+        'province': province,
+        'town': town,
+        'area': area,
+        'live_verification_photo': await MultipartFile.fromFile(livePhotoPath),
+        if (profilePhotoPath != null && profilePhotoPath.isNotEmpty)
+          'profile_photo': await MultipartFile.fromFile(profilePhotoPath),
+      });
+      final response = await _apiService.post(
+        AppConstants.deliveryApplyEndpoint,
+        data: data,
+      );
+      return {
+        'success': response.data['success'] == true,
+        'message': response.data['message']?.toString() ??
+            'Delivery verification submitted.',
+        'data': response.data['data'],
+      };
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _extractErrorMessage(e, 'Could not submit verification'),
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'An unexpected error occurred'};
+    }
+  }
+
   // Check if user is logged in
   Future<bool> isLoggedIn() async {
     await _ensureInitialized();
@@ -414,6 +546,38 @@ class AuthService {
       return null;
     }
     return null;
+  }
+
+  Future<Map<String, dynamic>> uploadProfilePhoto(String imagePath) async {
+    await _ensureInitialized();
+    try {
+      final data = FormData.fromMap({
+        'profile_photo': await MultipartFile.fromFile(imagePath),
+      });
+      final response = await _apiService.put(
+        AppConstants.profileEndpoint,
+        data: data,
+      );
+      final body = response.data;
+      final rawData = body['data'];
+      final userMap = rawData is Map
+          ? Map<String, dynamic>.from(
+              (rawData['user'] is Map ? rawData['user'] : rawData) as Map,
+            )
+          : null;
+      return {
+        'success': body['success'] == true,
+        'message': body['message']?.toString() ?? 'Profile photo updated.',
+        if (userMap != null) 'user': userMap,
+      };
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _extractErrorMessage(e, 'Could not upload photo'),
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'An unexpected error occurred'};
+    }
   }
 
   /// Persist merged user map (including `seller_profile` / role profiles from GET profile).

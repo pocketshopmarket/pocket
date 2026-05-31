@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/delivery_provider.dart';
 import '../../../widgets/osm_route_map.dart';
+import '../../../widgets/qr_scanner_sheet.dart';
 
 class ActiveDeliveryScreen extends ConsumerStatefulWidget {
   const ActiveDeliveryScreen({super.key});
@@ -29,6 +29,7 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
   Timer? _locationTimer;
   StreamSubscription<Position>? _positionSub;
   LatLng? _liveLatLng;
+  final List<_OfflineLocation> _locationQueue = [];
   bool _stepsLoading = false;
   String? _stepsError;
   List<_DirectionStep> _directionSteps = const [];
@@ -37,6 +38,8 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
   int _selectedRouteIndex = 0;
   static final Distance _distance = Distance();
   bool _panelHidden = false;
+  bool _followLocked = true;
+  bool _offRoute = false;
 
   @override
   void initState() {
@@ -102,9 +105,7 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     if (id == null) return;
 
     final status = a['status']?.toString() ?? '';
-    if (!['accepted', 'picked_up', 'in_transit'].contains(status)) {
-      return;
-    }
+    if (!['accepted', 'picked_up', 'in_transit'].contains(status)) return;
 
     try {
       final perm = await Geolocator.checkPermission();
@@ -112,18 +113,41 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
           perm == LocationPermission.deniedForever) {
         return;
       }
+
       final pos = await Geolocator.getCurrentPosition();
-      await ref
-          .read(deliveryServiceProvider)
-          .updateLocation(
-            assignmentId: id,
-            lat: pos.latitude,
-            lng: pos.longitude,
-            speed: pos.speed,
-            accuracy: pos.accuracy,
-          );
+      final svc = ref.read(deliveryServiceProvider);
+
+      // Flush queued offline pings before the live one
+      if (_locationQueue.isNotEmpty) {
+        final queued = List<_OfflineLocation>.from(_locationQueue);
+        _locationQueue.clear();
+        for (final q in queued) {
+          try {
+            await svc.updateLocation(
+              assignmentId: q.assignmentId,
+              lat: q.lat,
+              lng: q.lng,
+            );
+          } catch (_) {
+            _locationQueue.insert(0, q);
+            return; // still offline — try again next tick
+          }
+        }
+      }
+
+      await svc.updateLocation(
+        assignmentId: id,
+        lat: pos.latitude,
+        lng: pos.longitude,
+        speed: pos.speed,
+        accuracy: pos.accuracy,
+      );
     } catch (_) {
-      // Non-fatal; next tick will retry
+      // Queue the last known position for the next successful push (cap at 5)
+      final pos = _liveLatLng;
+      if (pos != null && _locationQueue.length < 5) {
+        _locationQueue.add(_OfflineLocation(id, pos.latitude, pos.longitude));
+      }
     }
   }
 
@@ -216,8 +240,14 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
         _bindLivePositionStream();
         if (next == 'delivered') {
           messenger.showSnackBar(
-            const SnackBar(content: Text('Marked delivered')),
+            const SnackBar(
+              content: Text('Delivery complete! Great job.'),
+              backgroundColor: AppTheme.success,
+              duration: Duration(seconds: 2),
+            ),
           );
+          await Future.delayed(const Duration(milliseconds: 1800));
+          if (mounted) context.go('/delivery/home');
         }
       }
     } catch (e) {
@@ -238,42 +268,34 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     if (a == null) return;
     final id = _parseId(a['id']);
     if (id == null) return;
-    final tokenController = TextEditingController();
-    final token = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Scan seller pickup QR'),
-        content: TextField(
-          controller: tokenController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'Pickup token',
-            hintText: 'Paste token from seller QR',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(tokenController.text.trim()),
-            child: const Text('Verify'),
-          ),
-        ],
-      ),
+
+    final scanned = await QrScannerSheet.scan(
+      context,
+      title: 'Scan seller QR',
+      instruction: 'Point the camera at the seller\'s identity QR code to confirm pickup.',
     );
-    tokenController.dispose();
-    if (token == null || token.isEmpty) return;
+    if (scanned == null || scanned.isEmpty) return;
+
     setState(() => _busy = true);
     try {
       final svc = ref.read(deliveryServiceProvider);
-      await svc.verifyHandoffToken(
+      final result = await svc.verifyIdentityQR(
         assignmentId: id,
         step: 'pickup',
-        token: token,
+        qrData: scanned,
       );
+      if (!mounted) return;
+      final verified = result['verified'] == true || result['success'] == true;
+      if (!verified && result.isNotEmpty) {
+        setState(() => _busy = false);
+        final errMsg = result['error']?.toString() ??
+            result['message']?.toString() ??
+            'Could not verify seller QR. Try again.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errMsg), backgroundColor: AppTheme.error),
+        );
+        return;
+      }
       await _setStatus('picked_up');
     } catch (e) {
       if (!mounted) return;
@@ -282,7 +304,10 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
           ? ref.read(deliveryServiceProvider).extractErrorMessage(e)
           : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg ?? 'Could not verify pickup token')),
+        SnackBar(
+          content: Text(msg ?? 'Could not verify pickup QR'),
+          backgroundColor: AppTheme.error,
+        ),
       );
     }
   }
@@ -293,52 +318,33 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     final id = _parseId(a['id']);
     if (id == null) return;
 
-    final tokenController = TextEditingController();
-    final token = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: AppTheme.surfaceWhite,
-        title: const Text(
-          'Verify Dropoff QR',
-          style: TextStyle(fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
-        ),
-        content: TextField(
-          controller: tokenController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.characters,
-          decoration: InputDecoration(
-            labelText: 'Dropoff token',
-            hintText: 'Enter token from buyer',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(tokenController.text.trim()),
-            child: const Text('Verify', style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
+    final scanned = await QrScannerSheet.scan(
+      context,
+      title: 'Scan buyer QR',
+      instruction: 'Point the camera at the buyer\'s identity QR code to confirm delivery.',
     );
-    tokenController.dispose();
-    if (token == null || token.isEmpty) return;
+    if (scanned == null || scanned.isEmpty) return;
 
     setState(() => _busy = true);
     try {
       final svc = ref.read(deliveryServiceProvider);
-      await svc.verifyHandoffToken(
+      final result = await svc.verifyIdentityQR(
         assignmentId: id,
         step: 'dropoff',
-        token: token,
+        qrData: scanned,
       );
+      if (!mounted) return;
+      final verified = result['verified'] == true || result['success'] == true;
+      if (!verified && result.isNotEmpty) {
+        setState(() => _busy = false);
+        final errMsg = result['error']?.toString() ??
+            result['message']?.toString() ??
+            'Could not verify buyer QR. Try again.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errMsg), backgroundColor: AppTheme.error),
+        );
+        return;
+      }
       await _setStatus('delivered');
     } catch (e) {
       if (!mounted) return;
@@ -347,7 +353,10 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
           ? ref.read(deliveryServiceProvider).extractErrorMessage(e)
           : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg ?? 'Could not verify dropoff token')),
+        SnackBar(
+          content: Text(msg ?? 'Could not verify dropoff QR'),
+          backgroundColor: AppTheme.error,
+        ),
       );
     }
   }
@@ -488,7 +497,10 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
               }
               out.add(
                 _DirectionStep(
-                  instruction: '$act$where (${_fmtDistance(dist)})',
+                  instruction: '$act$where',
+                  distanceMeters: dist,
+                  maneuverType: type,
+                  maneuverModifier: modifier,
                   maneuverPoint: maneuverPoint,
                 ),
               );
@@ -556,6 +568,7 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     if (bestIdx != _currentStepIndex) {
       setState(() => _currentStepIndex = bestIdx);
     }
+    _checkOffRoute();
   }
 
   String _stepAction(String? type, String? modifier) {
@@ -576,6 +589,112 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
   String _fmtDistance(double meters) {
     if (meters < 1000) return '${meters.round()} m';
     return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+
+  IconData _maneuverIcon(String? type, String? modifier) {
+    final t = (type ?? '').trim();
+    final m = (modifier ?? '').trim();
+    if (t == 'depart') return Icons.my_location_rounded;
+    if (t == 'arrive') return Icons.flag_rounded;
+    if (t == 'roundabout' || t == 'rotary') return Icons.rotate_right_rounded;
+    if (t == 'merge') return Icons.merge_rounded;
+    if (t == 'fork') {
+      return (m == 'left' || m == 'slight left')
+          ? Icons.fork_left_rounded
+          : Icons.fork_right_rounded;
+    }
+    if (t == 'turn') {
+      switch (m) {
+        case 'left':
+          return Icons.turn_left_rounded;
+        case 'right':
+          return Icons.turn_right_rounded;
+        case 'sharp left':
+          return Icons.turn_sharp_left_rounded;
+        case 'sharp right':
+          return Icons.turn_sharp_right_rounded;
+        case 'slight left':
+          return Icons.turn_slight_left_rounded;
+        case 'slight right':
+          return Icons.turn_slight_right_rounded;
+        case 'uturn':
+          return Icons.u_turn_left_rounded;
+      }
+    }
+    return Icons.straight_rounded;
+  }
+
+  void _checkOffRoute() {
+    if (_liveLatLng == null || _routeOptions.isEmpty) {
+      if (_offRoute) setState(() => _offRoute = false);
+      return;
+    }
+    final pts = _selectedRouteIndex < _routeOptions.length
+        ? _routeOptions[_selectedRouteIndex].points
+        : <LatLng>[];
+    if (pts.isEmpty) {
+      if (_offRoute) setState(() => _offRoute = false);
+      return;
+    }
+    var minDist = double.infinity;
+    for (final p in pts) {
+      final d = _distance.as(LengthUnit.Meter, _liveLatLng!, p);
+      if (d < minDist) {
+        minDist = d;
+        if (minDist < 50) break;
+      }
+    }
+    final nowOff = minDist > 100;
+    if (nowOff != _offRoute) {
+      setState(() => _offRoute = nowOff);
+      if (nowOff) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && _offRoute) _loadInAppDirections(_assignment);
+        });
+      }
+    }
+  }
+
+  Widget _stepRow(_DirectionStep s, bool isCurrent) {
+    final distLabel =
+        s.distanceMeters > 0 ? 'In ${_fmtDistance(s.distanceMeters)}' : null;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          _maneuverIcon(s.maneuverType, s.maneuverModifier),
+          size: 16,
+          color: isCurrent ? AppTheme.darkCyan : AppTheme.textSecondary,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (distLabel != null)
+                Text(
+                  distLabel,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color:
+                        isCurrent ? AppTheme.primaryCyan : AppTheme.textSecondary,
+                  ),
+                ),
+              Text(
+                s.instruction,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isCurrent ? AppTheme.textPrimary : AppTheme.textSecondary,
+                  fontWeight:
+                      isCurrent ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   void _openStepsSheet() {
@@ -618,24 +737,37 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                         radius: 12,
                         backgroundColor:
                             isCurrent ? AppTheme.primaryCyan : AppTheme.lightCyan,
-                        child: Text(
-                          '${i + 1}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: isCurrent
-                                ? Colors.white
-                                : AppTheme.darkCyan,
+                        child: Icon(
+                          _maneuverIcon(
+                            _directionSteps[i].maneuverType,
+                            _directionSteps[i].maneuverModifier,
                           ),
+                          size: 13,
+                          color: isCurrent ? Colors.white : AppTheme.darkCyan,
                         ),
                       ),
-                      title: Text(
-                        _directionSteps[i].instruction,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight:
-                              isCurrent ? FontWeight.w700 : FontWeight.w500,
-                        ),
+                      title: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_directionSteps[i].distanceMeters > 0)
+                            Text(
+                              'In ${_fmtDistance(_directionSteps[i].distanceMeters)}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.darkCyan,
+                              ),
+                            ),
+                          Text(
+                            _directionSteps[i].instruction,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight:
+                                  isCurrent ? FontWeight.w700 : FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                       trailing: isCurrent
                           ? const Text(
@@ -749,6 +881,15 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
         ? _routeOptions[_selectedRouteIndex].points
         : serverRoutePoints;
 
+    final nextManeuverStep =
+        _directionSteps.isNotEmpty && _currentStepIndex < _directionSteps.length
+            ? _directionSteps[_currentStepIndex]
+            : null;
+    final alternativeRoutes = [
+      for (var i = 0; i < _routeOptions.length; i++)
+        if (i != _selectedRouteIndex && _routeOptions[i].points.isNotEmpty)
+          _routeOptions[i].points,
+    ];
     final markers = <MapMarker>[
       if (pickup != null)
         MapMarker(point: pickup, icon: Icons.store, color: AppTheme.darkCyan),
@@ -760,11 +901,22 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
           icon: Icons.navigation,
           color: AppTheme.primaryCyan,
         ),
+      if (nextManeuverStep?.maneuverPoint != null)
+        MapMarker(
+          point: nextManeuverStep!.maneuverPoint!,
+          icon: _maneuverIcon(
+            nextManeuverStep.maneuverType,
+            nextManeuverStep.maneuverModifier,
+          ),
+          color: AppTheme.warning,
+          size: 18,
+        ),
     ];
 
     final status = a['status']?.toString() ?? '';
     final orderNo = a['order_number']?.toString() ?? '';
     final buyerPhone = a['buyer_phone']?.toString() ?? '';
+    final sellerPhone = a['seller_phone']?.toString() ?? '';
     final addr = a['delivery_address']?.toString() ?? '';
     final distM = a['route_distance_m'];
     final durS = a['route_duration_s'];
@@ -795,11 +947,12 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
           child: OsmRouteMap(
             key: ValueKey(_parseId(a['id']) ?? 0),
             routePoints: routePoints,
+            alternativeRoutes: alternativeRoutes,
             markers: markers,
             expandVertically: true,
             clipBorderRadius: BorderRadius.zero,
             showZoomControls: true,
-            followTarget: you,
+            followTarget: _followLocked ? you : null,
             refitBoundsWhenDataChanges: _liveLatLng == null,
             followMinMoveMeters: 6,
           ),
@@ -842,17 +995,65 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
             ],
           ),
         ),
+        if (_offRoute)
+          Positioned(
+            top: 70,
+            left: 12,
+            right: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Off route — recalculating...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        Positioned(
+          top: 170,
+          right: 10,
+          child: FloatingActionButton.small(
+            heroTag: 'follow_lock',
+            onPressed: () => setState(() => _followLocked = !_followLocked),
+            backgroundColor: _followLocked
+                ? AppTheme.primaryCyan.withValues(alpha: 0.9)
+                : Colors.white.withValues(alpha: 0.9),
+            foregroundColor: _followLocked ? Colors.white : AppTheme.textSecondary,
+            child: Icon(
+              _followLocked ? Icons.gps_fixed : Icons.gps_not_fixed,
+            ),
+          ),
+        ),
         Positioned(
           left: 12,
           right: 12,
           bottom: 10,
-          child: _panelHidden
-              ? const SizedBox.shrink()
-              : ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.65,
-                  ),
-                  child: Container(
+          child: IgnorePointer(
+            ignoring: _panelHidden,
+            child: AnimatedSlide(
+              offset: _panelHidden ? const Offset(0, 1.5) : Offset.zero,
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.65,
+                ),
+                child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.72),
@@ -949,11 +1150,19 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                   ),
                 ],
                 const SizedBox(height: 4),
-                Text(
-                  'Status: $status',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.darkCyan,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _humanStatus(status),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.darkCyan,
+                    ),
                   ),
                 ),
                 if (addr.isNotEmpty) ...[
@@ -969,14 +1178,44 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                     ),
                   ),
                 ],
-                if (buyerPhone.isNotEmpty) ...[
+                if (buyerPhone.isNotEmpty || sellerPhone.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    'Customer: $buyerPhone',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textSecondary,
-                    ),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      if (buyerPhone.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () async {
+                            final uri = Uri(scheme: 'tel', path: buyerPhone);
+                            if (await canLaunchUrl(uri)) await launchUrl(uri);
+                          },
+                          icon: const Icon(Icons.call_outlined, size: 16),
+                          label: const Text('Call buyer'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      if (sellerPhone.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () async {
+                            final uri = Uri(scheme: 'tel', path: sellerPhone);
+                            if (await canLaunchUrl(uri)) await launchUrl(uri);
+                          },
+                          icon: const Icon(Icons.call_outlined, size: 16),
+                          label: const Text('Call seller'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -1039,21 +1278,17 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      ..._directionSteps
-                          .skip(_currentStepIndex)
-                          .take(2)
-                          .map(
-                        (s) => Padding(
-                          padding: const EdgeInsets.only(bottom: 2),
-                          child: Text(
-                            '• ${s.instruction}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
+                      for (var i = _currentStepIndex;
+                          i < _directionSteps.length &&
+                              i < _currentStepIndex + 2;
+                          i++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: _stepRow(
+                            _directionSteps[i],
+                            i == _currentStepIndex,
                           ),
                         ),
-                      ),
                       if (_directionSteps.length - _currentStepIndex > 2)
                         Text(
                           '+ ${_directionSteps.length - _currentStepIndex - 2} more steps',
@@ -1068,32 +1303,35 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                       ),
                     ],
                   ),
-                if (_directionSteps.isNotEmpty) ...[
+                if (_directionSteps.isNotEmpty || nextNavTarget != null) ...[
                   const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _openStepsSheet,
-                      icon: const Icon(Icons.route_rounded, size: 18),
-                      label: Text('Start in-app guidance to $nextNavLabel'),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 40),
-                      ),
-                    ),
-                  ),
-                ],
-                if (nextNavTarget != null) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openDirections(nextNavTarget, you),
-                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                      label: Text('Fallback: Open Google Maps ($nextNavLabel)'),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 38),
-                      ),
-                    ),
+                  Row(
+                    children: [
+                      if (_directionSteps.isNotEmpty)
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _openStepsSheet,
+                            icon: const Icon(Icons.route_rounded, size: 16),
+                            label: Text('In-app ($nextNavLabel)'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 38),
+                            ),
+                          ),
+                        ),
+                      if (_directionSteps.isNotEmpty && nextNavTarget != null)
+                        const SizedBox(width: 8),
+                      if (nextNavTarget != null)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _openDirections(nextNavTarget, you),
+                            icon: const Icon(Icons.map_outlined, size: 16),
+                            label: const Text('Google Maps'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 38),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
                 if (status == 'in_transit' || status == 'picked_up') ...[
@@ -1151,6 +1389,8 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
             ),
             ),
           ),
+              ),
+            ),
           ),
         ),
         if (_panelHidden)
@@ -1242,6 +1482,21 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     );
   }
 
+  String _humanStatus(String status) {
+    switch (status) {
+      case 'accepted':
+        return 'Accepted — head to pickup';
+      case 'picked_up':
+        return 'Picked up — heading to customer';
+      case 'in_transit':
+        return 'In transit';
+      case 'delivered':
+        return 'Delivered';
+      default:
+        return status.replaceAll('_', ' ');
+    }
+  }
+
   String _sourceLabel(String source) {
     switch (source) {
       case 'osrm':
@@ -1288,12 +1543,25 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
   }
 }
 
+class _OfflineLocation {
+  final int assignmentId;
+  final double lat;
+  final double lng;
+  const _OfflineLocation(this.assignmentId, this.lat, this.lng);
+}
+
 class _DirectionStep {
   final String instruction;
+  final double distanceMeters;
+  final String? maneuverType;
+  final String? maneuverModifier;
   final LatLng? maneuverPoint;
 
   const _DirectionStep({
     required this.instruction,
+    this.distanceMeters = 0,
+    this.maneuverType,
+    this.maneuverModifier,
     this.maneuverPoint,
   });
 }

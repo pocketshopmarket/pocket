@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -59,6 +60,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     super.initState();
     _secondsLeft = widget.resendCooldownSeconds;
     _startCooldownTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _focusNodes.isNotEmpty) {
+        _focusNodes[0].requestFocus();
+      }
+    });
   }
 
   void _startCooldownTimer() {
@@ -95,7 +101,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         _otpControllers[i].text = digits[i];
       }
       final lastFilled = (digits.length - 1).clamp(0, 5);
-      _focusNodes[lastFilled].requestFocus();
+      if (lastFilled < 5) {
+        _focusNodes[lastFilled + 1].requestFocus();
+      } else {
+        _focusNodes[lastFilled].unfocus();
+      }
       return;
     }
 
@@ -304,9 +314,17 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                             child: TextFormField(
                               controller: _otpControllers[index],
                               focusNode: _focusNodes[index],
+                              autofocus: index == 0,
                               textAlign: TextAlign.center,
-                              maxLength: 1,
                               keyboardType: TextInputType.number,
+                              textInputAction: index < 5
+                                  ? TextInputAction.next
+                                  : TextInputAction.done,
+                              autofillHints: const [AutofillHints.oneTimeCode],
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(1),
+                              ],
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return '';
@@ -316,7 +334,22 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                                 }
                                 return null;
                               },
+                              onTap: () {
+                                _otpControllers[index].selection =
+                                    TextSelection(
+                                      baseOffset: 0,
+                                      extentOffset:
+                                          _otpControllers[index].text.length,
+                                    );
+                              },
                               onChanged: (value) => _onOtpChanged(index, value),
+                              onFieldSubmitted: (_) {
+                                if (index < 5) {
+                                  _focusNodes[index + 1].requestFocus();
+                                } else {
+                                  _focusNodes[index].unfocus();
+                                }
+                              },
                               decoration: InputDecoration(
                                 counterText: '',
                                 filled: true,

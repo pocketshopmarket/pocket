@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../widgets/osm_route_map.dart';
+import '../../../../widgets/qr_identity_sheet.dart';
 
 /// Parsed tracking API payload for map + bottom sheet (Phase 1 layout).
 class _TrackingPayload {
@@ -117,133 +119,18 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         _loading = false;
         if (e is DioException && e.response?.statusCode == 404) {
           _error = 'not_started';
+        } else if (e is DioException &&
+            (e.type == DioExceptionType.connectionError ||
+                e.type == DioExceptionType.unknown)) {
+          _error = "Can't connect to the server. Please check your internet connection.";
+        } else if (e is DioException &&
+            (e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.receiveTimeout)) {
+          _error = 'Request timed out. Please try again.';
         } else {
-          _error = e.toString();
+          _error = 'Something went wrong. Please try again.';
         }
       });
-    }
-  }
-  Future<void> _showDropoffToken(int assignmentId) async {
-    setState(() => _loading = true);
-    try {
-      final svc = ref.read(orderServiceProvider);
-      final payload = await svc.generateBuyerDropoffToken(assignmentId);
-      if (!mounted) return;
-      setState(() => _loading = false);
-      final token = (payload['token'] ?? '').toString();
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: AppTheme.surfaceWhite,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.qr_code_rounded,
-                  size: 48,
-                  color: AppTheme.primaryCyan,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Your delivery QR code',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Show this to the rider when they arrive to confirm delivery.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                if (token.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-                    ),
-                    child: QrImageView(
-                      data: token,
-                      version: QrVersions.auto,
-                      size: 180.0,
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Or provide this code manually:',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightCyan.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: SelectableText(
-                    token.isEmpty ? 'Token not available' : token,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      letterSpacing: 2.0,
-                      color: AppTheme.darkCyan,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      'Done',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      final msg = e is DioException ? ref.read(orderServiceProvider).extractErrorMessage(e) : e.toString();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg ?? 'Could not generate token')),
-      );
     }
   }
 
@@ -262,6 +149,11 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
         title: const Text('Track delivery'),
         elevation: showMapChrome ? 0 : 1,
         surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/buyer/orders'),
+        ),
         actions: [
           if (_hasOrder)
             IconButton(
@@ -605,12 +497,84 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                     ),
                     if (assignment['status'] == 'in_transit' || assignment['status'] == 'picked_up') ...[
                       const SizedBox(height: 12),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => QrIdentitySheet.show(context),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryCyan.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.qr_code_rounded,
+                                    color: AppTheme.primaryCyan,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Show my QR code',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Rider scans this to confirm drop-off',
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: Colors.white38,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if ((assignment['delivery_person_phone']?.toString() ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () => _showDropoffToken(int.parse(assignment['id'].toString())),
-                          icon: const Icon(Icons.qr_code_2_rounded),
-                          label: const Text('Show delivery QR code'),
+                          onPressed: () async {
+                            final uri = Uri(
+                              scheme: 'tel',
+                              path: assignment['delivery_person_phone'].toString(),
+                            );
+                            if (await canLaunchUrl(uri)) await launchUrl(uri);
+                          },
+                          icon: const Icon(Icons.call_outlined),
+                          label: const Text('Call rider'),
                         ),
                       ),
                     ],
@@ -643,34 +607,6 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                         fontSize: 15,
                         height: 1.4,
                         color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (assignment != null &&
-              (assignment['buyer_phone']?.toString() ?? '').isNotEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.phone_outlined,
-                      size: 18,
-                      color: AppTheme.textSecondary.withValues(alpha: 0.85),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Phone on order: ${assignment['buyer_phone']}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.35,
-                          color: AppTheme.textSecondary,
-                        ),
                       ),
                     ),
                   ],
@@ -773,12 +709,12 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       spacing: 8,
       runSpacing: 8,
       children: [
-        chip('Pickup', AppTheme.darkCyan, Icons.store_rounded),
-        chip('Drop-off', AppTheme.success, Icons.home_rounded),
+        chip('Pickup', AppTheme.darkCyan, Icons.store),
+        chip('Drop-off', AppTheme.success, Icons.home),
         chip(
           riderLive ? 'Rider' : 'Rider (pending)',
           AppTheme.primaryCyan,
-          Icons.delivery_dining_rounded,
+          Icons.delivery_dining,
         ),
       ],
     );

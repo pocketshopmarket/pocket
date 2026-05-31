@@ -1,15 +1,114 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/orders_provider.dart';
+import '../../../../services/api_service.dart';
+import '../../../../widgets/osm_route_map.dart';
 
 class BuyerOrderDetailScreen extends ConsumerWidget {
   final int orderId;
 
   const BuyerOrderDetailScreen({super.key, required this.orderId});
+
+  Future<void> _requestRefund(BuildContext context, WidgetRef ref, int orderId) async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Request a refund', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            const Text(
+              'Explain why you want a refund. The seller will review your request.',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                hintText: 'Describe the issue...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Submit request'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    if (reasonCtrl.text.trim().isEmpty) return;
+    try {
+      final api = ApiService();
+      await api.post(
+        'orders/orders/$orderId/refund-request/',
+        data: {'reason': reasonCtrl.text.trim()},
+      );
+      ref.invalidate(orderDetailProvider(orderId));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Refund request submitted — the seller will review it'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  Future<void> _call(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  void _showWalkToShopSheet(
+    BuildContext context, {
+    required double lat,
+    required double lng,
+    String? shopName,
+    String? shopLocation,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WalkToShopSheet(
+        lat: lat,
+        lng: lng,
+        shopName: shopName,
+        shopLocation: shopLocation,
+      ),
+    );
+  }
 
   Future<void> _rateOrder(BuildContext context, WidgetRef ref, int orderId) async {
     int score = 5;
@@ -102,6 +201,24 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'cancelled':
+        return AppTheme.error;
+      case 'delivered':
+        return AppTheme.success;
+      case 'out_for_delivery':
+        return AppTheme.accentPurple;
+      case 'accepted':
+      case 'preparing':
+        return AppTheme.success;
+      case 'payment_pending':
+        return const Color(0xFFF59E0B);
+      default:
+        return AppTheme.darkCyan;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(orderDetailProvider(orderId));
@@ -112,7 +229,8 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
         title: const Text('Order details'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/buyer/orders'),
         ),
       ),
       body: async.when(
@@ -150,10 +268,10 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     Text(
                       order.statusLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.darkCyan,
+                        color: _statusColor(order.status),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -304,15 +422,14 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              if (order.isDelivery)
+              if (order.isDelivery &&
+                  order.status == 'out_for_delivery')
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      context.push(
-                        '/buyer/track-order?order=${Uri.encodeComponent(order.orderNumber)}',
-                      );
-                    },
+                    onPressed: () => context.go(
+                      '/buyer/track-order?order=${Uri.encodeComponent(order.orderNumber)}',
+                    ),
                     icon: const Icon(Icons.local_shipping_outlined),
                     label: const Text('Track delivery'),
                   ),
@@ -328,18 +445,204 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ],
+              if (order.status == 'delivered') ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _requestRefund(context, ref, order.id),
+                    icon: const Icon(Icons.assignment_return_outlined),
+                    label: const Text('Request refund'),
+                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.warning),
+                  ),
+                ),
+              ],
+              if (order.sellerPhone?.isNotEmpty ?? false) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _call(order.sellerPhone!),
+                    icon: const Icon(Icons.call_outlined),
+                    label: const Text('Call seller'),
+                  ),
+                ),
+              ],
+              if (order.sellerShopLat != null && order.sellerShopLng != null) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showWalkToShopSheet(
+                      context,
+                      lat: order.sellerShopLat!,
+                      lng: order.sellerShopLng!,
+                      shopName: order.sellerShopName,
+                      shopLocation: order.sellerShopLocation,
+                    ),
+                    icon: const Icon(Icons.directions_walk_rounded),
+                    label: const Text('Walk / drive to shop'),
+                  ),
+                ),
+              ],
             ],
           );
         },
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppTheme.primaryCyan),
         ),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(e.toString(), textAlign: TextAlign.center),
+        error: (e, _) {
+          final isDio = e is DioException;
+          final is404 = isDio && e.response?.statusCode == 404;
+          final msg = is404
+              ? 'Order not found.'
+              : isDio
+                  ? 'Could not load order. Please try again.'
+                  : 'Something went wrong.';
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.receipt_long_outlined,
+                    size: 48,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    msg,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppTheme.textSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/buyer/orders'),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to orders'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _WalkToShopSheet extends StatelessWidget {
+  final double lat;
+  final double lng;
+  final String? shopName;
+  final String? shopLocation;
+
+  const _WalkToShopSheet({
+    required this.lat,
+    required this.lng,
+    this.shopName,
+    this.shopLocation,
+  });
+
+  Future<void> _openInMaps() async {
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&destination=$lat,$lng&travelmode=walking',
+    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F172A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.store_rounded, color: AppTheme.primaryCyan, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  shopName?.isNotEmpty == true ? shopName! : 'Seller shop',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+          if (shopLocation?.isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Text(
+                shopLocation!,
+                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: OsmRouteMap(
+              height: 260,
+              refitBoundsWhenDataChanges: true,
+              markers: [
+                MapMarker(
+                  point: LatLng(lat, lng),
+                  icon: Icons.store,
+                  color: AppTheme.darkCyan,
+                  size: 36,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _openInMaps,
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Open in Google Maps'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryCyan,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

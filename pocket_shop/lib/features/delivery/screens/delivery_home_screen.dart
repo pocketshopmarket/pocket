@@ -174,6 +174,17 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               _buildHeaderCard(),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/delivery/offers'),
+                icon: const Icon(Icons.inbox_rounded, size: 17),
+                label: const Text('View my delivery offers'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 42),
+                  foregroundColor: AppTheme.darkCyan,
+                  side: BorderSide(color: AppTheme.primaryCyan.withValues(alpha: 0.5)),
+                ),
+              ),
               if (_locationNote != null) ...[
                 const SizedBox(height: 12),
                 Container(

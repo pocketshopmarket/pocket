@@ -25,26 +25,60 @@ import '../features/buyer/screens/payment_pending_screen.dart';
 import '../features/delivery/screens/active_delivery_screen.dart';
 import '../features/delivery/screens/delivery_home_screen.dart';
 import '../features/delivery/screens/delivery_main_screen.dart';
+import '../features/delivery/screens/delivery_offers_screen.dart';
 import '../features/delivery/screens/delivery_profile_screen.dart';
 import '../features/delivery/screens/earnings_screen.dart';
+import '../features/admin/screens/admin_dashboard_screen.dart';
 import '../features/seller/screens/add_product_screen.dart';
+import '../features/seller/screens/edit_product_screen.dart';
 import '../features/seller/screens/seller_dashboard_screen.dart';
 import '../features/seller/screens/seller_main_screen.dart';
 import '../features/seller/screens/seller_orders_screen.dart';
+import '../features/seller/screens/seller_product_reviews_screen.dart';
+import '../features/seller/screens/seller_products_screen.dart';
 import '../features/seller/screens/seller_profile_screen.dart';
 import '../features/seller/screens/seller_payout_methods_screen.dart';
 import '../features/seller/screens/seller_payout_history_screen.dart';
-import '../features/shared/screens/payout_screen.dart';
 import '../features/shared/screens/notifications_screen.dart';
+import '../features/shared/screens/payout_screen.dart';
+import '../features/shared/screens/refund_requests_screen.dart';
 import '../models/product.dart';
 import '../providers/auth_provider.dart' show AuthState, authProvider;
 
-class RouterRefresh extends ChangeNotifier {}
+class RouterRefresh extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
+// Stable branch navigator keys.
+// go_router keys sub-navigators as GlobalObjectKey(navigatorKey.hashCode).
+// Using explicit keys here guarantees unique hashCodes and prevents the
+// duplicate-page-key assertion that fires when sibling shells share a
+// hashCode collision across their branch navigators.
+final _buyerBranchHome = GlobalKey<NavigatorState>(debugLabel: 'buyer/home');
+final _buyerBranchShop = GlobalKey<NavigatorState>(debugLabel: 'buyer/shop');
+final _buyerBranchWishlist = GlobalKey<NavigatorState>(debugLabel: 'buyer/wishlist');
+final _buyerBranchCart = GlobalKey<NavigatorState>(debugLabel: 'buyer/cart');
+final _buyerBranchProfile = GlobalKey<NavigatorState>(debugLabel: 'buyer/profile');
+
+final _sellerBranchDashboard = GlobalKey<NavigatorState>(debugLabel: 'seller/dashboard');
+final _sellerBranchProducts = GlobalKey<NavigatorState>(debugLabel: 'seller/products');
+final _sellerBranchOrders = GlobalKey<NavigatorState>(debugLabel: 'seller/orders');
+final _sellerBranchShop = GlobalKey<NavigatorState>(debugLabel: 'seller/shop');
+
+final _deliveryBranchHome = GlobalKey<NavigatorState>(debugLabel: 'delivery/home');
+final _deliveryBranchActive = GlobalKey<NavigatorState>(debugLabel: 'delivery/active');
+final _deliveryBranchEarnings = GlobalKey<NavigatorState>(debugLabel: 'delivery/earnings');
+final _deliveryBranchAccount = GlobalKey<NavigatorState>(debugLabel: 'delivery/account');
 
 final routerRefreshProvider = Provider<RouterRefresh>((ref) {
   final refresh = RouterRefresh();
   ref.listen<AuthState>(authProvider, (prev, next) {
-    refresh.notifyListeners();
+    // Only fire when redirect-relevant state changes (login / logout / init).
+    // Profile-data-only updates must not trigger GoRouter page-list rebuilds.
+    if (prev?.isAuthenticated != next.isAuthenticated ||
+        prev?.isInitialized != next.isInitialized) {
+      refresh.notify();
+    }
   });
   ref.onDispose(refresh.dispose);
   return refresh;
@@ -75,6 +109,8 @@ String? _authRedirect(Ref ref, GoRouterState state) {
           return '/seller/dashboard';
         case AppConstants.deliveryRole:
           return '/delivery/home';
+        case 'admin':
+          return '/admin';
         default:
           return '/buyer/home';
       }
@@ -96,6 +132,8 @@ String? _authRedirect(Ref ref, GoRouterState state) {
           return '/seller/dashboard';
         case AppConstants.deliveryRole:
           return '/delivery/home';
+        case 'admin':
+          return '/admin';
         default:
           return '/buyer/home';
       }
@@ -112,6 +150,8 @@ String? _authRedirect(Ref ref, GoRouterState state) {
           return '/seller/dashboard';
         case AppConstants.deliveryRole:
           return '/delivery/home';
+        case 'admin':
+          return '/admin';
         default:
           return '/buyer/home';
       }
@@ -128,6 +168,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     redirect: (context, state) => _authRedirect(ref, state),
     routes: [
+      // ── Auth / utility routes ──────────────────────────────────────────
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
@@ -175,264 +216,290 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
           final phone = extra['phone']?.toString().trim() ?? '';
-          if (phone.isEmpty) {
-            return '/forgot-password';
-          }
+          if (phone.isEmpty) return '/forgot-password';
           return null;
         },
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>? ?? {};
-          final phone = extra['phone']?.toString() ?? '';
-          return ResetPasswordScreen(initialPhone: phone);
+          return ResetPasswordScreen(
+              initialPhone: extra['phone']?.toString() ?? '');
         },
       ),
       GoRoute(
         path: '/change-password',
         builder: (context, state) => const ChangePasswordScreen(),
       ),
-      // One StatefulShellRoute per role, nested under its own parent path, so
-      // buyer / seller / delivery shells are never mounted at the same time.
-      // That avoids go_router's GlobalObjectKey(navigatorKey.hashCode) collisions
-      // across sibling shells (see _CustomNavigator in go_router builder.dart).
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/refund-requests',
+        builder: (context, state) => const RefundRequestsScreen(),
+      ),
+
+      // ── Role root redirects ────────────────────────────────────────────
       GoRoute(
         path: '/buyer',
-        redirect: (context, state) {
-          final p = state.uri.path;
-          if (p == '/buyer' || p == '/buyer/') {
-            return '/buyer/home';
-          }
-          return null;
-        },
-        routes: [
-          StatefulShellRoute.indexedStack(
-            builder: (context, state, navigationShell) {
-              return BuyerMainScreen(navigationShell: navigationShell);
-            },
-            branches: [
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'home',
-                    builder: (context, state) => const BuyerHomeScreen(),
-                  ),
-                  GoRoute(
-                    path: 'product-details',
-                    builder: (context, state) {
-                      final product = state.extra as Product;
-                      return BuyerProductDetailsScreen(product: product);
-                    },
-                  ),
-                  GoRoute(
-                    path: 'search',
-                    builder: (context, state) => const BuyerSearchScreen(),
-                  ),
-                  GoRoute(
-                    path: 'track-order',
-                    builder: (context, state) {
-                      final orderNumber =
-                          state.uri.queryParameters['order'] ??
-                          (state.extra
-                                  as Map<String, dynamic>?)?['order_number']
-                              as String?;
-                      return OrderTrackingScreen(orderNumber: orderNumber);
-                    },
-                  ),
-                  GoRoute(
-                    path: 'orders',
-                    builder: (context, state) => const BuyerOrdersScreen(),
-                  ),
-                  GoRoute(
-                    path: 'orders/:id',
-                    builder: (context, state) {
-                      final id =
-                          int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-                      return BuyerOrderDetailScreen(orderId: id);
-                    },
-                  ),
-                  GoRoute(
-                    path: 'payment-pending',
-                    builder: (context, state) {
-                      final params = state.uri.queryParameters;
-                      final extra =
-                          state.extra as Map<String, dynamic>? ?? {};
-                      return PaymentPendingScreen(
-                        orderNumber: params['order'] ??
-                            extra['order_number']?.toString() ??
-                            '',
-                        provider: params['provider'] ??
-                            extra['provider']?.toString() ??
-                            '',
-                        amount: params['amount'] ??
-                            extra['amount']?.toString() ??
-                            '',
-                        isDelivery:
-                            (params['delivery'] ?? extra['is_delivery']?.toString() ?? 'true') ==
-                                'true',
-                      );
-                    },
-                  ),
-                ],
-              ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'shop',
-                    builder: (context, state) => const BuyerSearchScreen(),
-                  ),
-                ],
-              ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'wishlist',
-                    builder: (context, state) => const BuyerWishlistScreen(),
-                  ),
-                ],
-              ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'cart',
-                    builder: (context, state) => const CartScreen(),
-                  ),
-                ],
-              ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'profile',
-                    builder: (context, state) => const BuyerProfileScreen(),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+        redirect: (context, state) => '/buyer/home',
       ),
       GoRoute(
         path: '/seller',
-        redirect: (context, state) {
-          final p = state.uri.path;
-          if (p == '/seller' || p == '/seller/') {
-            return '/seller/dashboard';
-          }
-          return null;
-        },
-        routes: [
-          StatefulShellRoute.indexedStack(
-            builder: (context, state, navigationShell) {
-              return SellerMainScreen(navigationShell: navigationShell);
-            },
-            branches: [
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'dashboard',
-                    builder: (context, state) => const SellerDashboardScreen(),
-                  ),
-                ],
+        redirect: (context, state) => '/seller/dashboard',
+      ),
+      GoRoute(
+        path: '/delivery',
+        redirect: (context, state) => '/delivery/home',
+      ),
+
+      // ── Delivery offers — standalone, renders above the shell ──────────
+      GoRoute(
+        path: '/delivery/offers',
+        builder: (context, state) => const DeliveryOffersScreen(),
+      ),
+
+      // ── Buyer shell ────────────────────────────────────────────────────
+      // StatefulShellRoute at the top level (not wrapped in a GoRoute).
+      // Branch routes use full absolute paths.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            BuyerMainScreen(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            navigatorKey: _buyerBranchHome,
+            routes: [
+              GoRoute(
+                path: '/buyer/home',
+                builder: (context, state) => const BuyerHomeScreen(),
               ),
-              StatefulShellBranch(
+              GoRoute(
+                path: '/buyer/product-details',
+                builder: (context, state) {
+                  final product = state.extra as Product;
+                  return BuyerProductDetailsScreen(product: product);
+                },
+              ),
+              GoRoute(
+                path: '/buyer/search',
+                builder: (context, state) => const BuyerSearchScreen(),
+              ),
+              GoRoute(
+                path: '/buyer/track-order',
+                builder: (context, state) {
+                  final orderNumber =
+                      state.uri.queryParameters['order'] ??
+                      (state.extra
+                              as Map<String, dynamic>?)?['order_number']
+                          as String?;
+                  return OrderTrackingScreen(orderNumber: orderNumber);
+                },
+              ),
+              GoRoute(
+                path: '/buyer/orders',
+                builder: (context, state) => const BuyerOrdersScreen(),
+              ),
+              GoRoute(
+                path: '/buyer/orders/:id',
+                builder: (context, state) {
+                  final id =
+                      int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+                  return BuyerOrderDetailScreen(orderId: id);
+                },
+              ),
+              GoRoute(
+                path: '/buyer/payment-pending',
+                builder: (context, state) {
+                  final params = state.uri.queryParameters;
+                  final extra = state.extra as Map<String, dynamic>? ?? {};
+                  return PaymentPendingScreen(
+                    orderNumber: params['order'] ??
+                        extra['order_number']?.toString() ??
+                        '',
+                    provider: params['provider'] ??
+                        extra['provider']?.toString() ??
+                        '',
+                    amount: params['amount'] ??
+                        extra['amount']?.toString() ??
+                        '',
+                    isDelivery: (params['delivery'] ??
+                            extra['is_delivery']?.toString() ??
+                            'true') ==
+                        'true',
+                  );
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _buyerBranchShop,
+            routes: [
+              GoRoute(
+                path: '/buyer/shop',
+                builder: (context, state) => const BuyerSearchScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _buyerBranchWishlist,
+            routes: [
+              GoRoute(
+                path: '/buyer/wishlist',
+                builder: (context, state) => const BuyerWishlistScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _buyerBranchCart,
+            routes: [
+              GoRoute(
+                path: '/buyer/cart',
+                builder: (context, state) => const CartScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _buyerBranchProfile,
+            routes: [
+              GoRoute(
+                path: '/buyer/profile',
+                builder: (context, state) => const BuyerProfileScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // ── Seller shell ───────────────────────────────────────────────────
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            SellerMainScreen(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            navigatorKey: _sellerBranchDashboard,
+            routes: [
+              GoRoute(
+                path: '/seller/dashboard',
+                builder: (context, state) => const SellerDashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _sellerBranchProducts,
+            routes: [
+              GoRoute(
+                path: '/seller/products',
+                builder: (context, state) => const SellerProductsScreen(),
                 routes: [
                   GoRoute(
-                    path: 'products',
+                    path: 'add',
                     builder: (context, state) => const AddProductScreen(),
                   ),
-                ],
-              ),
-              StatefulShellBranch(
-                routes: [
                   GoRoute(
-                    path: 'orders',
-                    builder: (context, state) => const SellerOrdersScreen(),
-                  ),
-                ],
-              ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'shop',
-                    builder: (context, state) => const SellerProfileScreen(),
-                  ),
-                  GoRoute(
-                    path: 'payout-methods',
-                    builder: (context, state) =>
-                        const SellerPayoutMethodsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'payout',
-                    builder: (context, state) =>
-                        const PayoutScreen(),
-                  ),
-                  GoRoute(
-                    path: 'payout-history',
+                    path: ':productId/edit',
                     builder: (context, state) {
-                      final payouts = state.extra as List<Map<String, dynamic>>? ?? [];
-                      return SellerPayoutHistoryScreen(payouts: payouts);
+                      final id = int.parse(state.pathParameters['productId']!);
+                      return EditProductScreen(productId: id);
+                    },
+                  ),
+                  GoRoute(
+                    path: ':productId/reviews',
+                    builder: (context, state) {
+                      final id = int.parse(state.pathParameters['productId']!);
+                      final name =
+                          state.uri.queryParameters['name'] ?? 'Product';
+                      return SellerProductReviewsScreen(
+                          productId: id, productName: name);
                     },
                   ),
                 ],
               ),
             ],
           ),
+          StatefulShellBranch(
+            navigatorKey: _sellerBranchOrders,
+            routes: [
+              GoRoute(
+                path: '/seller/orders',
+                builder: (context, state) => const SellerOrdersScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _sellerBranchShop,
+            routes: [
+              GoRoute(
+                path: '/seller/shop',
+                builder: (context, state) => const SellerProfileScreen(),
+              ),
+              GoRoute(
+                path: '/seller/payout-methods',
+                builder: (context, state) =>
+                    const SellerPayoutMethodsScreen(),
+              ),
+              GoRoute(
+                path: '/seller/payout',
+                builder: (context, state) => const PayoutScreen(),
+              ),
+              GoRoute(
+                path: '/seller/payout-history',
+                builder: (context, state) {
+                  final payouts =
+                      state.extra as List<Map<String, dynamic>>? ?? [];
+                  return SellerPayoutHistoryScreen(payouts: payouts);
+                },
+              ),
+            ],
+          ),
         ],
       ),
-      GoRoute(
-        path: '/delivery',
-        redirect: (context, state) {
-          final p = state.uri.path;
-          if (p == '/delivery' || p == '/delivery/') {
-            return '/delivery/home';
-          }
-          return null;
-        },
-        routes: [
-          StatefulShellRoute.indexedStack(
-            builder: (context, state, navigationShell) {
-              return DeliveryMainScreen(navigationShell: navigationShell);
-            },
-            branches: [
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'home',
-                    builder: (context, state) => const DeliveryHomeScreen(),
-                  ),
-                ],
+
+      // ── Delivery shell ─────────────────────────────────────────────────
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            DeliveryMainScreen(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            navigatorKey: _deliveryBranchHome,
+            routes: [
+              GoRoute(
+                path: '/delivery/home',
+                builder: (context, state) => const DeliveryHomeScreen(),
               ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'active',
-                    builder: (context, state) => const ActiveDeliveryScreen(),
-                  ),
-                ],
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _deliveryBranchActive,
+            routes: [
+              GoRoute(
+                path: '/delivery/active',
+                builder: (context, state) => const ActiveDeliveryScreen(),
               ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'earnings',
-                    builder: (context, state) => const EarningsScreen(),
-                  ),
-                ],
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _deliveryBranchEarnings,
+            routes: [
+              GoRoute(
+                path: '/delivery/earnings',
+                builder: (context, state) => const EarningsScreen(),
               ),
-              StatefulShellBranch(
-                routes: [
-                  GoRoute(
-                    path: 'account',
-                    builder: (context, state) => const DeliveryProfileScreen(),
-                  ),
-                  GoRoute(
-                    path: 'payout-methods',
-                    builder: (context, state) =>
-                        const SellerPayoutMethodsScreen(),
-                  ),
-                  GoRoute(
-                    path: 'payout',
-                    builder: (context, state) =>
-                        const PayoutScreen(),
-                  ),
-                ],
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _deliveryBranchAccount,
+            routes: [
+              GoRoute(
+                path: '/delivery/account',
+                builder: (context, state) => const DeliveryProfileScreen(),
+              ),
+              GoRoute(
+                path: '/delivery/payout-methods',
+                builder: (context, state) =>
+                    const SellerPayoutMethodsScreen(),
+              ),
+              GoRoute(
+                path: '/delivery/payout',
+                builder: (context, state) => const PayoutScreen(),
               ),
             ],
           ),

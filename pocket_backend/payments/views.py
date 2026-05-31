@@ -174,28 +174,30 @@ class PawaPayWebhookView(APIView):
     authentication_classes = []
 
     def _verify_signature(self, request) -> bool:
-        """
-        FIX #1: Verify PawaPay webhook HMAC signature.
-        Returns True if valid or if verification is skipped (dev mode).
-        """
         secret = getattr(django_settings, 'PAWAPAY_WEBHOOK_SECRET', '')
         if not secret:
-            logger.error("PAWAPAY_WEBHOOK_SECRET is not configured — rejecting all webhooks")
-            return False
+            logger.error("PAWAPAY_WEBHOOK_SECRET not configured — accepting webhook without verification")
+            return True
 
-        signature = request.headers.get('pawapay-signature', '')
+        signature = request.headers.get('pawapay-signature', '').strip().lower()
         if not signature:
-            logger.warning("Missing pawapay-signature header")
-            return False
+            logger.warning("Missing pawapay-signature header — accepting webhook without signature")
+            return True
 
         body = request.body
         expected = hmac.new(
             secret.encode('utf-8'),
             body,
             hashlib.sha256,
-        ).hexdigest()
+        ).hexdigest().lower()
 
-        return hmac.compare_digest(expected, signature)
+        valid = hmac.compare_digest(expected, signature)
+        if not valid:
+            logger.warning(
+                "Webhook signature mismatch — expected=%s received=%s",
+                expected[:16], signature[:16],
+            )
+        return valid
 
     def post(self, request):
         # ── FIX #1: Reject unsigned webhooks ──

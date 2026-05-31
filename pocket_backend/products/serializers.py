@@ -4,6 +4,10 @@ from .models import MAX_PRODUCT_IMAGES, Category, Product, ProductVariant, Promo
 
 
 def _absolute_media_url(request, relative_url):
+    from django.conf import settings as _s
+    base = getattr(_s, 'PUBLIC_BACKEND_URL', '').rstrip('/')
+    if base:
+        return f"{base}{relative_url}"
     if request is not None:
         return request.build_absolute_uri(relative_url)
     return relative_url

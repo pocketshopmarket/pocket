@@ -25,6 +25,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_profile_photo(self, obj):
         if not obj.profile_photo:
             return None
+        from django.conf import settings as _s
+        base = getattr(_s, 'PUBLIC_BACKEND_URL', '').rstrip('/')
+        if base:
+            return f"{base}{obj.profile_photo.url}"
         request = self.context.get('request')
         if request:
             return request.build_absolute_uri(obj.profile_photo.url)

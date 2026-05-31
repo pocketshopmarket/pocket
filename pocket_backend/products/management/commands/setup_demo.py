@@ -203,6 +203,15 @@ class Command(BaseCommand):
         action = 'Created' if created else 'Updated'
         self.stdout.write(self.style.SUCCESS(f'  {action} rider: {rider_phone}'))
 
+        # ── Clear dead file references from previous deploys ─────────────────
+        self.stdout.write('Clearing dead media file references...')
+        from products.models import ProductImage
+        # Delete all gallery image records (files no longer exist on ephemeral filesystem)
+        ProductImage.objects.all().delete()
+        # Clear image field on all products (file-based, not URL-based)
+        Product.objects.filter(image__isnull=False).exclude(image='').update(image='')
+        self.stdout.write(self.style.SUCCESS('  Done.'))
+
         # ── Products ─────────────────────────────────────────────────────────
         self.stdout.write('Seeding products...')
         count = 0

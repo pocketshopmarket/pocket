@@ -18,6 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN mkdir -p staticfiles && DJANGO_ENV=production DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput --clear 2>/dev/null || true
+
 ENV DJANGO_ENV=production
 ENV PORT=8000
 EXPOSE 8000

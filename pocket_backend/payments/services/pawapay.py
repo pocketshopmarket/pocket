@@ -74,10 +74,12 @@ class PawaPayService:
                 return None
 
         except requests.RequestException as e:
-            # Handle cases where the server can't connect to internet at all
-            logger.error(f"Failed to connect to PawaPay: {str(e)}")
+            logger.error(
+                "Failed to connect to PawaPay: %s — %s — URL: %s",
+                type(e).__name__, str(e), url,
+            )
             transaction.status = 'failed'
-            transaction.failure_message = "Connection error"
+            transaction.failure_message = f"{type(e).__name__}: {str(e)[:120]}"
             transaction.save()
             return None
 

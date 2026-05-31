@@ -5,9 +5,7 @@ One-shot demo setup:
   - Seeds 10 demo products across 5 categories with images
 """
 
-import urllib.request
 from decimal import Decimal
-from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from django.utils.text import slugify
@@ -120,16 +118,6 @@ DEMO_PRODUCTS = [
 ]
 
 
-def _download(url, filename):
-    try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return ContentFile(r.read(), name=filename)
-    except Exception as e:
-        print(f'    Image download failed: {e}')
-        return None
-
-
 def _normalize(phone):
     phone = phone.strip().replace(' ', '')
     if phone.startswith('0'):
@@ -228,19 +216,16 @@ class Command(BaseCommand):
                     self.stdout.write(f"  Skipping (exists): {p['name']}")
                     continue
                 self.stdout.write(f"  Creating: {p['name']}")
-                product = Product(
+                Product.objects.create(
                     seller=seller,
                     category=cat,
                     name=p['name'],
                     description=p['description'],
                     price=p['price'],
                     stock_quantity=p['stock'],
+                    image_url=p['image_url'],
                     is_available=True,
                 )
-                img = _download(p['image_url'], slugify(p['name']) + '.jpg')
-                if img:
-                    product.image.save(slugify(p['name']) + '.jpg', img, save=False)
-                product.save()
                 count += 1
 
         self.stdout.write(self.style.SUCCESS(f'Done. {count} products created.'))

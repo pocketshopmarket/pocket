@@ -24,14 +24,14 @@ DEMO_PRODUCTS = [
                 'description': 'Roasted mixed nuts — groundnuts, cashews, and almonds.',
                 'price': Decimal('15.00'),
                 'stock': 100,
-                'image_url': 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/nuts/400/400',
             },
             {
                 'name': 'Local Honey 250ml',
                 'description': 'Pure natural honey from local beekeepers. No additives.',
                 'price': Decimal('25.00'),
                 'stock': 40,
-                'image_url': 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/honey/400/400',
             },
         ],
     },
@@ -44,14 +44,14 @@ DEMO_PRODUCTS = [
                 'description': 'Comfortable plain cotton t-shirt. Available in multiple colours.',
                 'price': Decimal('20.00'),
                 'stock': 60,
-                'image_url': 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/tshirt/400/400',
             },
             {
                 'name': 'Beanie Hat',
                 'description': 'Warm knitted beanie, perfect for cool evenings.',
                 'price': Decimal('18.00'),
                 'stock': 35,
-                'image_url': 'https://images.unsplash.com/photo-1576871337632-b9aef4c17ab9?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/beanie/400/400',
             },
         ],
     },
@@ -64,14 +64,14 @@ DEMO_PRODUCTS = [
                 'description': '1.5m braided USB-C cable. Fast charging compatible.',
                 'price': Decimal('12.00'),
                 'stock': 80,
-                'image_url': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/cable/400/400',
             },
             {
                 'name': 'Phone Stand',
                 'description': 'Adjustable aluminium phone desk stand. Foldable and portable.',
                 'price': Decimal('22.00'),
                 'stock': 45,
-                'image_url': 'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/phonestand/400/400',
             },
         ],
     },
@@ -84,14 +84,14 @@ DEMO_PRODUCTS = [
                 'description': 'Pure unrefined shea butter. Moisturises skin and hair.',
                 'price': Decimal('15.00'),
                 'stock': 55,
-                'image_url': 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/sheabutter/400/400',
             },
             {
                 'name': 'Aloe Vera Gel',
                 'description': '99% pure aloe vera gel. Soothes skin naturally.',
                 'price': Decimal('18.00'),
                 'stock': 50,
-                'image_url': 'https://images.unsplash.com/photo-1596178060810-72c633c3c921?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/aloevera/400/400',
             },
         ],
     },
@@ -104,14 +104,14 @@ DEMO_PRODUCTS = [
                 'description': 'Handcrafted wooden spoon set. Safe for non-stick cookware.',
                 'price': Decimal('10.00'),
                 'stock': 70,
-                'image_url': 'https://images.unsplash.com/photo-1584990347449-a2d4c2c044b0?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/spoon/400/400',
             },
             {
                 'name': 'Cotton Dish Towels 2pk',
                 'description': 'Absorbent cotton kitchen towels. Machine washable.',
                 'price': Decimal('14.00'),
                 'stock': 90,
-                'image_url': 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=400&q=80',
+                'image_url': 'https://picsum.photos/seed/towels/400/400',
             },
         ],
     },
@@ -212,8 +212,12 @@ class Command(BaseCommand):
                 defaults={'name': group['category'], 'icon_name': group['icon']},
             )
             for p in group['products']:
-                if Product.objects.filter(name=p['name'], seller=seller).exists():
-                    self.stdout.write(f"  Skipping (exists): {p['name']}")
+                existing = Product.objects.filter(name=p['name'], seller=seller).first()
+                if existing:
+                    # Always update the image_url in case it changed.
+                    existing.image_url = p['image_url']
+                    existing.save(update_fields=['image_url', 'updated_at'])
+                    self.stdout.write(f"  Updated image: {p['name']}")
                     continue
                 self.stdout.write(f"  Creating: {p['name']}")
                 Product.objects.create(
@@ -228,4 +232,4 @@ class Command(BaseCommand):
                 )
                 count += 1
 
-        self.stdout.write(self.style.SUCCESS(f'Done. {count} products created.'))
+        self.stdout.write(self.style.SUCCESS(f'Done. {count} products created/updated.'))

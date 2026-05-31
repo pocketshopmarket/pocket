@@ -65,7 +65,7 @@ class Order(models.Model):
     fulfillment_type = models.CharField(
         max_length=10, choices=FULFILLMENT_CHOICES, default='delivery',
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='payment_pending')
     delivery_address = models.TextField()
     delivery_lat = models.FloatField(null=True, blank=True)
     delivery_lng = models.FloatField(null=True, blank=True)

@@ -327,7 +327,8 @@ class OrderListView(APIView):
         if request.user.role == 'buyer':
             orders = request.user.orders.all()
         elif request.user.role == 'seller':
-            orders = request.user.sales.all()
+            # Only show orders where payment has been confirmed.
+            orders = request.user.sales.exclude(status='payment_pending')
         else:
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
         

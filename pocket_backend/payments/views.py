@@ -243,8 +243,8 @@ class PawaPayWebhookView(APIView):
                 send_payout_completed_notification = True
 
             if transaction.transaction_type == 'deposit':
-                # Payment received — mark order as accepted.
-                transaction.order.status = 'accepted'
+                # Payment confirmed — move order to pending so seller can accept it.
+                transaction.order.status = 'pending'
                 transaction.order.save()
 
                 try:

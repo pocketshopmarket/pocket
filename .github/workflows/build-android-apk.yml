@@ -24,7 +24,7 @@ defaults:
     working-directory: pocket_shop
 
 env:
-  FALLBACK_API_BASE_URL: "https://mypocketshop.store/api/"
+  FALLBACK_API_BASE_URL: "https://pocket-production-ffd6.up.railway.app/api/"
 
 jobs:
   android-apk:

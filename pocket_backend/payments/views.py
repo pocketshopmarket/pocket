@@ -20,6 +20,7 @@ from notifications.signals import (
     create_payout_completed_notification,
 )
 from orders.models import Order
+from orders.services import cancel_order_with_refund
 
 logger = logging.getLogger(__name__)
 
@@ -244,36 +245,37 @@ class PawaPayWebhookView(APIView):
                 transaction.order.status = 'accepted'
                 transaction.order.save()
 
-                # Notify buyer that payment succeeded
                 try:
                     create_payment_notification(transaction.order, 'completed')
                 except Exception:
                     logger.exception('Payment notification failed for order %s', transaction.order.order_number)
 
-                # ── FIX #6, #7, #10: Correct payout creation ──
                 self._create_payout_rows(transaction)
 
             elif transaction.transaction_type == 'refund':
-                transaction.order.status = 'cancelled'
-                transaction.order.save()
+                cancel_order_with_refund(transaction.order, reason='Refund completed by PawaPay')
 
-        elif status_value == 'FAILED':
+        elif status_value in ('FAILED', 'TERMINATED'):
             transaction.status = 'failed'
             if transaction.transaction_type == 'payout':
                 transaction.payout_stage = 'payout_failed'
             reason = data.get('failureReason', {})
             transaction.failure_message = reason.get(
-                'failureMessage', 'Unknown async failure'
+                'failureMessage',
+                'Payment was terminated by user' if status_value == 'TERMINATED' else 'Unknown failure',
             )
 
             if transaction.transaction_type == 'deposit':
-                transaction.order.status = 'cancelled'
-                transaction.order.save()
+                # Restore stock and cancel the order properly via the service.
+                cancel_order_with_refund(
+                    transaction.order,
+                    reason=f'Payment {status_value.lower()} — order auto-cancelled',
+                )
 
-                # Notify buyer that payment failed
                 try:
                     create_payment_notification(
-                        transaction.order, 'failed',
+                        transaction.order,
+                        'cancelled' if status_value == 'TERMINATED' else 'failed',
                         failure_message=transaction.failure_message,
                     )
                 except Exception:

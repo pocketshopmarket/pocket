@@ -12,3 +12,5 @@ africastalking
 firebase-admin
 dj-database-url
 whitenoise
+cloudinary
+django-cloudinary-storage

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 METHOD_KEY_TO_PROVIDER = {
     'mtn_momo': 'MTN_MOMO_ZMB',
     'airtel_money': 'AIRTEL_OAPI_ZMB',
-    'zamtel': 'ZAMTEL_ZMB',
+    'zamtel': 'ZAMTEL_MONEY_ZMB',
 }
 
 # Reverse mapping for incoming webhooks or resolving method keys from PawaPay codes.
@@ -42,6 +42,24 @@ PROVIDER_TO_METHOD_KEY = {
     'ZAMTEL_MOMO_ZMB': 'zamtel',
     'ZAMTEL_ZMB': 'zamtel',
 }
+
+
+def detect_provider_from_phone(phone: str) -> str:
+    """Detect the correct PawaPay provider code from a Zambian phone number prefix."""
+    raw = str(phone).strip().replace(" ", "").replace("-", "").lstrip("+")
+    if raw.startswith("0") and len(raw) == 10:
+        raw = "260" + raw[1:]
+    elif not raw.startswith("260") and len(raw) == 9:
+        raw = "260" + raw
+
+    prefix = raw[3:5] if len(raw) >= 5 else ""
+    if prefix in ("96", "76"):
+        return "MTN_MOMO_ZMB"
+    if prefix in ("97", "77"):
+        return "AIRTEL_OAPI_ZMB"
+    if prefix in ("95", "75"):
+        return "ZAMTEL_MONEY_ZMB"
+    return "MTN_MOMO_ZMB"
 
 # Human-readable network label shown in payout confirmation messages.
 PROVIDER_TO_NETWORK_LABEL = {
@@ -58,7 +76,8 @@ PROVIDER_TO_NETWORK_LABEL = {
 def _resolve_payout_provider(user):
     """
     Find the correct PawaPay provider code for a given user (seller / delivery).
-    Uses their default verified payment method; falls back to MTN_MOMO_ZMB.
+    Uses their default verified payment method; falls back to detecting from
+    the user's registration phone number.
     """
     method = (
         BuyerPaymentMethod.objects.filter(
@@ -69,12 +88,10 @@ def _resolve_payout_provider(user):
         .first()
     )
     if method:
-        return (
-            METHOD_KEY_TO_PROVIDER.get(method.provider, 'MTN_MOMO_ZMB'),
-            method.account_phone,
-        )
-    # Fallback — use the user's registration phone number.
-    return 'MTN_MOMO_ZMB', user.phone_number
+        provider = METHOD_KEY_TO_PROVIDER.get(method.provider) or detect_provider_from_phone(method.account_phone)
+        return provider, method.account_phone
+    phone = user.phone_number
+    return detect_provider_from_phone(phone), phone
 
 
 # ─── Payment Initiation ────────────────────────────────────────────────
@@ -84,12 +101,11 @@ class InitiatePaymentView(APIView):
 
     def post(self, request):
         order_number = request.data.get('order_number')
-        provider = request.data.get('provider')  # e.g. MTN_MOMO_ZMB
         payer_number = request.data.get('payer_number')
 
-        if not all([order_number, provider, payer_number]):
+        if not all([order_number, payer_number]):
             return Response(
-                {"error": "order_number, provider, and payer_number are required"},
+                {"error": "order_number and payer_number are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -113,12 +129,9 @@ class InitiatePaymentView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        method_key = PROVIDER_TO_METHOD_KEY.get(provider)
-        if not method_key:
-            return Response(
-                {"error": "Unsupported provider"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Detect provider from phone prefix — ignore any frontend-supplied value
+        # so a wrong selection never causes a PAYER_NOT_FOUND rejection.
+        provider = detect_provider_from_phone(normalized_number)
 
         # NOTE: Previously required a verified BuyerPaymentMethod record.
         # Now we allow direct entry at checkout — PawaPay validates the number.
@@ -134,6 +147,7 @@ class InitiatePaymentView(APIView):
                 "message": "Payment already initiated",
                 "transaction_id": existing.transaction_id,
                 "status": existing.status,
+                "amount_charged": str(existing.amount),
             }, status=status.HTTP_200_OK)
 
         # ── FIX #2: Charge grand_total (items + delivery fee) ──

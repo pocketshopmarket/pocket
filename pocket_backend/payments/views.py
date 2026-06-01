@@ -136,12 +136,29 @@ class InitiatePaymentView(APIView):
         # NOTE: Previously required a verified BuyerPaymentMethod record.
         # Now we allow direct entry at checkout — PawaPay validates the number.
 
-        # ── FIX #5: Idempotency — reuse existing pending/accepted deposit ──
+        # ── Idempotency — reuse existing pending/accepted deposit ──
+        # But first sync any stale 'accepted' transactions against PawaPay in
+        # case the webhook callback failed to deliver (common on first deploy).
         existing = Transaction.objects.filter(
             order=order,
             transaction_type='deposit',
             status__in=['pending', 'accepted'],
         ).first()
+        if existing and existing.status == 'accepted':
+            remote = PawaPayService.get_deposit_status(str(existing.transaction_id))
+            if remote:
+                remote_status = remote.get('status', '')
+                if remote_status in ('FAILED', 'TERMINATED'):
+                    existing.status = 'failed'
+                    reason = remote.get('failureReason', {})
+                    existing.failure_message = reason.get('failureMessage', remote_status)
+                    existing.save()
+                    existing = None  # allow a fresh deposit below
+                elif remote_status == 'COMPLETED':
+                    existing.status = 'completed'
+                    existing.save()
+                    order.status = 'pending'
+                    order.save()
         if existing:
             return Response({
                 "message": "Payment already initiated",

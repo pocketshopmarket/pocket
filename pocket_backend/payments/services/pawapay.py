@@ -13,6 +13,24 @@ class PawaPayService:
         }
 
     @staticmethod
+    def get_deposit_status(deposit_id: str) -> dict | None:
+        """Query PawaPay for the current status of a deposit by its ID."""
+        url = f"{settings.PAWAPAY_BASE_URL}/deposits/{deposit_id}"
+        try:
+            response = requests.get(url, headers=PawaPayService.get_headers(), timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                # PawaPay returns a list with one item
+                if isinstance(data, list) and data:
+                    return data[0]
+                if isinstance(data, dict):
+                    return data
+            logger.warning("PawaPay deposit status check returned %s", response.status_code)
+        except requests.RequestException as e:
+            logger.error("Failed to check PawaPay deposit status: %s", e)
+        return None
+
+    @staticmethod
     def initiate_deposit(transaction):
         """
         Calls the PawaPay API to initiate a deposit (buyer paying).

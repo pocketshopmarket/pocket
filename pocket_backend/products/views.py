@@ -266,7 +266,15 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
 
     def _normalized_payload(self, request):
-        payload = request.data.copy()
+        # QueryDict (multipart) stores values as lists internally, so converting
+        # to a plain dict before we set variant_payload prevents double-wrapping
+        # ([parsed_list] instead of parsed_list) that causes DictField validation
+        # to see a list where it expects a dict.
+        if hasattr(request.data, 'dict'):
+            payload = request.data.dict()
+        else:
+            payload = dict(request.data)
+
         raw_variants = payload.get('variant_payload')
         if isinstance(raw_variants, str) and raw_variants.strip():
             try:

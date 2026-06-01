@@ -36,6 +36,7 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
   String _paymentStatus = 'pending';
   String _orderStatus = 'pending';
   String _failureMessage = '';
+  String _amount = '';
   bool _isChecking = false;
   Timer? _autoRefreshTimer;
   int _pollCount = 0;
@@ -54,6 +55,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
     _pulseAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    _amount = widget.amount;
 
     // Start auto-polling every 5 seconds
     _autoRefreshTimer = Timer.periodic(
@@ -93,11 +96,13 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
       final newOrderStatus =
           result['order_status']?.toString() ?? _orderStatus;
       final failMsg = result['failure_message']?.toString() ?? '';
+      final polledAmount = result['amount']?.toString() ?? '';
 
       setState(() {
         _paymentStatus = newPaymentStatus;
         _orderStatus = newOrderStatus;
         _failureMessage = failMsg;
+        if (_amount.isEmpty && polledAmount.isNotEmpty) _amount = polledAmount;
         _isChecking = false;
       });
 
@@ -453,7 +458,7 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
         children: [
           _infoRow('Order', widget.orderNumber),
           const SizedBox(height: 10),
-          _infoRow('Amount', widget.amount.isNotEmpty ? 'ZMW ${widget.amount}' : '—'),
+          _infoRow('Amount', _amount.isNotEmpty ? 'ZMW $_amount' : '—'),
           const SizedBox(height: 10),
           _infoRow('Provider', _providerLabel(widget.provider)),
           const SizedBox(height: 10),

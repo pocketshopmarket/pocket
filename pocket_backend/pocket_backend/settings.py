@@ -281,7 +281,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 PAWAPAY_JWT_TOKEN = os.environ.get(
     'PAWAPAY_JWT_TOKEN',
     'eyJraWQiOiIxIiwiYWxnIjoiRVMyNTYifQ.eyJ0dCI6IkFBVCIsInN1YiI6IjI4NDAiLCJtYXYiOiIxIiwiZXhwIjoyMDkyNzU2MzM0LCJpYXQiOjE3NzcxMzcxMzQsInBtIjoiREFGLFBBRiIsImp0aSI6IjA1M2JhZGI5LTI5NTEtNDZlOS04NzliLWVlNzBhOWQ3YjMwMCJ9.RNrnow6ek9eLn-zd3dinte5Ta4tSo7YWgkJ0wntAWxqPQcQ6dncl7zth7fJY4Rjqpwf9-ME4R8lzA3jb6T6NOg',
-)
+).strip()
 PAWAPAY_BASE_URL = os.environ.get('PAWAPAY_BASE_URL', 'https://api.pawapay.io/v2')
 
 # Webhook signature verification — set this from PawaPay dashboard.

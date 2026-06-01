@@ -64,37 +64,39 @@ class PawaPayService:
         }
 
         try:
-            response = requests.post(url, json=payload, headers=PawaPayService.get_headers())
-            
+            response = requests.post(url, json=payload, headers=PawaPayService.get_headers(), timeout=30)
+
             # PawaPay returns 200 OK even if the deposit is REJECTED
             if response.status_code == 200:
                 data = response.json()
                 status = data.get('status')
-                
+
                 if status == 'ACCEPTED':
                     transaction.status = 'accepted'
                 elif status == 'DUPLICATE_IGNORED':
                     transaction.status = 'duplicate_ignored'
                 elif status == 'REJECTED':
                     transaction.status = 'failed'
-                    # Extract the exact reason for rejection (e.g. Invalid Amount)
                     reason = data.get('failureReason', {})
                     transaction.failure_message = reason.get('failureMessage', 'Unknown rejection')
-                
+                else:
+                    transaction.status = 'failed'
+                    transaction.failure_message = f"Unexpected PawaPay status: {status}"
+                    logger.error("Unexpected PawaPay deposit status '%s': %s", status, data)
+
                 transaction.save()
                 return data
             else:
-                # Handle unexpected HTTP errors (e.g. 401 Unauthorized, 500 Server Error)
-                logger.error(f"PawaPay API error: {response.text}")
+                logger.error("PawaPay API error %s: %s", response.status_code, response.text)
                 transaction.status = 'failed'
-                transaction.failure_message = f"HTTP {response.status_code}: {response.text}"
+                transaction.failure_message = f"HTTP {response.status_code}: {response.text[:200]}"
                 transaction.save()
                 return None
 
-        except requests.RequestException as e:
+        except Exception as e:
             logger.error(
-                "Failed to connect to PawaPay: %s — %s — URL: %s",
-                type(e).__name__, str(e), url,
+                "initiate_deposit failed: %s — %s — URL: %s",
+                type(e).__name__, str(e), url, exc_info=True,
             )
             transaction.status = 'failed'
             transaction.failure_message = f"{type(e).__name__}: {str(e)[:120]}"

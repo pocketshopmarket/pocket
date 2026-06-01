@@ -137,28 +137,44 @@ class InitiatePaymentView(APIView):
         # Now we allow direct entry at checkout — PawaPay validates the number.
 
         # ── Idempotency — reuse existing pending/accepted deposit ──
-        # But first sync any stale 'accepted' transactions against PawaPay in
-        # case the webhook callback failed to deliver (common on first deploy).
+        # Sync stale transactions before blocking so webhook failures don't
+        # permanently lock an order out of new payment attempts.
+        from django.utils import timezone
+        from datetime import timedelta
+
         existing = Transaction.objects.filter(
             order=order,
             transaction_type='deposit',
             status__in=['pending', 'accepted'],
         ).first()
-        if existing and existing.status == 'accepted':
-            remote = PawaPayService.get_deposit_status(str(existing.transaction_id))
-            if remote:
-                remote_status = remote.get('status', '')
-                if remote_status in ('FAILED', 'TERMINATED'):
+
+        if existing:
+            if existing.status == 'pending':
+                # 'pending' means we created the TX but the PawaPay call never
+                # completed (crash / timeout). Expire after 3 minutes and retry.
+                if timezone.now() - existing.created_at > timedelta(minutes=3):
                     existing.status = 'failed'
-                    reason = remote.get('failureReason', {})
-                    existing.failure_message = reason.get('failureMessage', remote_status)
+                    existing.failure_message = 'Deposit initiation timed out — retrying'
                     existing.save()
-                    existing = None  # allow a fresh deposit below
-                elif remote_status == 'COMPLETED':
-                    existing.status = 'completed'
-                    existing.save()
-                    order.status = 'pending'
-                    order.save()
+                    existing = None
+
+            elif existing.status == 'accepted':
+                # Sync against PawaPay in case the webhook callback failed.
+                remote = PawaPayService.get_deposit_status(str(existing.transaction_id))
+                if remote:
+                    remote_status = remote.get('status', '')
+                    if remote_status in ('FAILED', 'TERMINATED'):
+                        existing.status = 'failed'
+                        reason = remote.get('failureReason', {})
+                        existing.failure_message = reason.get('failureMessage', remote_status)
+                        existing.save()
+                        existing = None
+                    elif remote_status == 'COMPLETED':
+                        existing.status = 'completed'
+                        existing.save()
+                        order.status = 'pending'
+                        order.save()
+
         if existing:
             return Response({
                 "message": "Payment already initiated",

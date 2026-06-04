@@ -704,6 +704,28 @@ class MyQRView(APIView):
         })
 
 
+class ATSmsCallbackView(APIView):
+    """
+    Receives SMS delivery reports from Africa's Talking.
+    Register this URL in AT dashboard: SMS → SMS Callback URLs
+    """
+    permission_classes = []
+    authentication_classes = []
+    parser_classes = [FormParser, JSONParser]
+
+    def post(self, request):
+        data = request.data
+        msg_id = data.get('id', '')
+        phone = data.get('phoneNumber', '')
+        status_val = data.get('status', '')
+        network = data.get('networkCode', '')
+        logger.info(
+            '[AT SMS Callback] id=%s phone=%s status=%s network=%s',
+            msg_id, phone, status_val, network,
+        )
+        return Response({'received': True})
+
+
 class RegisterFCMTokenView(APIView):
     """Called by the app after login to register / refresh the device FCM token."""
     permission_classes = [permissions.IsAuthenticated]

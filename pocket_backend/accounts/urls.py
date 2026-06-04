@@ -10,6 +10,7 @@ from .views import (
     VerifySellerPayoutMethodView,
     RegisterFCMTokenView,
     MyQRView,
+    ATSmsCallbackView,
 )
 
 urlpatterns = [
@@ -51,4 +52,5 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('fcm-token/', RegisterFCMTokenView.as_view(), name='register-fcm-token'),
     path('my-qr/', MyQRView.as_view(), name='my-qr'),
+    path('sms/callback/', ATSmsCallbackView.as_view(), name='at-sms-callback'),
 ]

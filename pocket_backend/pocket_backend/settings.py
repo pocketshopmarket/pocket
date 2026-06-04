@@ -299,7 +299,7 @@ ORDER_ACCEPTANCE_TIMEOUT_MINUTES = int(
 # AFRICA'S TALKING CONFIGURATION
 AFRICAS_TALKING_USERNAME = os.environ.get('AFRICAS_TALKING_USERNAME', 'sandbox')
 AFRICAS_TALKING_API_KEY = os.environ.get('AFRICAS_TALKING_API_KEY', '')
-AFRICAS_TALKING_SENDER_ID = os.environ.get('AFRICAS_TALKING_SENDER_ID', 'POCKETSHOP')
+AFRICAS_TALKING_SENDER_ID = os.environ.get('AFRICAS_TALKING_SENDER_ID', '')
 
 # FIREBASE: set FIREBASE_CREDENTIALS_JSON to the full service-account JSON string in production.
 # Leave empty in dev — push notifications are silently skipped when not configured.

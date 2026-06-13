@@ -11,8 +11,8 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from orders.models import Order
-from accounts.models import VerificationRequest
-from .models import Notification
+from accounts.models import User, VerificationRequest
+from .models import Announcement, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -380,4 +380,117 @@ def create_payout_completed_notification(transaction):
             'currency': transaction.currency,
             'recipient_role': transaction.recipient_role,
         },
+    )
+
+
+# ── Welcome notification ──────────────────────────────────────────────────────
+
+_WELCOME_MESSAGES = {
+    'buyer': (
+        'Welcome to Pocket Shop!',
+        'Your account is ready. Browse products from local sellers and place your first order.',
+    ),
+    'seller': (
+        'Welcome to Pocket Shop!',
+        'Your seller account is set up. Complete your verification to start listing products.',
+    ),
+    'delivery': (
+        'Welcome to Pocket Shop!',
+        'Your delivery account is set up. Complete your verification to start accepting deliveries.',
+    ),
+}
+
+
+@receiver(post_save, sender=User)
+def send_welcome_notification(sender, instance, created, **kwargs):
+    """Send a role-specific welcome notification when a new user registers."""
+    if not created:
+        return
+    if instance.role == 'admin':
+        return
+
+    title, message = _WELCOME_MESSAGES.get(
+        instance.role,
+        ('Welcome to Pocket Shop!', 'Your account is ready.'),
+    )
+    _create_notification(
+        recipient=instance,
+        notification_type='welcome',
+        title=title,
+        message=message,
+        data_payload={'role': instance.role},
+    )
+
+
+# ── Announcement broadcast ────────────────────────────────────────────────────
+
+def _send_announcement_push_batch(tokens, title, message):
+    """Send FCM pushes to up to 500 tokens in one multicast call."""
+    if not tokens:
+        return 0
+    app = _get_firebase_app()
+    if app is None:
+        return 0
+    try:
+        from firebase_admin import messaging
+        multicast = messaging.MulticastMessage(
+            notification=messaging.Notification(title=title, body=message),
+            data={'notification_type': 'announcement'},
+            tokens=tokens,
+        )
+        response = messaging.send_each_for_multicast(multicast, app=app)
+        logger.info('Announcement FCM: %s success, %s failure', response.success_count, response.failure_count)
+        return response.success_count
+    except Exception as exc:
+        logger.warning('Announcement FCM batch failed: %s', exc)
+        return 0
+
+
+@receiver(post_save, sender=Announcement)
+def broadcast_announcement(sender, instance, created, **kwargs):
+    """
+    When an Announcement is saved for the first time, create individual
+    Notification records for all targeted users and send FCM pushes.
+    Skipped on subsequent saves so edits don't re-send.
+    """
+    if not created:
+        return
+
+    audience = instance.target_audience
+    qs = User.objects.filter(is_active=True).exclude(role='admin')
+    if audience == 'buyers':
+        qs = qs.filter(role='buyer')
+    elif audience == 'sellers':
+        qs = qs.filter(role='seller')
+    elif audience == 'delivery':
+        qs = qs.filter(role='delivery')
+
+    users = list(qs)
+    if not users:
+        return
+
+    # Bulk-create in-app notification records
+    notifications = [
+        Notification(
+            recipient=user,
+            notification_type='announcement',
+            title=instance.title,
+            message=instance.message,
+            data={'announcement_id': instance.id},
+        )
+        for user in users
+    ]
+    Notification.objects.bulk_create(notifications, ignore_conflicts=True)
+
+    # Send FCM pushes in batches of 500
+    tokens = [u.fcm_token for u in users if u.fcm_token]
+    sent = 0
+    for i in range(0, len(tokens), 500):
+        sent += _send_announcement_push_batch(
+            tokens[i:i + 500], instance.title, instance.message
+        )
+
+    # Mark as sent
+    Announcement.objects.filter(pk=instance.pk).update(
+        is_sent=True, sent_count=len(users)
     )

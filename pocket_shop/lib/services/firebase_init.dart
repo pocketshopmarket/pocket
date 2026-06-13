@@ -1,35 +1,27 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../core/constants/app_constants.dart';
 import '../firebase_options.dart';
+import 'api_service.dart';
 
-/// Top-level FCM background handler (must be top-level function).
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (kDebugMode) debugPrint('[FCM] Background message: ${message.messageId}');
 }
 
-/// Initialize Firebase only on Android and iOS.
-/// Other platforms continue using in-app API polling for notifications.
 Future<void> initFirebaseIfSupported() async {
-  if (kIsWeb) {
-    if (kDebugMode) {
-      debugPrint('[Firebase] Skipped - mobile push is Android/iOS only');
-    }
-    return;
-  }
-
+  if (kIsWeb) return;
   try {
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      if (kDebugMode) {
-        debugPrint('[Firebase] Skipped - using API polling on this platform');
-      }
-      return;
-    }
+    if (!Platform.isAndroid && !Platform.isIOS) return;
   } catch (_) {
     return;
   }
@@ -38,18 +30,97 @@ Future<void> initFirebaseIfSupported() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    if (kDebugMode) debugPrint('[Firebase] Core initialized');
 
-    // Register background message handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // Request notification permission (Android 13+)
+    await _initLocalNotifications();
+
     final fcm = FirebaseMessaging.instance;
     await fcm.requestPermission(alert: true, badge: true, sound: true);
 
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
     final token = await fcm.getToken();
-    if (kDebugMode) debugPrint('[FCM] Token: $token');
+    if (token != null) {
+      await _postFcmToken(token);
+    }
+    fcm.onTokenRefresh.listen(_postFcmToken);
+
+    if (kDebugMode) debugPrint('[Firebase] Initialized. Token: $token');
   } catch (e) {
     if (kDebugMode) debugPrint('[Firebase] Init error (non-fatal): $e');
+  }
+}
+
+/// Call this after a successful login so the token is always tied to the
+/// current authenticated user.
+Future<void> registerFcmTokenWithBackend() async {
+  if (kIsWeb) return;
+  try {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+  } catch (_) {
+    return;
+  }
+  if (Firebase.apps.isEmpty) return;
+  try {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token != null) await _postFcmToken(token);
+  } catch (e) {
+    if (kDebugMode) debugPrint('[FCM] Post-login token registration failed: $e');
+  }
+}
+
+Future<void> _initLocalNotifications() async {
+  const androidSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const iosSettings = DarwinInitializationSettings();
+  await _localNotifications.initialize(
+    const InitializationSettings(android: androidSettings, iOS: iosSettings),
+  );
+
+  await _localNotifications
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'pocket_shop_channel',
+          'Pocket Shop',
+          description: 'Pocket Shop order and payment updates',
+          importance: Importance.high,
+        ),
+      );
+}
+
+Future<void> _handleForegroundMessage(RemoteMessage message) async {
+  final notification = message.notification;
+  if (notification == null) return;
+
+  await _localNotifications.show(
+    notification.hashCode,
+    notification.title,
+    notification.body,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'pocket_shop_channel',
+        'Pocket Shop',
+        channelDescription: 'Pocket Shop order and payment updates',
+        importance: Importance.high,
+        priority: Priority.high,
+        largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+      ),
+      iOS: DarwinNotificationDetails(),
+    ),
+  );
+}
+
+Future<void> _postFcmToken(String token) async {
+  try {
+    await ApiService().post(
+      AppConstants.registerFcmTokenEndpoint,
+      data: {'fcm_token': token},
+    );
+    if (kDebugMode) debugPrint('[FCM] Token registered with backend');
+  } catch (e) {
+    if (kDebugMode) debugPrint('[FCM] Token registration failed (non-fatal): $e');
   }
 }

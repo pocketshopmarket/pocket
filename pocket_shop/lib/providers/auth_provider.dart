@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
+import '../services/firebase_init.dart';
 
 /// [getCurrentUser] returns `{ user, profile }`; stored session is flat `user`.
 Map<String, dynamic> _sessionUserMapForModel(Map<String, dynamic> raw) {
@@ -171,6 +172,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isInitialized: true,
         );
         await refreshUser();
+        registerFcmTokenWithBackend();
       } else {
         state = state.copyWith(
           error: result['message'],
@@ -206,6 +208,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isInitialized: true,
         );
         await refreshUser();
+        registerFcmTokenWithBackend();
       } else {
         state = state.copyWith(
           error: result['message'],

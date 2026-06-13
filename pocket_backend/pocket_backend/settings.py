@@ -92,11 +92,15 @@ DEBUG = ENVIRONMENT == 'development'
 PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', '').rstrip('/')
 
 _allowed = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
+_railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
+
 ALLOWED_HOSTS = (
     [h.strip() for h in _allowed.split(',') if h.strip()]
     if _allowed
     else (['*'] if DEBUG else ['localhost', '127.0.0.1'])
 )
+if _railway_domain and _railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_domain)
 
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
@@ -110,6 +114,10 @@ _csrf = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').strip()
 CSRF_TRUSTED_ORIGINS = [o.strip().rstrip('/') for o in _csrf.split(',') if o.strip()]
 if PUBLIC_BACKEND_URL and PUBLIC_BACKEND_URL not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.insert(0, PUBLIC_BACKEND_URL)
+if _railway_domain:
+    _railway_origin = f'https://{_railway_domain}'
+    if _railway_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_railway_origin)
 if not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000', 'http://localhost:8000']
 
@@ -278,10 +286,7 @@ else:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # PAWAPAY CONFIGURATION (set PAWAPAY_JWT_TOKEN in AWS / local env for production)
-PAWAPAY_JWT_TOKEN = os.environ.get(
-    'PAWAPAY_JWT_TOKEN',
-    'eyJraWQiOiIxIiwiYWxnIjoiRVMyNTYifQ.eyJ0dCI6IkFBVCIsInN1YiI6IjI4NDAiLCJtYXYiOiIxIiwiZXhwIjoyMDkyNzU2MzM0LCJpYXQiOjE3NzcxMzcxMzQsInBtIjoiREFGLFBBRiIsImp0aSI6IjA1M2JhZGI5LTI5NTEtNDZlOS04NzliLWVlNzBhOWQ3YjMwMCJ9.RNrnow6ek9eLn-zd3dinte5Ta4tSo7YWgkJ0wntAWxqPQcQ6dncl7zth7fJY4Rjqpwf9-ME4R8lzA3jb6T6NOg',
-).strip()
+PAWAPAY_JWT_TOKEN = os.environ.get('PAWAPAY_JWT_TOKEN', '').strip()
 PAWAPAY_BASE_URL = os.environ.get('PAWAPAY_BASE_URL', 'https://api.pawapay.io/v2')
 
 # Webhook signature verification — set this from PawaPay dashboard.

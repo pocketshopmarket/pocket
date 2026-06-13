@@ -10,12 +10,14 @@ import 'providers/auth_provider.dart';
 import 'router/app_router.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
+import 'services/firebase_init.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await ApiService().initialize();
   await AuthService().initialize();
+  await initFirebaseIfSupported();
   runApp(
     const ProviderScope(
       child: PocketShopApp(),

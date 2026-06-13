@@ -20,6 +20,8 @@ class Notification(models.Model):
         ('delivery_assigned', 'Delivery Assigned'),
         ('verification_approved', 'Verification Approved'),
         ('verification_rejected', 'Verification Rejected'),
+        ('welcome', 'Welcome'),
+        ('announcement', 'Announcement'),
         ('general', 'General'),
     ]
 
@@ -44,3 +46,36 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{self.notification_type}] {self.title} → {self.recipient}"
+
+
+class Announcement(models.Model):
+    """Broadcast notification created by admin and sent to a target audience."""
+
+    AUDIENCE_CHOICES = [
+        ('all', 'All Users'),
+        ('buyers', 'Buyers Only'),
+        ('sellers', 'Sellers Only'),
+        ('delivery', 'Delivery Agents Only'),
+    ]
+
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    target_audience = models.CharField(
+        max_length=20, choices=AUDIENCE_CHOICES, default='all'
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='announcements_created',
+        limit_choices_to={'role': 'admin'},
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_sent = models.BooleanField(default=False)
+    sent_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.target_audience}] {self.title}"

@@ -108,6 +108,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'payment_failed':          return Icons.error_rounded;
       case 'payout_completed':        return Icons.account_balance_wallet_rounded;
       case 'delivery_assigned':       return Icons.local_shipping_rounded;
+      case 'welcome':                 return Icons.waving_hand_rounded;
+      case 'announcement':            return Icons.campaign_rounded;
       default:                        return Icons.notifications_rounded;
     }
   }
@@ -126,6 +128,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'payment_failed':          return const Color(0xFFEF4444);
       case 'payout_completed':        return const Color(0xFF10B981);
       case 'delivery_assigned':       return AppTheme.darkCyan;
+      case 'welcome':                 return AppTheme.primaryCyan;
+      case 'announcement':            return const Color(0xFF7C3AED);
       default:                        return AppTheme.textSecondary;
     }
   }
@@ -157,6 +161,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return _BadgeConfig('Earnings paid', Icons.payments_rounded, const Color(0xFF10B981));
       case 'delivery_assigned':
         return _BadgeConfig('Rider assigned', Icons.local_shipping_rounded, AppTheme.darkCyan);
+      case 'welcome':
+        return _BadgeConfig('Welcome', Icons.waving_hand_rounded, AppTheme.primaryCyan);
+      case 'announcement':
+        return _BadgeConfig('Announcement', Icons.campaign_rounded, const Color(0xFF7C3AED));
       default:
         return _BadgeConfig('Notification', Icons.notifications_rounded, AppTheme.textSecondary);
     }
@@ -451,45 +459,41 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Widget _buildLeadingIcon(IconData icon, Color color, String? imageUrl) {
-    if (imageUrl != null) {
-      return SizedBox(
-        width: 50,
-        height: 50,
-        child: Stack(
-          children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundColor: color.withValues(alpha: 0.12),
-              backgroundImage: CachedNetworkImageProvider(imageUrl),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                width: 19,
-                height: 19,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: Icon(icon, color: Colors.white, size: 10),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final Widget avatar = imageUrl != null
+        ? CircleAvatar(
+            radius: 25,
+            backgroundColor: color.withValues(alpha: 0.12),
+            backgroundImage: CachedNetworkImageProvider(imageUrl),
+          )
+        : CircleAvatar(
+            radius: 25,
+            backgroundColor: AppTheme.lightCyan.withValues(alpha: 0.3),
+            backgroundImage:
+                const AssetImage('assets/images/logo.jpg'),
+          );
 
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: Stack(
+        children: [
+          avatar,
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              width: 19,
+              height: 19,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Icon(icon, color: Colors.white, size: 10),
+            ),
+          ),
+        ],
       ),
-      child: Icon(icon, color: color, size: 20),
     );
   }
 

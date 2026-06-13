@@ -104,12 +104,6 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     }
   }
 
-  String _categoryLabel(String category) {
-    final normalized = category.trim().toLowerCase();
-    if (normalized.isEmpty) return 'Other';
-    return normalized[0].toUpperCase() + normalized.substring(1);
-  }
-
   IconData _categoryIcon(String category) {
     switch (category.toLowerCase()) {
       case 'vegetables':
@@ -319,7 +313,6 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
         (screenWidth - (horizontalPadding * 2) - gridSpacing) / 2;
     final gridAspectRatio = gridCardWidth / gridCardHeight;
     final productState = ref.watch(productProvider);
-    final cartState = ref.watch(cartProvider);
     final wishlist = ref.watch(wishlistProvider);
     final user = ref.watch(userProvider);
     final cartNotifier = ref.read(cartProvider.notifier);

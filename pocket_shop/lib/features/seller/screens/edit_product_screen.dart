@@ -63,7 +63,6 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
   final List<_VariantRow> _variants = [];
   String _quality = 'new';
   int? _categoryId;
-  Product? _product;
 
   static const _qualityChoices = [
     ('new', 'New'), ('like_new', 'Like new'), ('good', 'Good'),
@@ -100,7 +99,6 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
       final svc = ProductService();
       final product = await svc.getProduct(widget.productId);
       if (!mounted) return;
-      _product = product;
       _nameCtrl.text = product.name;
       _priceCtrl.text = product.price.toStringAsFixed(2);
       _stockCtrl.text = product.stockQuantity.toString();

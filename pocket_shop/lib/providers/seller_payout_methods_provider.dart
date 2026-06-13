@@ -80,6 +80,8 @@ class SellerPayoutMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>
     await load();
   }
 
+  void clear() => state = const [];
+
   String? extractError(Object e) {
     if (e is DioException) {
       final data = e.response?.data;
@@ -101,7 +103,7 @@ final sellerPayoutMethodsProvider = StateNotifierProvider<
       notifier.load();
     }
     if (!next.isAuthenticated && (prev?.isAuthenticated ?? false)) {
-      notifier.state = const [];
+      notifier.clear();
     }
   });
   return notifier;

@@ -111,6 +111,8 @@ class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
     await load();
   }
 
+  void clear() => state = const [];
+
   String? extractError(Object e) {
     if (e is DioException) {
       final data = e.response?.data;
@@ -137,7 +139,7 @@ final paymentMethodsProvider =
       notifier.load();
     }
     if (!next.isAuthenticated && (prev?.isAuthenticated ?? false)) {
-      notifier.state = const [];
+      notifier.clear();
     }
   });
   return notifier;

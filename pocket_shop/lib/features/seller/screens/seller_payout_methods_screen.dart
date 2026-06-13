@@ -704,7 +704,6 @@ class _SellerPayoutMethodsScreenState
 
   // ─── Individual method card ───
   Widget _buildMethodCard(BuyerPaymentMethod method) {
-    final vis = _visual(method.providerLabel);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),

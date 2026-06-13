@@ -57,9 +57,6 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
   bool get _sellerApproved =>
       ref.watch(userProvider)?.sellerProfile?.isApproved == true;
 
-  bool get _sellerVerified =>
-      ref.watch(userProvider)?.isVerified == true;
-
   @override
   Widget build(BuildContext context) {
     final pendingCount = _orders.where((o) => o.status == 'pending').length;

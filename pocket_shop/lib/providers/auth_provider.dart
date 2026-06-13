@@ -279,6 +279,7 @@ final authInitializationProvider = FutureProvider<void>((ref) async {
           if (raw['user'] is Map) {
             await authService.saveStoredUserMap(userMap);
           }
+          registerFcmTokenWithBackend();
         } else {
           authNotifier.clearAuth();
         }

@@ -44,7 +44,7 @@ class AppConstants {
   static const String paymentsStatusEndpoint = 'payments/status/';
   static const String paymentsEarningsSummaryEndpoint = 'payments/earnings/summary/';
   static const String paymentsPayoutEndpoint = 'payments/payout/';
-  static const String registerFcmTokenEndpoint = 'accounts/fcm-token/';
+  static const String registerFcmTokenEndpoint = 'auth/fcm-token/';
   static const String notificationsEndpoint = 'notifications/';
   static const String notificationsUnreadCountEndpoint = 'notifications/unread-count/';
   static const String notificationsMarkAllReadEndpoint = 'notifications/mark-all-read/';

@@ -151,6 +151,8 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),

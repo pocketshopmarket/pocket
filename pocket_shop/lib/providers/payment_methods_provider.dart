@@ -134,6 +134,10 @@ class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
 final paymentMethodsProvider =
     StateNotifierProvider<PaymentMethodsNotifier, List<BuyerPaymentMethod>>((ref) {
   final notifier = PaymentMethodsNotifier(ref, ApiService());
+  final auth = ref.read(authProvider);
+  if (auth.isAuthenticated && auth.user?.isBuyer == true) {
+    Future.microtask(notifier.load);
+  }
   ref.listen<AuthState>(authProvider, (prev, next) {
     if (next.isAuthenticated && next.user?.isBuyer == true) {
       notifier.load();

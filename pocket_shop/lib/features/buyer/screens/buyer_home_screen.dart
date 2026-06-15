@@ -1463,13 +1463,29 @@ class _ProductCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: Text(
-                              inStock ? 'Add to cart' : 'Unavailable',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            child: inStock
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.add_shopping_cart, size: 14),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Add to cart',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : const Text(
+                                    'Unavailable',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                           ),
                         ),
                       ],

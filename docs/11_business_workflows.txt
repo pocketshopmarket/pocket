@@ -1,0 +1,409 @@
+================================================================================
+POCKET SHOP — BUSINESS WORKFLOWS
+================================================================================
+
+This document describes complete end-to-end user journeys through the system,
+covering all three user roles and the key business flows.
+
+================================================================================
+1. BUYER JOURNEY
+================================================================================
+
+--------------------------------------------------------------------------------
+1A. Sign Up (New Buyer)
+--------------------------------------------------------------------------------
+
+1. Buyer opens app → SplashScreen checks no tokens → redirects to /phone
+2. Enters phone number (+260XXXXXXXXX) → taps "Get OTP"
+3. Backend rate-checks (max 5 OTPs/hour), generates 6-digit code, sends SMS
+4. OtpVerificationScreen shows 10-minute countdown
+5. Buyer enters received code → taps "Verify"
+6. Backend validates OTP → creates User (role=buyer) + BuyerProfile
+7. Returns JWT tokens → app saves to SharedPreferences
+8. GoRouter redirects to /buyer/home
+
+--------------------------------------------------------------------------------
+1B. Browse and Search
+--------------------------------------------------------------------------------
+
+1. BuyerHomeScreen loads:
+   - Promo banners (PromoBanner API)
+   - Category icons row
+   - Recommended products grid (personalised or popular)
+2. Buyer taps a category → BuyerSearchScreen filtered by category
+3. OR buyer types in search bar → debounced search against products API
+4. Scrolls down → infinite pagination (loads more pages)
+5. Applies filters (quality, price range)
+6. Taps product → BuyerProductDetailsScreen
+   - Backend increments views_count on the product
+   - ProductInteraction recorded (type=view)
+7. Views images, description, variants, seller info, reviews
+
+--------------------------------------------------------------------------------
+1C. Add to Cart and Checkout
+--------------------------------------------------------------------------------
+
+1. On product details:
+   - If product has variants → buyer selects variant (e.g., Size: XL)
+   - Sets quantity
+   - Taps "Add to Cart" → POST /api/orders/cart/
+   - CartItem created (unique per cart+product+variant)
+2. Cart tab badge increments
+3. Buyer navigates to /buyer/cart (CartScreen)
+4. Sees all items, subtotals, estimated total
+5. Taps "Checkout":
+   a. System calls POST /api/delivery/quote/ with delivery address + seller location
+   b. Returns: delivery_fee, distance_km, eta_minutes
+   c. Buyer sees order summary: items total + delivery fee = grand total
+6. Buyer selects payment method (MTN / Airtel / Zamtel phone)
+7. Enters delivery address (or uses saved default address)
+8. Taps "Place Order"
+   - POST /api/orders/create/ → creates Order (status=pending)
+9. Backend returns Order + DeliveryQuote
+10. App navigates to PaymentPendingScreen
+
+--------------------------------------------------------------------------------
+1D. Payment
+--------------------------------------------------------------------------------
+
+1. PaymentPendingScreen shows "Check your phone"
+2. App calls POST /api/payments/initiate/ → backend calls PawaPay deposit API
+3. Buyer's phone receives USSD prompt from their mobile money provider
+4. Buyer enters mobile money PIN to approve
+5. PawaPay sends webhook to backend:
+   - On SUCCESS:
+     - Transaction.status = completed
+     - Order.status = accepted
+     - Push notification sent to buyer: "Payment successful"
+     - Push notification sent to seller: "New order received"
+     - App (still polling) detects completed → navigates to BuyerOrderDetailScreen
+   - On FAILURE:
+     - Transaction.status = failed
+     - Order.status = cancelled
+     - Push notification to buyer: "Payment failed"
+     - App shows error + retry option
+
+--------------------------------------------------------------------------------
+1E. Track Order
+--------------------------------------------------------------------------------
+
+1. BuyerOrderDetailScreen shows order status timeline
+2. When status = out_for_delivery:
+   - "Track Delivery" button appears
+3. OrderTrackingScreen opens:
+   - flutter_map with OpenStreetMap tiles
+   - Rider's current location shown as moving pin
+   - Plotted route from seller to buyer
+   - ETA countdown
+4. App polls GET /api/delivery/track/<order_number>/ every 5 seconds
+5. When rider arrives: status changes to delivered
+
+--------------------------------------------------------------------------------
+1F. After Delivery — Rate and Review
+--------------------------------------------------------------------------------
+
+1. Order status = delivered
+2. Push notification: "Your order has been delivered"
+3. Buyer opens order detail
+4. Rating prompts appear:
+   - Rate the delivery (score + comment → target_role=delivery)
+   - Rate the overall experience (score + comment → target_role=seller)
+5. POST /api/orders/<id>/ratings/ for each
+6. Product review option: POST /api/reviews/products/<id>/
+   (is_verified_purchase=True because buyer has a delivered order)
+
+--------------------------------------------------------------------------------
+1G. Refund Request
+--------------------------------------------------------------------------------
+
+1. Buyer has a delivered order with an issue
+2. Taps "Request Refund" on order detail
+3. Enters reason text
+4. POST /api/orders/<id>/refund-request/ → RefundRequest created
+5. Seller receives push notification: "Refund requested"
+6. Seller reviews → approves or rejects (with note)
+7. If rejected: buyer can escalate to admin
+8. Admin reviews escalated request → final decision
+9. If approved: refund processed → buyer receives money on their mobile money number
+
+================================================================================
+2. SELLER JOURNEY
+================================================================================
+
+--------------------------------------------------------------------------------
+2A. Sign Up and Verification
+--------------------------------------------------------------------------------
+
+1. Create account (phone OTP, same as buyer) → select role=seller
+2. SellerDashboardScreen shows verification banner: "Complete verification"
+3. Taps "Apply for Seller Verification"
+4. Tier 1 form:
+   - Shop name + location (address + map pin)
+   - NRC number + front/back photos
+   - Live selfie (liveness check)
+5. POST /api/auth/seller/apply/ → VerificationRequest created (tier1_status=pending)
+6. Admin reviews in Django admin panel → approves or rejects
+7. On approval: push notification + email → SellerProfile.is_approved=True
+8. Seller can now list products and receive orders
+
+Tier 2 (optional, for higher trust level):
+  Same flow with business_license upload
+
+--------------------------------------------------------------------------------
+2B. Add a Product
+--------------------------------------------------------------------------------
+
+1. SellerProductsScreen → FAB → AddProductScreen
+2. Fills in:
+   - Up to 5 product images (image_picker from gallery/camera)
+   - Product name + description
+   - Category (dropdown from API)
+   - Quality level (new/like_new/good/fair/used)
+   - Price (ZMW)
+   - Stock quantity
+   - Variants (optional — e.g., "Size: S, M, L, XL" as separate variants)
+3. Taps Submit → POST /api/products/ (multipart form)
+4. Product appears in SellerProductsScreen grid
+5. Product visible to buyers immediately (is_available=True by default)
+
+--------------------------------------------------------------------------------
+2C. Manage Orders
+--------------------------------------------------------------------------------
+
+1. Seller receives push notification: "New order received"
+2. SellerOrdersScreen → "New" tab shows order
+3. Seller reviews order items + buyer delivery address
+4. Taps "Accept" → POST /api/orders/<id>/accept/
+5. Order moves to "Preparing" tab
+6. Seller prepares items
+7. Delivery agent assigned by platform (or self-assignment if pickup)
+8. Seller receives push: "Rider assigned — <Name> is coming to pick up"
+9. Rider arrives → shows QR code on phone
+10. Seller scans QR → confirms pickup
+11. Items transferred to rider → order moves to out_for_delivery
+12. Seller dashboard updates → revenue tracked when delivered
+
+--------------------------------------------------------------------------------
+2D. Earnings and Payouts
+--------------------------------------------------------------------------------
+
+1. SellerPayoutHistoryScreen shows transaction history
+2. Each delivered order generates a payout transaction:
+   Payout amount = order.total_price × (1 - PLATFORM_COMMISSION_RATE)
+                 = order.total_price × 0.95  (at default 5% commission)
+3. Payout timing:
+   - PAYOUT_METHOD=manual: admin sends payment manually within 24h
+   - PAYOUT_METHOD=gateway: automated via PawaPay, immediate after delivery
+4. Seller can see: total earnings, pending payouts, completed payouts
+5. POST /api/payments/payout/request/ for manual withdrawal requests
+
+================================================================================
+3. DELIVERY AGENT JOURNEY
+================================================================================
+
+--------------------------------------------------------------------------------
+3A. Sign Up and Verification
+--------------------------------------------------------------------------------
+
+1. Create account (phone OTP) → select role=delivery
+2. DeliveryHomeScreen shows verification banner
+3. Fills application:
+   - Vehicle type (bicycle/motorcycle/car/van)
+   - Driver's license front + back photos
+   - Province, town, area (service zone)
+   - Live selfie
+4. POST /api/auth/delivery/apply/ → VerificationRequest (type=delivery)
+5. Admin reviews → approves
+6. DeliveryProfile.is_approved=True → agent can now see orders
+
+--------------------------------------------------------------------------------
+3B. Accept a Delivery Job
+--------------------------------------------------------------------------------
+
+1. DeliveryHomeScreen shows available orders list
+2. Each order shows:
+   - Pickup location (seller shop)
+   - Delivery location (buyer address)
+   - Distance from rider to pickup
+   - Estimated earnings (delivery_fee)
+   - Estimated time
+3. Rider taps "Accept" → POST /api/delivery/orders/accept/
+4. DeliveryAssignment created:
+   - OSRM calculates route + ETA from rider's current location to seller
+   - Push notification to buyer: "Rider on the way to pick up your order"
+5. ActiveDeliveryScreen opens showing:
+   - Map with route to seller
+   - Seller address + shop name + phone number
+
+Offer system (alternative):
+  Platform may push DeliveryOffer to nearest 3 riders
+  Rider sees offer in DeliveryOffersScreen with countdown
+  Must accept before expiry or offer goes to next rider
+
+--------------------------------------------------------------------------------
+3C. GPS Tracking During Delivery
+--------------------------------------------------------------------------------
+
+1. ActiveDeliveryScreen starts GPS location updates
+2. Every ~5 seconds: POST /api/delivery/location/update/ { lat, lng }
+3. Backend:
+   - Saves DeliveryTracking breadcrumb
+   - Updates DeliveryAssignment.current_location
+   - Calculates telemetry segment (updates speed profiles after delivery)
+4. Buyer's OrderTrackingScreen shows live rider position
+
+--------------------------------------------------------------------------------
+3D. Pickup Handoff
+--------------------------------------------------------------------------------
+
+1. Rider arrives at seller location
+2. Taps "I'm at pickup" on ActiveDeliveryScreen
+3. App calls POST /api/delivery/assignment/<id>/handoff/token/  { step: "pickup" }
+4. Backend generates 6-char hex token (expires in 10 min)
+5. App shows QR code on screen (qr_flutter renders the token)
+6. Seller scans QR using their phone (or seller taps QR button on seller app)
+7. POST /api/delivery/handoff/verify/ { token, order_id, step: "pickup" }
+8. Backend verifies → DeliveryAssignment.status = picked_up
+9. Push notifications:
+   - Buyer: "Your order is on the way!"
+   - Seller: "Items picked up by rider"
+10. Rider loads items → heads to buyer address
+
+--------------------------------------------------------------------------------
+3E. Delivery Handoff
+--------------------------------------------------------------------------------
+
+1. Rider arrives at buyer's delivery address
+2. Taps "Complete Delivery" on ActiveDeliveryScreen
+3. App calls POST /api/delivery/assignment/<id>/handoff/token/  { step: "dropoff" }
+4. Backend generates new QR token
+5. App shows QR code on screen
+6. Buyer scans QR using their phone
+7. POST /api/delivery/handoff/verify/ { token, order_id, step: "dropoff" }
+8. Backend verifies:
+   - DeliveryAssignment.status = delivered
+   - Order.status = delivered
+   - Transaction.payout_stage = ready_for_payout
+   - Seller payout triggered
+   - Delivery fee payout triggered
+9. Push notifications:
+   - Buyer: "Order delivered! Please rate your experience"
+   - Seller: "Order delivered. Payout processing."
+   - Rider: "Delivery completed! Earnings updated."
+
+--------------------------------------------------------------------------------
+3F. Earnings
+--------------------------------------------------------------------------------
+
+1. EarningsScreen shows:
+   - Total earnings (all time)
+   - This month's earnings
+   - Average delivery rating
+   - Transaction list (per-delivery earnings)
+2. Each delivery: earnings = order.delivery_fee (no commission taken)
+3. Payout timing same as sellers (manual or gateway)
+
+================================================================================
+4. ADMIN WORKFLOWS
+================================================================================
+
+--------------------------------------------------------------------------------
+4A. Verification Review
+--------------------------------------------------------------------------------
+
+1. Admin logs into Django admin: /admin/
+2. Navigate to accounts → VerificationRequest
+3. Filter by status=pending
+4. Review submitted documents (NRC images, license images, selfies)
+5. Set status to approved or rejected + add rejection_reason if rejected
+6. Save → backend sends push notification to applicant
+
+--------------------------------------------------------------------------------
+4B. Refund Escalation
+--------------------------------------------------------------------------------
+
+1. Navigate to orders → RefundRequest
+2. Filter by status=escalated (buyer escalated after seller rejection)
+3. Review order, items, buyer reason, seller rejection note
+4. Set status to approved_by_admin or rejected_by_admin + admin_note
+5. If approved → backend processes refund (manual or gateway payout)
+
+--------------------------------------------------------------------------------
+4C. Payout Management (manual mode)
+--------------------------------------------------------------------------------
+
+1. Navigate to payments → Transaction
+2. Filter by payout_stage=ready_for_payout and payout_method=manual
+3. For each pending payout:
+   - Note recipient phone number and amount
+   - Send payment from platform mobile money account
+   - Update payout_stage to payout_sent, then payout_paid when confirmed
+4. For gateway mode: payouts are processed automatically by PawaPay
+
+--------------------------------------------------------------------------------
+4D. Broadcast Announcement
+--------------------------------------------------------------------------------
+
+1. Navigate to notifications → Announcement
+2. Create new: title, message, target_audience (all/buyers/sellers/delivery)
+3. Save → backend sends FCM push to all matching FCM tokens in User table
+4. sent_count updated with number of FCM tokens targeted
+
+--------------------------------------------------------------------------------
+4E. Delivery Pricing Management
+--------------------------------------------------------------------------------
+
+1. Navigate to delivery → DeliveryPricingConfig (singleton — one row)
+2. Update:
+   per_km_rate = 8.00 ZMW
+   short_distance_threshold_km = 2.0
+   short_distance_flat_rate = 12.00 ZMW
+3. Save → new fee calculations use updated values immediately
+
+================================================================================
+5. STALE ORDER AUTO-CANCELLATION
+================================================================================
+
+Trigger: Cron job (management command: auto_cancel_stale_orders)
+Should run: every 10 minutes
+
+Logic:
+  Find orders with:
+    status = 'accepted'
+    created_at < now - ORDER_ACCEPTANCE_TIMEOUT_MINUTES (default 30 min)
+  For each:
+    - Mark order.status = cancelled
+    - Create refund Transaction if payment was completed
+    - Send push notification to buyer: "Order cancelled — no response from seller"
+
+Manual trigger:
+  python manage.py auto_cancel_stale_orders
+
+Production setup (Railway Cron or external cron):
+  Schedule: */10 * * * *  (every 10 minutes)
+
+================================================================================
+6. PUSH NOTIFICATION TRIGGERS
+================================================================================
+
+EVENT                         RECIPIENT(S)        TYPE
+Payment completed             Buyer               payment_completed
+New order placed              Seller              order_placed
+Order accepted (by seller)    Buyer               order_accepted
+Delivery agent assigned       Buyer               delivery_assigned
+Rider picked up items         Buyer               delivery_picked_up
+                              Seller              delivery_picked_up
+Order delivered               Buyer               delivery_completed
+                              Seller              delivery_completed
+                              Rider               delivery_completed
+Verification approved         User (seller/rider) verification_approved
+Verification rejected         User (seller/rider) verification_rejected
+Refund requested              Seller              refund_requested
+Refund approved               Buyer               refund_approved
+Refund rejected               Buyer               refund_rejected
+Admin announcement            Target audience     general
+
+Each notification also creates an in-app Notification record in the database
+(visible in the NotificationsScreen and read via GET /api/notifications/).
+
+================================================================================

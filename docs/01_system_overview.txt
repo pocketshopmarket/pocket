@@ -1,0 +1,170 @@
+================================================================================
+POCKET SHOP — SYSTEM OVERVIEW
+================================================================================
+
+PROJECT NAME:   Pocket Shop
+PURPOSE:        Full-stack e-commerce and delivery marketplace for Zambia
+STATUS:         Feature-complete in design; not yet production-ready
+LAST REVIEWED:  2026-06-16
+
+--------------------------------------------------------------------------------
+WHAT IT IS
+--------------------------------------------------------------------------------
+
+Pocket Shop is a mobile-first marketplace that connects three types of users:
+
+  BUYERS        — Browse, buy, and track orders from local sellers
+  SELLERS       — List products and fulfil orders from a shop dashboard
+  DELIVERY      — Accept delivery jobs, track routes, earn per delivery
+
+Payments are processed entirely through Zambian mobile money networks
+(MTN MoMo, Airtel Money, Zamtel Kwacha) via the PawaPay gateway.
+
+The platform never holds a user's wallet balance. Every transaction is a
+direct mobile-money movement: buyer pays in, seller and delivery agent are
+paid out after confirmed delivery.
+
+--------------------------------------------------------------------------------
+TECH STACK
+--------------------------------------------------------------------------------
+
+BACKEND
+  Framework       Django 6.0.3
+  API Layer       Django REST Framework (DRF)
+  Auth            SimpleJWT (JWT tokens + phone OTP)
+  Database        PostgreSQL (production) / SQLite3 (dev fallback)
+  Task Scheduling Manual cron via management commands (no Celery)
+  SMS             Africa's Talking
+  Push            Firebase Cloud Messaging (FCM)
+  Payment         PawaPay v2 API
+  Media Storage   Cloudinary (production) / local /media/ (development)
+  Static Files    WhiteNoise (compressed, served by Gunicorn)
+  Deployment      Railway (Docker + Gunicorn)
+
+FRONTEND
+  Framework       Flutter 3.10.8 (Dart)
+  State Mgmt      Riverpod (flutter_riverpod)
+  Navigation      GoRouter (role-based StatefulShellRoute)
+  HTTP Client     Dio (with automatic JWT refresh interceptor)
+  Local Storage   SharedPreferences (tokens, user session)
+  Maps            flutter_map + OpenStreetMap tiles
+  QR              qr_flutter (generate) + mobile_scanner (scan)
+  Notifications   firebase_messaging + flutter_local_notifications
+  Targets         Android, iOS, Windows Desktop
+
+--------------------------------------------------------------------------------
+REPOSITORY STRUCTURE
+--------------------------------------------------------------------------------
+
+pocket/
+├── pocket_backend/          Django REST API
+│   ├── accounts/            Users, auth, OTP, profiles, verification
+│   ├── products/            Product catalog, categories, banners, recs
+│   ├── orders/              Cart, orders, ratings, refunds
+│   ├── delivery/            Assignments, tracking, ETA, handoff tokens
+│   ├── payments/            PawaPay deposits, payouts, webhooks
+│   ├── reviews/             Product reviews
+│   ├── notifications/       In-app & push notifications
+│   ├── portal/              Admin/public portal
+│   └── pocket_backend/      Django project settings + root URLs
+├── pocket_shop/             Flutter mobile app
+│   └── lib/
+│       ├── core/            Constants, theme, utilities
+│       ├── features/        Screens per user role
+│       ├── models/          Dart data classes
+│       ├── providers/       Riverpod state providers
+│       ├── services/        API service layer (Dio)
+│       ├── router/          GoRouter configuration
+│       └── widgets/         Shared UI components
+├── docs/                    This documentation folder
+├── design_doc.txt           Original payment system design notes
+├── launch_readiness_notes.txt   Production readiness audit
+├── notification_plan.txt    FCM notification planning
+├── Dockerfile               Backend container definition
+├── Procfile                 Railway/Heroku process definition
+├── deploy.sh                Pre-deploy migration script
+├── .github/                 CI/CD workflows
+└── index.html / styles.css  Marketing landing page
+
+--------------------------------------------------------------------------------
+USER ROLES
+--------------------------------------------------------------------------------
+
+ROLE        DESCRIPTION
+--------    ---------------------------------------------------------------
+buyer       Default role. Can browse, add to cart, checkout, track orders,
+            leave reviews, request refunds.
+
+seller      Must apply and be verified (tier1 = basic info, tier2 = NRC +
+            business license). Can list products, manage stock, fulfil orders,
+            receive payouts.
+
+delivery    Must apply and be verified (vehicle type + licence upload).
+            Accepts delivery jobs, updates GPS location, scans handoff QR
+            codes at pickup and dropoff, receives earnings per delivery.
+
+admin       Superuser. Manages verification approvals, refund escalations,
+            payout oversight, announcement broadcasts.
+
+A user is assigned one role at signup. Roles cannot be mixed on a single
+account (separate accounts required for multiple roles).
+
+--------------------------------------------------------------------------------
+KEY INTEGRATIONS
+--------------------------------------------------------------------------------
+
+PAWAPAY
+  API Version     v2  (https://api.pawapay.io/v2)
+  Providers       MTN MoMo (MTN_MOMO_ZMB)
+                  Airtel Money (AIRTEL_OAPI_ZMB)
+                  Zamtel Kwacha (ZAMTEL_MONEY_ZMB)
+  Flow            REST API call to initiate deposit → PawaPay sends webhook
+                  on completion/failure → backend updates Transaction status
+
+AFRICA'S TALKING
+  Use Case        OTP delivery via SMS
+  Config          AFRICAS_TALKING_USERNAME, AFRICAS_TALKING_API_KEY
+
+FIREBASE
+  Use Case        Push notifications to Android/iOS Flutter app
+  Config          FIREBASE_CREDENTIALS_JSON (service account JSON string)
+
+CLOUDINARY
+  Use Case        Persistent media storage (product images, verification docs)
+  Config          CLOUDINARY_URL
+  Reason          Railway filesystem is ephemeral — files vanish on redeploy
+
+OSRM (OpenStreetMap Routing Machine)
+  Use Case        Delivery route calculation, distance, ETA
+  Config          OSRM_BASE_URL (default: public Project OSRM endpoint)
+
+--------------------------------------------------------------------------------
+DATA FLOW SUMMARY
+--------------------------------------------------------------------------------
+
+1. Buyer places order → Backend creates Order (status: pending)
+2. Buyer initiates payment → PawaPay deposit request sent
+3. PawaPay webhook → Transaction marked completed → Order moves to accepted
+4. Seller accepts order → Prepares items
+5. Platform finds available delivery agent → Sends DeliveryOffer
+6. Delivery agent accepts → DeliveryAssignment created
+7. Rider navigates to seller → Generates pickup QR token
+8. Seller scans QR → Pickup confirmed → Order status: out_for_delivery
+9. Rider navigates to buyer → Generates dropoff QR token
+10. Buyer scans QR → Delivery confirmed → Order status: delivered
+11. Payout triggered → Seller receives (total - commission) via mobile money
+12. Delivery agent receives delivery fee
+
+--------------------------------------------------------------------------------
+CURRENCY AND COMMISSION
+--------------------------------------------------------------------------------
+
+Currency                Zambian Kwacha (ZMW)
+Platform Commission     5% of order total (PLATFORM_COMMISSION_RATE env var)
+Payout Method           'manual' (admin sends from phone) or
+                        'gateway' (automated via PawaPay — set PAYOUT_METHOD)
+Delivery Fee            Calculated at quote time:
+                        - Distance ≤ threshold → flat rate
+                        - Distance > threshold → per_km_rate × distance km
+
+================================================================================

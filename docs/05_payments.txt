@@ -1,0 +1,264 @@
+================================================================================
+POCKET SHOP — PAYMENT SYSTEM
+================================================================================
+
+--------------------------------------------------------------------------------
+OVERVIEW
+--------------------------------------------------------------------------------
+
+Pocket Shop processes all payments through PawaPay, a Zambian mobile money
+aggregator that supports MTN MoMo, Airtel Money, and Zamtel Kwacha.
+
+The platform does NOT hold a wallet or balance. It is a pure transaction
+broker: buyer pays in, platform takes 5% commission, seller and delivery agent
+are paid out after the delivery is confirmed.
+
+Key files:
+  pocket_backend/payments/models.py         Transaction model
+  pocket_backend/payments/views.py          Payment API views
+  pocket_backend/payments/urls.py           Payment URL routing
+  pocket_backend/payments/services/pawapay.py  PawaPay API client
+
+--------------------------------------------------------------------------------
+MOBILE MONEY PROVIDERS
+--------------------------------------------------------------------------------
+
+PROVIDER CONSTANT     NETWORK         PHONE PREFIXES (Zambia)
+MTN_MOMO_ZMB          MTN MoMo        096x, 076x
+AIRTEL_OAPI_ZMB       Airtel Money    097x, 077x
+ZAMTEL_MONEY_ZMB      Zamtel Kwacha   095x, 075x
+
+The provider is auto-detected from the buyer's payment method phone number
+prefix. The mapping is defined in the payments service or accounts utils.
+
+--------------------------------------------------------------------------------
+PAWAPAY API CONFIGURATION
+--------------------------------------------------------------------------------
+
+Config in settings.py:
+  PAWAPAY_BASE_URL       https://api.pawapay.io/v2  (default)
+  PAWAPAY_JWT_TOKEN      Bearer token from PawaPay dashboard (env var)
+  PAWAPAY_WEBHOOK_SECRET HMAC secret from PawaPay dashboard (env var)
+
+Authentication to PawaPay:
+  Every request includes: Authorization: Bearer <PAWAPAY_JWT_TOKEN>
+
+PawaPay Sandbox (development):
+  Different BASE_URL and credentials available from PawaPay sandbox dashboard.
+  In DEBUG mode, webhook HMAC verification is skipped if secret is not set.
+
+--------------------------------------------------------------------------------
+TRANSACTION MODEL
+--------------------------------------------------------------------------------
+
+Each financial movement creates one Transaction record.
+
+FIELD               DESCRIPTION
+transaction_id      UUID4 — primary key, also sent as depositId/payoutId to PawaPay
+order               The Order this transaction is associated with
+transaction_type    deposit / payout / refund
+amount              ZMW decimal amount
+currency            Always 'ZMW'
+provider            MTN_MOMO_ZMB / AIRTEL_OAPI_ZMB / ZAMTEL_MONEY_ZMB
+payer_number        Phone number charged (for deposits) or credited (for payouts)
+recipient           User receiving payout (seller or delivery) — null for deposits
+recipient_role      buyer / seller / delivery
+status              pending → accepted → completed / failed / duplicate_ignored
+payout_stage        Tracks payout readiness (see below)
+trigger_event       What initiated this transaction
+payout_method       manual / gateway
+failure_message     PawaPay error on failure
+
+PAYOUT STAGES (for payout/refund type transactions):
+  na                  Not a payout or not yet at payout stage
+  pickup_pending_scan Waiting for rider to scan pickup QR
+  dropoff_pending_scan Waiting for buyer/seller to scan dropoff QR
+  ready_for_payout    QR steps done, ready to send money
+  payout_sent         API call made to PawaPay (or flagged for manual)
+  payout_paid         PawaPay confirmed recipient received funds
+  payout_failed       PawaPay returned error
+
+TRIGGER EVENTS:
+  manual           Admin-initiated payout
+  pickup_qr        Triggered when pickup QR is successfully scanned
+  dropoff_qr       Triggered when dropoff QR is successfully scanned
+  order_cancelled  Refund triggered by order cancellation
+
+--------------------------------------------------------------------------------
+FULL PAYMENT FLOW
+--------------------------------------------------------------------------------
+
+STEP 1 — Buyer initiates payment
+  Client:   POST /api/payments/initiate/
+            { "order_id": 42, "payment_method_id": 7 }
+  Backend:
+    1. Validates order belongs to buyer and is in 'payment_pending' status
+    2. Validates payment_method belongs to buyer
+    3. Creates Transaction (type=deposit, status=pending)
+    4. Calls PawaPay API: POST /deposits
+       Payload: { depositId: <uuid>, amount, currency, correspondent, payer, ... }
+    5. Returns transaction_id to client
+  Response: { "transaction_id": "...", "status": "pending",
+              "message": "Check your phone to approve payment" }
+  Client: Navigates to PaymentPendingScreen, polls or waits for push notification
+
+STEP 2 — Buyer approves on phone
+  - MTN/Airtel/Zamtel sends USSD prompt to buyer's phone
+  - Buyer enters their mobile money PIN to approve
+  - This is entirely outside the app — on the phone's native USSD interface
+
+STEP 3 — PawaPay sends webhook
+  PawaPay calls: POST /api/payments/webhook/
+  Headers: X-PawaPay-Signature: <HMAC-SHA256 of payload + secret>
+  Backend:
+    1. Verifies HMAC signature (skipped in dev if secret not set)
+    2. Parses event type: DEPOSIT_STATUS_CHANGED or PAYOUT_STATUS_CHANGED
+    3. Looks up Transaction by depositId/payoutId
+    4. Updates Transaction.status based on PawaPay status:
+       COMPLETED → completed
+       FAILED    → failed
+    5. If deposit COMPLETED:
+       - Marks Order.status = 'accepted'
+       - Sends push notification to buyer (payment_completed)
+       - Sends push notification to seller (order_placed)
+    6. If deposit FAILED:
+       - Marks Order.status = 'cancelled'
+       - Sends push notification to buyer (payment_failed)
+    Returns: HTTP 200 (PawaPay retries on non-200)
+
+STEP 4 — Delivery confirmation and payout (see delivery docs)
+  When dropoff QR is verified:
+    - Transaction.payout_stage → ready_for_payout
+    - Seller payout calculated: order.total_price × (1 - PLATFORM_COMMISSION_RATE)
+    - Delivery payout: order.delivery_fee
+    - If PAYOUT_METHOD=gateway: calls PawaPay payout API automatically
+    - If PAYOUT_METHOD=manual: admin sees pending payout in Django admin
+
+--------------------------------------------------------------------------------
+PAYOUT METHODS
+--------------------------------------------------------------------------------
+
+Controlled by PAYOUT_METHOD environment variable:
+
+  'manual'   (default)
+    - Platform marks Transaction as ready_for_payout
+    - Admin sees these in Django admin
+    - Admin manually sends payment from their own phone
+    - Admin marks Transaction.payout_stage = payout_paid when done
+    - Simple but requires manual work per transaction
+
+  'gateway'
+    - Platform calls PawaPay API: POST /payouts
+    - PawaPay automatically sends money to recipient's phone
+    - Webhook confirms payout completion
+    - Fully automated but requires PawaPay payout API access
+      (separate approval from PawaPay — not included in basic account)
+
+--------------------------------------------------------------------------------
+COMMISSION CALCULATION
+--------------------------------------------------------------------------------
+
+PLATFORM_COMMISSION_RATE = 0.05  (5%, set via env var)
+
+On order completion:
+  seller_receives    = order.total_price × (1 - 0.05)
+                     = order.total_price × 0.95
+  platform_keeps     = order.total_price × 0.05
+  delivery_receives  = order.delivery_fee  (full amount, no commission)
+
+Example:
+  Order total: 200 ZMW, delivery fee: 30 ZMW
+  Buyer pays:  230 ZMW
+  Seller gets: 190 ZMW  (200 × 0.95)
+  Rider gets:  30 ZMW
+  Platform:    10 ZMW
+
+--------------------------------------------------------------------------------
+REFUND FLOW
+--------------------------------------------------------------------------------
+
+Trigger conditions:
+  - Payment deposit FAILED (automatic)
+  - Seller doesn't accept within ORDER_ACCEPTANCE_TIMEOUT_MINUTES (default: 30)
+  - Buyer requests refund after delivery (RefundRequest flow)
+  - Admin approves escalated refund
+
+Automatic refund (payment failure):
+  1. PawaPay webhook marks deposit as FAILED
+  2. Order cancelled automatically
+  3. No money was collected → no payout needed
+
+Manual refund (buyer-initiated):
+  1. Buyer: POST /api/orders/<id>/refund-request/  { "reason": "..." }
+  2. RefundRequest created (status=pending_seller)
+  3. Seller reviews → approves or rejects
+  4. If rejected: buyer can escalate → status=escalated
+  5. Admin reviews escalated → final decision
+  6. If approved: Transaction created (type=refund)
+             → payout_method routes to manual or gateway
+             → Buyer receives refund to original payment phone number
+
+--------------------------------------------------------------------------------
+PAYMENT STATUS POLLING
+--------------------------------------------------------------------------------
+
+Client can poll for payment status:
+  GET /api/payments/status/<transaction_id>/
+  Return: { "status": "pending" / "completed" / "failed", "amount": ..., ... }
+
+The PaymentPendingScreen in Flutter polls this endpoint every few seconds
+while showing a loading indicator. On completion it navigates to order detail.
+
+Push notification is also sent on completion (FCM) as a faster alternative.
+
+--------------------------------------------------------------------------------
+SECURITY — WEBHOOK VERIFICATION
+--------------------------------------------------------------------------------
+
+PawaPay signs all webhook payloads with HMAC-SHA256:
+  Header: X-PawaPay-Signature: <hex-encoded HMAC>
+  Key:    PAWAPAY_WEBHOOK_SECRET (env var, from PawaPay dashboard)
+
+Verification in views.py (PawaPayWebhookView):
+  1. Read raw request body
+  2. Compute expected_sig = HMAC-SHA256(body, PAWAPAY_WEBHOOK_SECRET)
+  3. Compare with header value (constant-time comparison)
+  4. Reject with HTTP 403 if mismatch
+
+In DEBUG mode: verification is skipped if PAWAPAY_WEBHOOK_SECRET is empty.
+In production: always set PAWAPAY_WEBHOOK_SECRET.
+
+--------------------------------------------------------------------------------
+EARNINGS & PAYOUT HISTORY
+--------------------------------------------------------------------------------
+
+GET /api/payments/earnings/
+  Returns for sellers:   List of completed deposit Transactions for their orders
+  Returns for delivery:  List of completed payout Transactions to this rider
+
+Dashboard data includes:
+  Total earnings (sum of completed payouts)
+  Pending payouts (payout_stage = ready_for_payout)
+  Transaction history with dates
+
+--------------------------------------------------------------------------------
+TESTING PAYMENTS (Development)
+--------------------------------------------------------------------------------
+
+PawaPay Sandbox:
+  1. Get sandbox credentials from PawaPay developer portal
+  2. Set PAWAPAY_JWT_TOKEN to sandbox token in .env
+  3. Set PAWAPAY_BASE_URL to sandbox URL
+  4. Use test phone numbers provided by PawaPay
+
+Simulating webhooks locally:
+  Use ngrok to expose local server:
+    ngrok http 8000
+  Set PUBLIC_BACKEND_URL=https://<ngrok-url> in .env
+  Configure ngrok URL as webhook endpoint in PawaPay sandbox dashboard
+
+Management utility:
+  python manage.py find_completed_deposit  (or use find_completed_deposit.py script)
+  python manage.py run_refund_test         (or use run_refund_test.py script)
+
+================================================================================

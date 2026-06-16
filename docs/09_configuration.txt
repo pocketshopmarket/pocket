@@ -1,0 +1,252 @@
+================================================================================
+POCKET SHOP — CONFIGURATION & ENVIRONMENT VARIABLES
+================================================================================
+
+--------------------------------------------------------------------------------
+BACKEND ENVIRONMENT VARIABLES  (pocket_backend/.env or Railway dashboard)
+--------------------------------------------------------------------------------
+
+REQUIRED FOR PRODUCTION:
+  DJANGO_ENV=production
+  DJANGO_SECRET_KEY=<random 50+ char secret>
+  DATABASE_URL=postgres://user:pass@host:5432/dbname
+  PAWAPAY_JWT_TOKEN=<from PawaPay dashboard>
+  PAWAPAY_WEBHOOK_SECRET=<from PawaPay dashboard>
+  AFRICAS_TALKING_API_KEY=<from Africa's Talking dashboard>
+  FIREBASE_CREDENTIALS_JSON=<full JSON string of service account>
+  CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+  PUBLIC_BACKEND_URL=https://your-domain.railway.app
+  DJANGO_ALLOWED_HOSTS=your-domain.railway.app
+
+OPTIONAL / TUNABLE:
+  PLATFORM_COMMISSION_RATE=0.05            (default: 5%)
+  ORDER_ACCEPTANCE_TIMEOUT_MINUTES=30       (default: 30 min)
+  PAYOUT_METHOD=manual                      (manual or gateway)
+  AFRICAS_TALKING_USERNAME=sandbox          (use 'sandbox' for testing)
+  AFRICAS_TALKING_SENDER_ID=POCKETSHOP
+  PAWAPAY_BASE_URL=https://api.pawapay.io/v2
+  DJANGO_CSRF_TRUSTED_ORIGINS=https://your-domain.railway.app
+
+DELIVERY / ETA TUNING:
+  OSRM_BASE_URL=https://router.project-osrm.org
+  DELIVERY_AVG_SPEED_KMH=22                 (fallback speed, km/h)
+  DELIVERY_MAX_AVG_SPEED_KMH=38             (speed cap for ETA calculation)
+  DELIVERY_TRAFFIC_MULTIPLIER=1.20          (1.2 = 20% overhead for traffic)
+  DELIVERY_MIN_ETA_MINUTES=4                (floor — never quote less than this)
+  DELIVERY_SPEED_PROFILE_MIN_SAMPLES=6      (min data points to trust a profile)
+  DELIVERY_SPEED_PROFILE_DAYTYPE_MIN_SAMPLES=10
+  DELIVERY_SPEED_SMOOTHING_ALPHA=0.35       (EMA blending factor for new samples)
+  ROUTING_PROVIDER_ORDER=osrm              (comma-separated, e.g. osrm,valhalla)
+  ROUTING_CONFIDENCE_THRESHOLD=0.55
+  ROUTING_FALLBACK_SPEED_KMH=22
+  GEOCODING_CACHE_TTL=86400                 (seconds, 24h)
+  ROUTING_CACHE_TTL=3600                    (seconds, 1h)
+  NOMINATIM_USER_AGENT=PocketShop/1.0
+
+RAILWAY AUTO-PROVIDED:
+  RAILWAY_PUBLIC_DOMAIN   Automatically set by Railway — added to ALLOWED_HOSTS
+
+DEVELOPMENT DEFAULTS (no .env needed):
+  DJANGO_ENV              development
+  DJANGO_SECRET_KEY       insecure dev key (auto-set in dev, NOT for production)
+  DATABASE               SQLite3 fallback if DATABASE_URL not set
+  PAWAPAY_JWT_TOKEN       '' (empty, payments disabled in dev without key)
+  DEBUG                   True when DJANGO_ENV=development
+
+--------------------------------------------------------------------------------
+DEVELOPMENT .ENV FILE (pocket_backend/.env)
+--------------------------------------------------------------------------------
+
+Create pocket_backend/.env for local development:
+
+  DJANGO_ENV=development
+  DJANGO_SECRET_KEY=any-local-secret-key-here
+  DB_NAME=pocket_db
+  DB_USER=postgres
+  DB_PASSWORD=yourpassword
+  DB_HOST=localhost
+  DB_PORT=5432
+  PAWAPAY_JWT_TOKEN=sandbox_token_from_pawapay_dashboard
+  PAWAPAY_BASE_URL=https://api.sandbox.pawapay.io/v2
+  PAWAPAY_WEBHOOK_SECRET=sandbox_webhook_secret
+  AFRICAS_TALKING_USERNAME=sandbox
+  AFRICAS_TALKING_API_KEY=your_at_sandbox_key
+  PUBLIC_BACKEND_URL=https://abc123.ngrok-free.app
+
+Template file: pocket_backend.env (in repo root — copy and fill values)
+
+--------------------------------------------------------------------------------
+DJANGO SETTINGS SUMMARY  (pocket_backend/pocket_backend/settings.py)
+--------------------------------------------------------------------------------
+
+ENVIRONMENT DETECTION:
+  ENVIRONMENT = os.environ.get('DJANGO_ENV', 'development')
+  DEBUG = (ENVIRONMENT == 'development')
+
+DATABASE:
+  If DATABASE_URL present → dj_database_url.parse() (PostgreSQL)
+  Else → direct psycopg2 config from DB_* vars
+  Development fallback → SQLite3 (can be configured)
+
+JWT (SIMPLE_JWT):
+  ACCESS_TOKEN_LIFETIME    60 minutes
+  REFRESH_TOKEN_LIFETIME   7 days
+  ROTATE_REFRESH_TOKENS    True
+  BLACKLIST_AFTER_ROTATION True
+  ALGORITHM                HS256
+
+DRF:
+  DEFAULT_AUTHENTICATION  JWTAuthentication
+  DEFAULT_PERMISSION      IsAuthenticated
+  DEFAULT_FILTER_BACKEND  DjangoFilterBackend
+  PAGINATION              PageNumberPagination (PAGE_SIZE=20)
+  EXCEPTION_HANDLER       accounts.error_logging.api_exception_handler
+
+SECURITY (production only):
+  SECURE_SSL_REDIRECT         True
+  SECURE_HSTS_SECONDS         31536000 (1 year)
+  SECURE_HSTS_INCLUDE_SUBDOMAINS True
+  SESSION_COOKIE_SECURE       True
+  CSRF_COOKIE_SECURE          True
+  SECURE_PROXY_SSL_HEADER     ('HTTP_X_FORWARDED_PROTO', 'https')
+
+MEDIA FILES:
+  If CLOUDINARY_URL set → cloudinary_storage backend
+  Else → local MEDIA_ROOT = pocket_backend/media/
+
+STATIC FILES:
+  STATIC_ROOT = pocket_backend/staticfiles/
+  Storage: WhiteNoiseMiddleware (compressed manifest)
+
+CACHING:
+  Backend: LocMemCache ('pocket-delivery')
+  Used for routing and geocoding results
+
+INSTALLED_APPS (abbreviated):
+  django.contrib.*          (standard Django)
+  rest_framework            DRF
+  rest_framework_simplejwt  JWT
+  rest_framework_simplejwt.token_blacklist
+  django_filters
+  corsheaders
+  accounts, products, orders, delivery, reviews, payments, portal, notifications
+  cloudinary, cloudinary_storage  (added dynamically if CLOUDINARY_URL set)
+
+MIDDLEWARE (in order):
+  corsheaders.middleware.CorsMiddleware
+  django.middleware.security.SecurityMiddleware
+  whitenoise.middleware.WhiteNoiseMiddleware
+  django.contrib.sessions.middleware.SessionMiddleware
+  django.middleware.common.CommonMiddleware
+  django.middleware.csrf.CsrfViewMiddleware
+  django.contrib.auth.middleware.AuthenticationMiddleware
+  django.contrib.messages.middleware.MessageMiddleware
+  django.middleware.clickjacking.XFrameOptionsMiddleware
+
+INTERNATIONALISATION:
+  LANGUAGE_CODE  en-us
+  TIME_ZONE      UTC
+  USE_TZ         True
+
+--------------------------------------------------------------------------------
+FLUTTER CONSTANTS  (lib/core/constants/app_constants.dart)
+--------------------------------------------------------------------------------
+
+appName              'Pocket Shop'
+baseUrl              Backend URL — MUST be updated per environment
+
+  Development:       'http://192.168.x.x:8000'   (local network IP of dev machine)
+  Staging:           'https://pocket-staging.railway.app'
+  Production:        'https://pocket.railway.app'
+
+  NOTE: Android emulator uses 10.0.2.2 to reach host machine localhost.
+        Physical devices must use the actual network IP of the dev machine.
+
+connectTimeout       30000  (ms)
+receiveTimeout       30000  (ms)
+accessTokenKey       'access_token'    (SharedPreferences key)
+refreshTokenKey      'refresh_token'   (SharedPreferences key)
+refreshEndpoint      '/api/auth/refresh/'
+
+ROLES:
+  buyerRole         'buyer'
+  sellerRole        'seller'
+  deliveryRole      'delivery'
+  adminRole         'admin'
+
+--------------------------------------------------------------------------------
+FIREBASE CONFIGURATION
+--------------------------------------------------------------------------------
+
+Android:
+  File: pocket_shop/android/app/google-services.json
+  Download from Firebase console → Project Settings → Your Apps → Android app
+
+iOS:
+  File: pocket_shop/ios/Runner/GoogleService-Info.plist
+  Download from Firebase console → Your Apps → iOS app
+
+Backend (push notifications):
+  FIREBASE_CREDENTIALS_JSON env var — the entire service account JSON as a string
+  Download from Firebase console → Project Settings → Service Accounts → Generate Key
+
+Channel setup (flutter_local_notifications):
+  Channel ID: 'pocket_shop_channel'
+  Channel name: 'Pocket Shop Notifications'
+  Importance: High (shows heads-up notification)
+
+--------------------------------------------------------------------------------
+CLOUDINARY CONFIGURATION
+--------------------------------------------------------------------------------
+
+Why: Railway filesystem is ephemeral — files are lost on redeploy.
+Cloudinary provides persistent cloud media storage.
+
+Setup:
+  1. Create free Cloudinary account at cloudinary.com
+  2. Find CLOUDINARY_URL in dashboard: cloudinary://api_key:api_secret@cloud_name
+  3. Set in Railway environment variables
+
+Django will automatically use cloudinary_storage when CLOUDINARY_URL is present.
+Without it, media files go to local /media/ directory (fine for development).
+
+Folder structure in Cloudinary:
+  pocket_shop/profile_photos/
+  pocket_shop/product_images/
+  pocket_shop/verification_docs/
+
+--------------------------------------------------------------------------------
+CORS CONFIGURATION
+--------------------------------------------------------------------------------
+
+Package: django-cors-headers
+Middleware: corsheaders.middleware.CorsMiddleware (must be FIRST in MIDDLEWARE)
+
+In development:
+  CORS_ALLOW_ALL_ORIGINS = True  (or set in settings for dev)
+
+In production:
+  CORS_ALLOWED_ORIGINS should list only known client origins.
+  The Flutter mobile app makes requests directly to the API — CORS affects
+  only browser-based clients (the landing page / admin access).
+
+--------------------------------------------------------------------------------
+AFRICA'S TALKING SMS
+--------------------------------------------------------------------------------
+
+Used for: OTP delivery via SMS
+
+Config:
+  AFRICAS_TALKING_USERNAME   'sandbox' for testing, account username for production
+  AFRICAS_TALKING_API_KEY    From Africa's Talking dashboard
+  AFRICAS_TALKING_SENDER_ID  'POCKETSHOP' (alphanumeric sender ID, requires approval)
+
+Service file: pocket_backend/accounts/sms_service.py
+
+Sandbox: All messages go to AT simulator — no real SMS sent.
+         Test at: https://simulator.africastalking.com/
+
+Production: Real SMS sent to Zambian numbers (+260XXXXXXXXX).
+            Africa's Talking charges per SMS (~0.01 USD per message).
+
+================================================================================

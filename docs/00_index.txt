@@ -1,0 +1,81 @@
+================================================================================
+POCKET SHOP — DOCUMENTATION INDEX
+================================================================================
+
+This folder contains full documentation for the Pocket Shop application.
+Generated: 2026-06-16
+
+FILE                        CONTENTS
+--------------------------  ----------------------------------------------------
+01_system_overview.txt      What the app is, tech stack, repo structure,
+                            user roles, key integrations, data flow summary,
+                            currency and commission model
+
+02_backend_models.txt       All Django models with every field, type, and note.
+                            Covers: accounts, products, orders, delivery,
+                            payments, reviews, notifications
+
+03_api_endpoints.txt        Complete API reference — every URL, HTTP method,
+                            auth requirement, request body, and response shape.
+                            Covers all 8 app URL prefixes.
+
+04_authentication.txt       Phone OTP signup flow, JWT token lifecycle,
+                            token refresh and auto-refresh in Flutter,
+                            role-based permissions, seller/delivery verification,
+                            password reset, FCM token registration
+
+05_payments.txt             PawaPay integration, provider detection,
+                            full deposit-to-payout flow, commission calculation,
+                            refund flow, webhook HMAC verification,
+                            manual vs gateway payout modes
+
+06_delivery_system.txt      Delivery fee formula, OSRM route calculation,
+                            ETA machine learning (speed profiles), zones,
+                            assignment lifecycle, handoff QR tokens,
+                            GPS tracking, telemetry and speed learning
+
+07_frontend_screens.txt     All 45 Flutter screens with descriptions,
+                            GoRouter navigation structure per role,
+                            shared widgets, theming, responsive sizing,
+                            platform notes (Android / iOS / Windows)
+
+08_state_management.txt     Riverpod providers, Dio API client with auto
+                            token-refresh interceptor, all service classes,
+                            Dart data models, SharedPreferences keys
+
+09_configuration.txt        All environment variables with descriptions,
+                            Django settings explained, .env template,
+                            Flutter base URL per environment,
+                            Firebase and Cloudinary setup
+
+10_deployment.txt           Railway deployment step-by-step, Docker/Gunicorn
+                            config, management commands, local dev setup,
+                            Flutter build commands per platform,
+                            CI/CD, monitoring, security checklist, rollback
+
+11_business_workflows.txt   Complete end-to-end user journeys:
+                            Buyer signup → browse → checkout → payment →
+                            tracking → rating → refund
+                            Seller signup → verification → list products →
+                            fulfil orders → payouts
+                            Delivery agent signup → accept job → GPS →
+                            QR handoff → earnings
+                            Admin: verification review, refund escalation,
+                            payout management, announcements
+                            Push notification trigger table
+
+================================================================================
+QUICK REFERENCE
+================================================================================
+
+Backend start:     cd pocket_backend && python manage.py runserver 0.0.0.0:8000
+Frontend start:    cd pocket_shop && flutter run
+Admin panel:       http://localhost:8000/admin/
+API root:          http://localhost:8000/api/
+
+Key env vars:      See 09_configuration.txt
+Deploy to Railway: See 10_deployment.txt
+Add a feature:     See 02_backend_models.txt + 03_api_endpoints.txt +
+                   07_frontend_screens.txt + 08_state_management.txt
+
+================================================================================

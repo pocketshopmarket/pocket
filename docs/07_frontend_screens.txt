@@ -1,0 +1,388 @@
+================================================================================
+POCKET SHOP — FLUTTER FRONTEND: SCREENS & NAVIGATION
+================================================================================
+
+App Name:     Pocket Shop
+Framework:    Flutter 3.10.8
+Router:       GoRouter (go_router package)
+Entry Point:  lib/main.dart
+Router File:  lib/router/app_router.dart
+
+--------------------------------------------------------------------------------
+APP STARTUP SEQUENCE
+--------------------------------------------------------------------------------
+
+1. main.dart initializes:
+   - Firebase (firebase_init.dart → initFirebaseIfSupported)
+   - FlutterScreenUtil (responsive sizing)
+   - Riverpod ProviderContainer
+   - GoRouter with authInitializationProvider listener
+
+2. App navigates to /splash (SplashScreen)
+
+3. SplashScreen reads tokens from SharedPreferences:
+   - If tokens found → calls GET /api/auth/profile/
+   - If profile loads → redirects to role home (buyer/seller/delivery)
+   - If 401 → tries refresh → if still fails → clears session → /phone
+   - If no tokens → /phone
+
+4. FCM token registered after successful auth:
+   POST /api/auth/fcm-token/ with device FCM token
+
+--------------------------------------------------------------------------------
+NAVIGATION ARCHITECTURE
+--------------------------------------------------------------------------------
+
+GoRouter uses a StatefulShellRoute for each role's main navigation.
+StatefulShellRoute preserves scroll position and state when switching tabs.
+
+PUBLIC ROUTES (before auth):
+  /splash              SplashScreen
+  /phone               PhoneLoginScreen
+  /signup              SignupScreen
+  /otp                 OtpVerificationScreen
+  /role-selection      RoleSelectionScreen
+  /forgot-password     ForgotPasswordScreen
+  /reset-password      ResetPasswordScreen
+
+AUTHENTICATED ROUTES:
+  Redirect based on User.role after login:
+    buyer    → /buyer/home
+    seller   → /seller/dashboard
+    delivery → /delivery/home
+    admin    → /admin
+
+BUYER SHELL (5 tabs, persistent bottom nav):
+  Tab 0: Home         /buyer/home
+  Tab 1: Shop         /buyer/shop
+  Tab 2: Wishlist     /buyer/wishlist
+  Tab 3: Cart         /buyer/cart
+  Tab 4: Profile      /buyer/profile
+
+SELLER SHELL (4 tabs):
+  Tab 0: Dashboard    /seller/dashboard
+  Tab 1: Products     /seller/products
+  Tab 2: Orders       /seller/orders
+  Tab 3: Shop         /seller/shop  (placeholder / own shop view)
+
+DELIVERY SHELL (4 tabs):
+  Tab 0: Home         /delivery/home
+  Tab 1: Active       /delivery/active
+  Tab 2: Earnings     /delivery/earnings
+  Tab 3: Account      /delivery/account
+
+STANDALONE ROUTES (no bottom nav):
+  /delivery/offers     DeliveryOffersScreen    (modal-like over shell)
+  /notifications       NotificationsScreen     (accessible from all roles)
+  /refund-requests     RefundRequestsScreen    (accessible from all roles)
+  /admin               AdminDashboardScreen
+
+NESTED UNDER BUYER HOME (push navigation within tab):
+  /buyer/product-details?id=<id>     BuyerProductDetailsScreen
+  /buyer/search                      BuyerSearchScreen
+  /buyer/track-order?order=<number>  OrderTrackingScreen
+  /buyer/orders                      BuyerOrdersScreen
+  /buyer/orders/:id                  BuyerOrderDetailScreen
+  /buyer/payment-pending?tx=<uuid>   PaymentPendingScreen
+  /buyer/add-payment-method          AddPaymentMethodScreen
+
+NESTED UNDER SELLER PRODUCTS:
+  /seller/products/add               AddProductScreen
+  /seller/products/edit?id=<id>      EditProductScreen
+  /seller/products/:id/reviews       SellerProductReviewsScreen
+  /seller/payout-methods             SellerPayoutMethodsScreen
+  /seller/payout-history             SellerPayoutHistoryScreen
+
+--------------------------------------------------------------------------------
+SCREEN INVENTORY — AUTH
+--------------------------------------------------------------------------------
+
+SplashScreen                (auth/screens/splash_screen.dart)
+  - Shows app logo
+  - Initializes session (tokens + profile check)
+  - Auto-redirects in ~2 seconds
+
+PhoneLoginScreen            (auth/screens/phone_login_screen.dart)
+  - Phone number input with Zambia +260 prefix
+  - Validates format before sending OTP
+  - Navigates to OtpVerificationScreen
+
+SignupScreen                (auth/screens/signup_screen.dart)
+  - Full name input
+  - Role selection (buyer/seller/delivery)
+  - Terms agreement
+
+OtpVerificationScreen       (auth/screens/otp_verification_screen.dart)
+  - 6-digit OTP pin input
+  - Countdown timer (10 min expiry)
+  - Resend OTP option
+  - Submits to verifyOTP → handles is_new_user + role redirect
+
+RoleSelectionScreen         (auth/screens/role_selection_screen.dart)
+  - Shown when user doesn't have a role yet
+  - Three tiles: Buyer / Seller / Delivery Agent
+
+ForgotPasswordScreen        (auth/screens/forgot_password_screen.dart)
+  - Phone number input → triggers OTP for reset
+
+ResetPasswordScreen         (auth/screens/reset_password_screen.dart)
+  - OTP + new password input
+
+ChangePasswordScreen        (auth/screens/change_password_screen.dart)
+  - Old password + new password (for logged-in users)
+
+--------------------------------------------------------------------------------
+SCREEN INVENTORY — BUYER
+--------------------------------------------------------------------------------
+
+BuyerMainScreen             (buyer/screens/buyer_main_screen.dart)
+  - StatefulShellRoute host with persistent BottomNavigationBar
+  - 5 tabs: Home / Shop / Wishlist / Cart / Profile
+  - Badge on Cart tab showing item count
+
+BuyerHomeScreen             (buyer/screens/buyer_home_screen.dart)
+  - Promo banners carousel (PromoBanner from API)
+  - Categories horizontal scroll
+  - Recommended products grid
+  - Recent orders quick-access strip
+  - Pull-to-refresh
+
+BuyerSearchScreen           (buyer/screens/buyer_search_screen.dart)
+  - Search bar with debounced API call
+  - Filter chips: category, quality, price range
+  - Results grid with infinite scroll (pagination)
+  - Empty state illustration
+
+BuyerWishlistScreen         (buyer/screens/buyer_wishlist_screen.dart)
+  - Grid of saved products (stored locally in wishlistProvider)
+  - Remove from wishlist swipe action
+  - Add to cart button per item
+
+CartScreen                  (buyer/screens/cart_screen.dart)
+  - List of CartItems from GET /api/orders/cart/
+  - Quantity +/- controls per item
+  - Remove item
+  - Subtotal per item + grand total
+  - Delivery fee preview
+  - Checkout button → CreateOrderFlow
+
+BuyerProfileScreen          (buyer/screens/buyer_profile_screen.dart)
+  - Profile photo + name + phone
+  - Edit profile section
+  - Payment methods list
+  - Add payment method button → AddPaymentMethodScreen
+  - Order history shortcut
+  - Notifications shortcut
+  - Logout
+
+BuyerProductDetailsScreen   (buyer/screens/buyer_product_details_screen.dart)
+  - Image gallery carousel (ProductImage list)
+  - Product name, price, quality badge
+  - Seller info (shop name, location, rating)
+  - Variant selector (if product has ProductVariants)
+  - Stock indicator
+  - Add to cart / Buy now buttons
+  - Reviews section (ProductReview list)
+  - Similar products strip
+  - Wishlist toggle (heart icon)
+
+BuyerOrderDetailScreen      (buyer/screens/buyer_order_detail_screen.dart)
+  - Order number, status badge
+  - Items list with quantities and prices
+  - Delivery address
+  - Order total breakdown (items + delivery fee)
+  - Track delivery button (if out_for_delivery)
+  - Rate order section (if delivered)
+  - Request refund button (if delivered, within window)
+
+BuyerOrdersScreen           (buyer/screens/buyer_orders_screen.dart)
+  - Tabbed list: Active | Past
+  - Order cards with status, date, total
+  - Tap to navigate to BuyerOrderDetailScreen
+
+OrderTrackingScreen         (buyer/screens/order_tracking_screen.dart)
+  - flutter_map showing route + rider pin
+  - Live rider position (polls GET /api/delivery/track/<order_number>/)
+  - ETA countdown
+  - Order status progress indicators
+
+PaymentPendingScreen        (buyer/screens/payment_pending_screen.dart)
+  - "Check your phone to approve payment" message
+  - Animated loading indicator
+  - Polls GET /api/payments/status/<tx_id>/ every 3 seconds
+  - On completed → navigates to BuyerOrderDetailScreen
+  - On failed → shows error + retry option
+  - Cancel payment option
+
+AddPaymentMethodScreen      (buyer/screens/add_payment_method_screen.dart)
+  - Provider selection: MTN / Airtel / Zamtel (tiles with network logos)
+  - Phone number input
+  - Verify and save
+
+--------------------------------------------------------------------------------
+SCREEN INVENTORY — SELLER
+--------------------------------------------------------------------------------
+
+SellerMainScreen            (seller/screens/seller_main_screen.dart)
+  - StatefulShellRoute with 4-tab BottomNavigationBar
+
+SellerDashboardScreen       (seller/screens/seller_dashboard_screen.dart)
+  - Stats cards: total orders, revenue, pending orders
+  - Recent orders list
+  - Quick actions: Add product, View orders
+  - Verification status banner (if not verified yet)
+
+SellerProductsScreen        (seller/screens/seller_products_screen.dart)
+  - Grid of seller's own products
+  - Stock status badges
+  - Available/unavailable toggle
+  - FAB: Add new product
+  - Swipe to delete
+
+AddProductScreen            (seller/screens/add_product_screen.dart)
+  - Image picker: up to 5 images from gallery/camera
+  - Name, description text inputs
+  - Category dropdown
+  - Quality selector (new/like_new/good/fair/used)
+  - Price and stock quantity inputs
+  - Variant builder (add name:value pairs)
+  - Submit → POST /api/products/
+
+EditProductScreen           (seller/screens/edit_product_screen.dart)
+  - Pre-filled form from existing product
+  - Same fields as AddProductScreen
+  - Submit → PATCH /api/products/<id>/
+
+SellerOrdersScreen          (seller/screens/seller_orders_screen.dart)
+  - Tabbed: New | Preparing | Ready | Completed | Cancelled
+  - Order cards with buyer info, items summary, total
+  - Accept/Reject buttons on new orders
+  - Status advancement buttons
+
+SellerProductReviewsScreen  (seller/screens/seller_product_reviews_screen.dart)
+  - List of ProductReview for a specific product
+  - Rating distribution bar chart
+  - verified_purchase badge on reviews
+
+SellerProfileScreen         (seller/screens/seller_profile_screen.dart)
+  - Shop info (name, location, logo)
+  - Verification status (tier1/tier2 badges)
+  - Edit shop details
+  - Payout methods → SellerPayoutMethodsScreen
+  - Payout history → SellerPayoutHistoryScreen
+  - Logout
+
+SellerPayoutMethodsScreen   (seller/screens/seller_payout_methods_screen.dart)
+  - List of payment methods (for receiving payouts)
+  - Add/remove/set default
+
+SellerPayoutHistoryScreen   (seller/screens/seller_payout_history_screen.dart)
+  - List of completed payout Transactions
+  - Date, amount, status per payout
+
+--------------------------------------------------------------------------------
+SCREEN INVENTORY — DELIVERY
+--------------------------------------------------------------------------------
+
+DeliveryMainScreen          (delivery/screens/delivery_main_screen.dart)
+  - StatefulShellRoute with 4-tab BottomNavigationBar
+
+DeliveryHomeScreen          (delivery/screens/delivery_home_screen.dart)
+  - Available orders list (GET /api/delivery/orders/available/)
+  - Distance to pickup per order
+  - Estimated earnings per job
+  - Accept button
+  - Verification status banner if not approved
+
+ActiveDeliveryScreen        (delivery/screens/active_delivery_screen.dart)
+  - flutter_map showing route from current location to next stop
+  - Current assignment status
+  - Next action button:
+    - "I'm at pickup" → GenerateHandoffTokenView → QR display
+    - "Delivery confirmed" → GenerateHandoffTokenView → QR display
+  - Rider GPS updates posted every ~5 seconds
+
+DeliveryOffersScreen        (delivery/screens/delivery_offers_screen.dart)
+  - Shows DeliveryOffer records pending for this rider
+  - Accept/Decline per offer with countdown timer
+  - Rendered as standalone route over the shell (/delivery/offers)
+
+EarningsScreen              (delivery/screens/earnings_screen.dart)
+  - Total earnings card
+  - This month vs all time
+  - Average rating
+  - Transaction history list
+
+DeliveryProfileScreen       (delivery/screens/delivery_profile_screen.dart)
+  - Personal info (name, phone, vehicle type)
+  - Verification status badge
+  - License document status
+  - Edit profile
+  - Logout
+
+--------------------------------------------------------------------------------
+SCREEN INVENTORY — SHARED
+--------------------------------------------------------------------------------
+
+NotificationsScreen         (shared/screens/notifications_screen.dart)
+  - List of Notification records for current user
+  - Unread count badge in app bar
+  - Tap to mark as read + navigate to relevant screen
+  - Mark all as read button
+
+RefundRequestsScreen        (shared/screens/refund_requests_screen.dart)
+  - Buyers see their own refund requests + status
+  - Sellers see refund requests on their orders
+  - Approve/Reject buttons for sellers
+
+PayoutScreen                (shared/screens/payout_screen.dart)
+  - Request manual payout form
+  - Amount + phone number input
+  - Payout history
+
+AdminDashboardScreen        (admin/screens/admin_dashboard_screen.dart)
+  - Basic admin overview
+  - Links to Django admin panel (/admin/)
+  - Verification queue count
+
+--------------------------------------------------------------------------------
+WIDGETS (SHARED)
+--------------------------------------------------------------------------------
+
+Key shared widgets in lib/widgets/ and lib/shared/widgets/:
+
+ProductCard          Tile for product in grids/lists (image, name, price, rating)
+OrderCard            Compact order summary tile
+NotificationBadge    Icon with count overlay (used in app bar)
+StatusBadge          Color-coded text chip for order/verification status
+LoadingOverlay       Full-screen loading indicator
+ErrorView            Retry-able error state with illustration
+EmptyState           Illustrated empty list view
+ConfirmDialog        Reusable confirmation dialog
+AuthMessageBanner    Success/error inline banner for auth screens (auth/widgets/)
+AuthActionButton     Large submit button for auth screens (auth/widgets/)
+
+--------------------------------------------------------------------------------
+THEMING (app_theme.dart)
+--------------------------------------------------------------------------------
+
+Theme:    Material3 Light
+Font:     Google Fonts (Poppins or similar, defined in app_theme.dart)
+Primary:  Defined in AppTheme.themeData (colorScheme)
+
+Screen sizing: flutter_screenutil
+  All sizes defined as responsive fractions (e.g., 16.sp, 24.w)
+  Base design size: typically 375×812 (standard phone)
+  Size constants: lib/core/constants/app_sizes.dart
+
+--------------------------------------------------------------------------------
+RESPONSIVE / PLATFORM
+--------------------------------------------------------------------------------
+
+The app targets Android, iOS, and Windows Desktop.
+flutter_secure_storage is DISABLED on Windows Desktop due to compatibility.
+SharedPreferences is used for all platforms (tokens, user session).
+
+flutter_screenutil handles responsive sizing across different screen sizes.
+
+================================================================================

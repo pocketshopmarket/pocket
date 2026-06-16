@@ -1,0 +1,289 @@
+================================================================================
+POCKET SHOP — DELIVERY SYSTEM
+================================================================================
+
+--------------------------------------------------------------------------------
+OVERVIEW
+--------------------------------------------------------------------------------
+
+The delivery system handles everything after a seller accepts an order:
+  - Finding an available delivery agent
+  - Providing route and ETA
+  - Real-time GPS tracking
+  - QR handoff tokens at pickup and dropoff
+  - Triggering seller and rider payouts after confirmed delivery
+  - Learning from past deliveries to improve ETA accuracy
+
+Key files:
+  pocket_backend/delivery/models.py
+  pocket_backend/delivery/views.py
+  pocket_backend/delivery/urls.py
+
+--------------------------------------------------------------------------------
+DELIVERY FEE CALCULATION
+--------------------------------------------------------------------------------
+
+DeliveryPricingConfig is a singleton model (only one row in the table).
+
+Logic:
+  if distance_km <= short_distance_threshold_km:
+      fee = short_distance_flat_rate
+  else:
+      fee = per_km_rate × distance_km
+
+Example config:
+  per_km_rate = 8.00 ZMW
+  short_distance_threshold_km = 2.0
+  short_distance_flat_rate = 12.00 ZMW
+
+Example results:
+  1.5 km → 12.00 ZMW (flat rate)
+  4.0 km → 32.00 ZMW (per km)
+
+The fee is calculated at checkout via POST /api/delivery/quote/ and saved on
+the Order as delivery_fee. This amount is final and does not change after order
+creation.
+
+--------------------------------------------------------------------------------
+ROUTE CALCULATION (OSRM)
+--------------------------------------------------------------------------------
+
+Distance and route are calculated using OSRM (OpenStreetMap Routing Machine).
+
+Config:
+  OSRM_BASE_URL           https://router.project-osrm.org (default public instance)
+  ROUTING_PROVIDER_ORDER  ['osrm']  (supports multiple providers)
+  ROUTING_CONFIDENCE_THRESHOLD  0.55
+
+OSRM returns:
+  route_distance_m    Distance in metres
+  route_duration_s    Duration in seconds (OSRM's estimate)
+  route_coordinates   GeoJSON LineString of the route path
+
+These are saved on DeliveryAssignment for:
+  - Displaying the route on the map in the Flutter app
+  - Calculating the delivery fee
+  - Providing initial ETA
+
+Fallback:
+  If OSRM is unavailable, straight-line distance is used with
+  ROUTING_FALLBACK_SPEED_KMH (default 22 km/h) for time estimate.
+  route_source = 'straight_line' and route_confidence is low.
+
+--------------------------------------------------------------------------------
+ETA CALCULATION
+--------------------------------------------------------------------------------
+
+ETA is calculated from a combination of:
+  1. OSRM route duration (baseline)
+  2. DeliverySpeedProfile (learned from past deliveries in same phase/day/hour)
+  3. Traffic multiplier (DELIVERY_TRAFFIC_MULTIPLIER, default 1.2×)
+  4. Minimum floor (DELIVERY_MIN_ETA_MINUTES, default 4 min)
+  5. Maximum speed cap (DELIVERY_MAX_AVG_SPEED_KMH, default 38 km/h)
+
+Speed profile lookup:
+  Phase:        'accepted' (rider → seller) or 'in_transit' (seller → buyer)
+  Weekday:      0 (Monday) to 6 (Sunday) from current time
+  Hour of day:  0–23 from current time
+
+If sufficient samples exist (DELIVERY_SPEED_PROFILE_MIN_SAMPLES = 6):
+  Use avg_speed_kmh from DeliverySpeedProfile
+Else:
+  Use DELIVERY_AVG_SPEED_KMH (default 22 km/h)
+
+Smoothing: new samples are blended with exponential moving average
+  alpha = DELIVERY_SPEED_SMOOTHING_ALPHA (default 0.35)
+  new_avg = alpha × new_sample + (1 - alpha) × old_avg
+
+ETA accuracy is measured post-delivery:
+  final_eta_error_minutes = actual_duration_minutes - initial_estimated_duration
+
+--------------------------------------------------------------------------------
+DELIVERY ZONES
+--------------------------------------------------------------------------------
+
+DeliveryZone defines geographic service areas as GeoJSON polygons.
+
+Fields:
+  name          e.g. "Lusaka Central"
+  area          GeoJSON polygon
+  is_active     Toggle zone on/off without deleting
+  base_rate     Base fee for this zone
+  per_km_rate   Rate per km within this zone
+
+Method: contains_point(lat, lng)
+  Checks whether a coordinate falls inside the zone polygon.
+  Used to validate that both pickup and delivery addresses are serviceable.
+
+Management command: python manage.py seed_lusaka_delivery_zone
+  Seeds initial Lusaka delivery zones from a fixture.
+
+--------------------------------------------------------------------------------
+DELIVERY ASSIGNMENT LIFECYCLE
+--------------------------------------------------------------------------------
+
+1. Order reaches 'accepted' status (payment confirmed)
+2. System creates DeliveryOffer records for nearby available riders
+3. Riders see offers via GET /api/delivery/offers/
+4. Rider accepts via POST /api/delivery/orders/accept/
+   - DeliveryAssignment created (status=assigned)
+   - OSRM route calculated from rider's current location to seller
+   - ETA calculated
+5. Rider navigates to seller
+6. At seller: Rider generates pickup QR token
+   POST /api/delivery/assignment/<id>/handoff/token/  { "step": "pickup" }
+7. Seller scans QR (or rider shows QR and seller scans it)
+   POST /api/delivery/handoff/verify/  { "token": "...", "step": "pickup" }
+   - Assignment status → picked_up
+   - Transaction.payout_stage → pickup_pending_scan (→ dropoff_pending_scan)
+8. Rider picks up items, navigates to buyer address
+9. At buyer: Rider generates dropoff QR token
+   POST /api/delivery/assignment/<id>/handoff/token/  { "step": "dropoff" }
+10. Buyer scans QR
+    POST /api/delivery/handoff/verify/  { "token": "...", "step": "dropoff" }
+    - Assignment status → delivered
+    - Order status → delivered
+    - Transaction.payout_stage → ready_for_payout
+    - Payout to seller and rider triggered
+
+ASSIGNMENT STATUS FLOW:
+  assigned → accepted → picked_up → in_transit → delivered
+                                                → cancelled
+
+--------------------------------------------------------------------------------
+HANDOFF TOKENS (QR Verification)
+--------------------------------------------------------------------------------
+
+Model: DeliveryHandoffToken
+
+Purpose: Cryptographic proof that the correct rider handed off the order
+         at the correct location, preventing fraud.
+
+Generation:
+  POST /api/delivery/assignment/<id>/handoff/token/  { "step": "pickup" }
+  Token = secrets.token_hex(3)  → 6 hexadecimal characters (e.g. "a3f8c2")
+  Expires: 10 minutes after generation
+  Status: active
+
+Verification:
+  POST /api/delivery/handoff/verify/
+  { "token": "a3f8c2", "order_id": 42, "step": "pickup" }
+
+  Backend checks:
+    1. Token exists and matches order + step
+    2. Status is 'active' (not already used or expired)
+    3. Not past expires_at
+
+  On success:
+    Token status → 'used'
+    Assignment status advanced
+    Payout stage updated
+    Push notification sent to relevant parties
+
+The Flutter app renders the QR code using qr_flutter.
+The counter-party scans using mobile_scanner.
+
+QR content encodes: token + order_number + step as a JSON string or URL.
+
+--------------------------------------------------------------------------------
+GPS TRACKING
+--------------------------------------------------------------------------------
+
+Model: DeliveryTracking (breadcrumbs)
+
+During active delivery the Flutter app calls:
+  POST /api/delivery/location/update/
+  { "latitude": -15.4321, "longitude": 28.3456 }
+  Frequency: every ~5 seconds while in transit
+
+Backend:
+  1. Creates DeliveryTracking record
+  2. Updates DeliveryAssignment.current_location
+  3. Updates DeliveryProfile.current_location_lat/lng
+  4. Calculates telemetry segment (DeliveryTelemetrySegment) if enough data
+
+Live tracking for buyers:
+  GET /api/delivery/track/<order_number>/
+  Returns: assignment status + rider current_location + route GeoJSON
+
+The Flutter order_tracking_screen.dart displays this on a flutter_map.
+Tiles: OpenStreetMap (free, no API key required).
+Map tile caching: flutter_map_tile_caching for offline performance.
+
+--------------------------------------------------------------------------------
+TELEMETRY AND SPEED LEARNING
+--------------------------------------------------------------------------------
+
+After each GPS location update:
+  1. A DeliveryTelemetrySegment is computed between the last two tracking points
+  2. Fields captured: duration_s, distance_m, derived_speed_kmh, phase, weekday, hour
+
+After each completed delivery:
+  1. All telemetry segments for that assignment are processed
+  2. DeliverySpeedProfile for each (phase, weekday, hour) combination is updated
+  3. Exponential smoothing applied to prevent overfit to outliers
+
+This creates a self-improving ETA system that learns Lusaka traffic patterns
+over time, broken down by:
+  - Phase (rider→seller vs seller→buyer)
+  - Day of week (weekday vs weekend)
+  - Hour of day (morning vs lunch vs evening rush)
+
+Minimum samples required before profile is used:
+  6 per (phase, weekday, hour) slot
+  10 if grouping by day-type (weekday/weekend)
+
+--------------------------------------------------------------------------------
+DELIVERY STATISTICS
+--------------------------------------------------------------------------------
+
+GET /api/delivery/stats/
+Returns for authenticated delivery agents:
+  total_deliveries    Count of DeliveryAssignment with status=delivered
+  total_earnings      Sum of payout Transactions to this rider
+  avg_rating          Average OrderRating score where target_role=delivery
+  this_month_deliveries
+  this_month_earnings
+
+--------------------------------------------------------------------------------
+AVAILABLE ORDERS MATCHING
+--------------------------------------------------------------------------------
+
+GET /api/delivery/orders/available/
+Logic:
+  1. Find Orders with status=accepted and no DeliveryAssignment
+  2. Filter to orders within service zones (if DeliveryZone configured)
+  3. Filter by rider's province/town/area (approximate proximity)
+  4. Exclude orders the rider has already declined (DeliveryOffer.status=declined)
+  5. Return sorted by closest pickup distance to rider's current location
+
+Offer system:
+  Platform may proactively create DeliveryOffer records for specific riders
+  (e.g., nearest 3 riders for a new order).
+  Riders see offers with expiry times.
+  If no rider accepts before expiry, offer is re-issued to next set.
+
+--------------------------------------------------------------------------------
+DELIVERY AGENT VERIFICATION
+--------------------------------------------------------------------------------
+
+Required documents:
+  Vehicle type: bicycle / motorcycle / car / van
+  License front image
+  License back image
+  Province + town + area (service area)
+  Live selfie (liveness check)
+
+Verification flow (same as seller):
+  1. Rider submits POST /api/auth/delivery/apply/
+  2. VerificationRequest created (type=delivery, status=pending)
+  3. Admin reviews in Django admin
+  4. Approves → DeliveryProfile.is_approved=True, verification_status=approved
+  5. Rejects → rejection_reason provided
+
+Until approved:
+  - Cannot see available orders
+  - Cannot accept delivery jobs
+  - Cannot generate handoff tokens
+
+================================================================================

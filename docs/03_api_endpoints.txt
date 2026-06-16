@@ -1,0 +1,423 @@
+================================================================================
+POCKET SHOP — API ENDPOINTS REFERENCE
+================================================================================
+
+Base URL:  https://<your-domain>/api/
+Auth:      Bearer <access_token>  in Authorization header
+Format:    JSON (application/json)
+Pagination: Page-based. Default page size = 20. Add ?page=2 for next page.
+
+Legend:
+  [PUBLIC]   No authentication required
+  [AUTH]     JWT access token required
+  [BUYER]    Requires role=buyer
+  [SELLER]   Requires role=seller
+  [DELIVERY] Requires role=delivery
+  [ADMIN]    Requires is_staff=True
+
+================================================================================
+ROOT
+================================================================================
+
+GET  /           [PUBLIC]   Returns service name + /api/ and /admin/ links
+GET  /api/       [PUBLIC]   Lists available API prefixes
+
+================================================================================
+AUTH  —  /api/auth/
+================================================================================
+
+POST  /api/auth/send-otp/
+  [PUBLIC]
+  Body:   { "phone_number": "+260XXXXXXXXX" }
+  Action: Generates 6-digit OTP, sends via Africa's Talking SMS
+  Limits: Max 5 OTPs per phone per hour
+  Return: { "detail": "OTP sent" }
+
+POST  /api/auth/verify-otp/
+  [PUBLIC]
+  Body:   { "phone_number": "+260XXXXXXXXX", "otp_code": "123456",
+            "role": "buyer", "full_name": "Jane Doe" }  <- on first use
+  Action: Validates OTP (expires after 10 min). Creates user if new.
+          Returns JWT tokens.
+  Return: { "access": "...", "refresh": "...", "user": {...}, "is_new_user": true }
+
+POST  /api/auth/login/
+  [PUBLIC]
+  Body:   { "phone_number": "+260XXXXXXXXX", "password": "..." }
+  Return: { "access": "...", "refresh": "...", "user": {...} }
+
+POST  /api/auth/refresh/
+  [PUBLIC]
+  Body:   { "refresh": "..." }
+  Action: Returns new access token. Old refresh token is blacklisted.
+  Return: { "access": "...", "refresh": "..." }
+
+POST  /api/auth/logout/
+  [AUTH]
+  Body:   { "refresh": "..." }
+  Action: Blacklists the refresh token
+
+GET   /api/auth/profile/
+  [AUTH]
+  Return: Full user object including nested role profile
+
+PATCH /api/auth/profile/
+  [AUTH]
+  Body:   Any subset of user fields (full_name, email, gender, profile_photo, etc.)
+  Return: Updated user object
+
+POST  /api/auth/change-password/
+  [AUTH]
+  Body:   { "old_password": "...", "new_password": "..." }
+
+POST  /api/auth/forgot-password/
+  [PUBLIC]
+  Body:   { "phone_number": "+260XXXXXXXXX" }
+  Action: Sends OTP for password reset
+
+POST  /api/auth/reset-password/
+  [PUBLIC]
+  Body:   { "phone_number": "+260XXXXXXXXX", "otp_code": "...", "new_password": "..." }
+
+POST  /api/auth/seller/apply/
+  [AUTH, buyer or unverified seller]
+  Body:   Multipart form with shop info + NRC images (tier1)
+  Action: Creates VerificationRequest (type=seller_tier1)
+
+POST  /api/auth/seller/apply-tier2/
+  [AUTH, seller with tier1 approved]
+  Body:   Multipart form with business license
+  Action: Creates VerificationRequest (type=seller_tier2)
+
+POST  /api/auth/delivery/apply/
+  [AUTH]
+  Body:   Multipart form with vehicle type + license images
+  Action: Creates VerificationRequest (type=delivery)
+
+GET   /api/auth/profile/qr/
+  [AUTH]
+  Return: { "qr_secret": "...", "qr_data": "..." }
+
+GET   /api/auth/payment-methods/
+  [AUTH, BUYER]
+  Return: List of BuyerPaymentMethod objects for logged-in user
+
+POST  /api/auth/payment-methods/
+  [AUTH, BUYER]
+  Body:   { "provider": "mtn_momo", "account_phone": "+260XXXXXXXXX" }
+  Return: Created payment method
+
+DELETE /api/auth/payment-methods/<id>/
+  [AUTH, BUYER]
+  Action: Removes payment method
+
+PATCH  /api/auth/payment-methods/<id>/set-default/
+  [AUTH, BUYER]
+  Action: Marks this method as is_default=True, clears others
+
+POST   /api/auth/fcm-token/
+  [AUTH]
+  Body:   { "fcm_token": "..." }
+  Action: Saves FCM device token to User.fcm_token
+
+================================================================================
+PRODUCTS  —  /api/products/
+================================================================================
+
+GET   /api/products/
+  [PUBLIC]
+  Query params:
+    search=<str>         Full-text search on name + description
+    category=<slug>      Filter by category slug
+    quality=<value>      new / like_new / good / fair / used
+    min_price=<num>      Minimum price filter
+    max_price=<num>      Maximum price filter
+    seller=<id>          Filter by seller ID
+    ordering=<field>     price / -price / created_at / -created_at
+  Return: Paginated list of products
+
+GET   /api/products/<id>/
+  [PUBLIC]
+  Return: Full product detail including variants and review stats
+  Side effect: Increments product.views_count
+
+POST  /api/products/
+  [AUTH, SELLER]
+  Body:   Multipart form with name, description, price, category, quality,
+          stock_quantity, is_available, plus up to 5 images
+  Return: Created product
+
+PATCH /api/products/<id>/
+  [AUTH, SELLER — must own product]
+  Body:   Any subset of product fields
+  Return: Updated product
+
+DELETE /api/products/<id>/
+  [AUTH, SELLER — must own product]
+  Action: Soft delete (sets is_available=False) or hard delete
+
+GET   /api/products/categories/
+  [PUBLIC]
+  Return: Full category tree (nested parent/children)
+
+GET   /api/products/recommended/
+  [AUTH, BUYER]
+  Return: Personalised product list based on UserInterest + SearchHistory
+          Falls back to popular products for new buyers
+
+POST  /api/products/interact/
+  [AUTH]
+  Body:   { "product_id": <id>, "interaction_type": "view" }
+  Action: Records ProductInteraction and updates UserInterest weights
+
+GET   /api/products/banners/
+  [PUBLIC]
+  Return: Active PromoBanner objects ordered by priority, filtered by date
+
+================================================================================
+ORDERS  —  /api/orders/
+================================================================================
+
+GET   /api/orders/cart/
+  [AUTH, BUYER]
+  Return: Cart with all CartItem objects and totals
+
+POST  /api/orders/cart/
+  [AUTH, BUYER]
+  Body:   { "product_id": <id>, "quantity": 1, "variant_id": <id> }
+  Action: Adds item to cart (or increments quantity if already present)
+
+PATCH /api/orders/cart/<item_id>/
+  [AUTH, BUYER]
+  Body:   { "quantity": 3 }
+  Action: Updates CartItem quantity
+
+DELETE /api/orders/cart/<item_id>/
+  [AUTH, BUYER]
+  Action: Removes CartItem from cart
+
+POST  /api/orders/create/
+  [AUTH, BUYER]
+  Body: {
+    "items": [{"product_id": 1, "quantity": 2, "variant_id": null}],
+    "fulfillment_type": "delivery",
+    "delivery_address": "Plot 15, Kabulonga, Lusaka",
+    "delivery_lat": -15.4321,
+    "delivery_lng": 28.3456,
+    "payment_method_id": <id>,
+    "special_instructions": "Call on arrival"
+  }
+  Action: Creates Order + OrderItems, calculates delivery quote
+  Return: { "order": {...}, "delivery_quote": {...} }
+
+GET   /api/orders/
+  [AUTH]
+  Return: Orders for current user (buyer sees their orders, seller sees their shop orders)
+
+GET   /api/orders/<order_id>/
+  [AUTH]
+  Return: Full order detail including items, status, delivery assignment
+
+POST  /api/orders/<order_id>/cancel/
+  [AUTH, BUYER or SELLER]
+  Return: Updated order with status=cancelled
+
+POST  /api/orders/<order_id>/accept/
+  [AUTH, SELLER]
+  Action: Seller confirms they can fulfil this order (status: accepted → preparing)
+
+POST  /api/orders/<order_id>/status/
+  [AUTH, SELLER or DELIVERY]
+  Body:   { "status": "preparing" }
+  Action: Advance order status
+
+GET   /api/orders/<order_id>/ratings/
+  [AUTH]
+  Return: All OrderRating records for this order
+
+POST  /api/orders/<order_id>/ratings/
+  [AUTH]
+  Body:   { "target_role": "delivery", "score": 5, "comment": "Fast!" }
+  Action: Creates OrderRating (one per author+target_role combination)
+
+POST  /api/orders/<order_id>/refund-request/
+  [AUTH, BUYER]
+  Body:   { "reason": "Item was damaged" }
+  Action: Creates RefundRequest (status=pending_seller)
+
+GET   /api/orders/seller/stats/
+  [AUTH, SELLER]
+  Return: { "total_orders": 45, "revenue": 12500.00, "pending": 3, ... }
+
+================================================================================
+DELIVERY  —  /api/delivery/
+================================================================================
+
+GET   /api/delivery/orders/available/
+  [AUTH, DELIVERY]
+  Return: Orders near rider that have no assigned delivery agent
+
+POST  /api/delivery/orders/accept/
+  [AUTH, DELIVERY]
+  Body:   { "order_id": <id> }
+  Action: Creates DeliveryAssignment (status=assigned)
+  Return: Assignment detail with route + ETA
+
+GET   /api/delivery/assignments/active/
+  [AUTH, DELIVERY]
+  Return: Current active DeliveryAssignment for this rider
+
+POST  /api/delivery/assignment/<id>/status/
+  [AUTH, DELIVERY]
+  Body:   { "status": "picked_up" }
+  Action: Advances assignment status
+
+POST  /api/delivery/location/update/
+  [AUTH, DELIVERY]
+  Body:   { "latitude": -15.4321, "longitude": 28.3456 }
+  Action: Creates DeliveryTracking breadcrumb. Updates rider's current location.
+  Note:   Call every ~5 seconds during active delivery
+
+GET   /api/delivery/track/<order_number>/
+  [AUTH]
+  Return: Live assignment status + rider current coordinates + route GeoJSON
+
+POST  /api/delivery/quote/
+  [AUTH, BUYER]
+  Body:   { "delivery_address": "...", "delivery_lat": -15.4, "delivery_lng": 28.3 }
+  Action: Calculates delivery fee + ETA for a seller's location → buyer address
+  Return: { "fee": 25.00, "distance_km": 4.2, "eta_minutes": 18 }
+
+GET   /api/delivery/zones/
+  [PUBLIC]
+  Return: List of active DeliveryZone areas
+
+GET   /api/delivery/offers/
+  [AUTH, DELIVERY]
+  Return: Pending DeliveryOffer records for this rider
+
+POST  /api/delivery/assignment/<id>/handoff/token/
+  [AUTH, DELIVERY]
+  Body:   { "step": "pickup" }
+  Action: Generates DeliveryHandoffToken (expires in 10 min)
+  Return: { "token": "a3f8c2", "step": "pickup", "expires_at": "..." }
+
+POST  /api/delivery/handoff/verify/
+  [AUTH]
+  Body:   { "token": "a3f8c2", "order_id": <id>, "step": "pickup" }
+  Action: Verifies token. On success: marks step as confirmed, may trigger payout.
+  Return: { "valid": true, "step": "pickup", "message": "Pickup confirmed" }
+
+GET   /api/delivery/stats/
+  [AUTH, DELIVERY]
+  Return: { "total_deliveries": 28, "total_earnings": 840.00, ... }
+
+================================================================================
+PAYMENTS  —  /api/payments/
+================================================================================
+
+POST  /api/payments/initiate/
+  [AUTH, BUYER]
+  Body:   { "order_id": <id>, "payment_method_id": <id> }
+  Action: Creates Transaction (status=pending), calls PawaPay deposit API
+  Return: { "transaction_id": "uuid", "status": "pending",
+            "message": "Check your phone to approve payment" }
+
+GET   /api/payments/status/<transaction_id>/
+  [AUTH]
+  Return: Current Transaction status + amount + provider
+
+POST  /api/payments/webhook/
+  [PUBLIC — verified by HMAC-SHA256 signature]
+  Headers: X-PawaPay-Signature: <hmac>
+  Body:   PawaPay webhook payload (deposit or payout status update)
+  Action: Verifies signature. Updates Transaction.status.
+          On deposit completion → marks Order as accepted.
+          On deposit failure → cancels Order + triggers refund if needed.
+
+GET   /api/payments/earnings/
+  [AUTH, SELLER or DELIVERY]
+  Return: Earnings summary + list of completed Transactions for this user
+
+POST  /api/payments/payout/request/
+  [AUTH, SELLER or DELIVERY]
+  Body:   { "amount": 500.00, "phone_number": "+260XXXXXXXXX" }
+  Action: Creates Transaction (type=payout, status=pending).
+          If PAYOUT_METHOD=gateway → calls PawaPay payout API automatically.
+          If PAYOUT_METHOD=manual  → flags for admin to process manually.
+
+================================================================================
+REVIEWS  —  /api/reviews/
+================================================================================
+
+GET   /api/reviews/products/<product_id>/
+  [PUBLIC]
+  Return: Paginated list of ProductReview for a product
+
+POST  /api/reviews/products/<product_id>/
+  [AUTH, BUYER]
+  Body:   { "rating": 5, "comment": "Great quality!" }
+  Action: Creates ProductReview. Checks buyer has a delivered order for product
+          to set is_verified_purchase=True.
+
+================================================================================
+NOTIFICATIONS  —  /api/notifications/
+================================================================================
+
+GET   /api/notifications/
+  [AUTH]
+  Return: Paginated list of Notification for current user (newest first)
+
+GET   /api/notifications/unread-count/
+  [AUTH]
+  Return: { "count": 3 }
+
+POST  /api/notifications/<id>/read/
+  [AUTH]
+  Action: Sets Notification.is_read = True
+
+POST  /api/notifications/read-all/
+  [AUTH]
+  Action: Marks all notifications as read for current user
+
+================================================================================
+ADMIN (Django Admin Panel)
+================================================================================
+
+URL:   /admin/
+Auth:  Django superuser login (not JWT)
+
+Provides full CRUD access to all models including:
+  - User management + role assignment
+  - VerificationRequest approval / rejection
+  - RefundRequest adjudication
+  - Announcement creation and broadcast
+  - Transaction monitoring
+  - DeliveryPricingConfig editing
+  - PromoBanner management
+  - ErrorLog review
+
+================================================================================
+ERROR RESPONSE FORMAT
+================================================================================
+
+All API errors follow DRF's default format with optional Pocket Shop extensions:
+
+{
+  "detail": "Human-readable error message",
+  "code": "optional_error_code",
+  "reference_id": "PS-ERR-XXXXXXXX"   <- present for 500 errors (ErrorLog ref)
+}
+
+HTTP Status Codes used:
+  200  Success (GET, PATCH)
+  201  Created (POST)
+  204  No Content (DELETE)
+  400  Bad Request (validation errors)
+  401  Unauthorized (missing or expired token)
+  403  Forbidden (authenticated but wrong role or ownership)
+  404  Not Found
+  409  Conflict (e.g. duplicate payment)
+  500  Internal Server Error (logged to ErrorLog)
+
+================================================================================

@@ -1,0 +1,396 @@
+================================================================================
+POCKET SHOP — STATE MANAGEMENT & SERVICES (FLUTTER)
+================================================================================
+
+--------------------------------------------------------------------------------
+ARCHITECTURE OVERVIEW
+--------------------------------------------------------------------------------
+
+State Management:  Riverpod (flutter_riverpod)
+API Client:        Dio (http client with interceptors)
+Local Storage:     SharedPreferences (tokens, user session)
+Pattern:           StateNotifier for mutable state, Provider/FutureProvider for
+                   read-only or async state
+
+Layer structure:
+  Screen → Provider/Notifier → Service → API (Dio) → Backend
+
+  Screens read state from Riverpod providers and call notifier methods.
+  Notifiers call service methods.
+  Services make HTTP calls via ApiService (Dio client).
+  State updates propagate back to screen via Riverpod's reactive model.
+
+--------------------------------------------------------------------------------
+API SERVICE  (lib/services/api_service.dart)
+--------------------------------------------------------------------------------
+
+Singleton Dio client. All services use this client.
+
+Configuration:
+  baseUrl         From AppConstants.baseUrl
+  connectTimeout  30,000 ms
+  receiveTimeout  30,000 ms
+
+Interceptors:
+  REQUEST interceptor:
+    - Reads access_token from SharedPreferences
+    - Adds Authorization: Bearer <token> header to every request
+
+  RESPONSE interceptor:
+    - On HTTP 401:
+      1. Reads refresh_token from SharedPreferences
+      2. Makes POST /api/auth/refresh/ (without auth interceptor to avoid loop)
+      3. On success: saves new access_token + refresh_token to SharedPreferences,
+                     retries the original failed request
+      4. On failure: clears both tokens from SharedPreferences,
+                     emits auth failure event (triggers navigation to /phone)
+
+Methods:
+  get(path, {queryParameters})
+  post(path, {data, isFormData})
+  put(path, {data})
+  patch(path, {data})
+  delete(path)
+
+Error handling:
+  DioException → wraps with descriptive error message
+  Network errors → "No internet connection"
+  Timeout errors → "Request timed out"
+  Server errors → passes through response body for error display
+
+--------------------------------------------------------------------------------
+AUTH PROVIDER  (lib/providers/auth_provider.dart + auth.dart)
+--------------------------------------------------------------------------------
+
+authProvider  →  StateNotifierProvider<AuthNotifier, AuthState>
+
+AuthState fields:
+  user           User? (null when not authenticated)
+  isLoading      bool
+  error          String?
+  isAuthenticated bool
+  isInitialized  bool  (True after startup auth check completes)
+
+AuthNotifier methods:
+  initialize()         Called on app start. Loads user from SharedPreferences.
+                       If token found, fetches /api/auth/profile/ to verify.
+  login(phone, pass)   Calls AuthService.login. Saves tokens + user.
+  sendOtp(phone)       Calls AuthService.sendOTP.
+  verifyOtp(...)       Calls AuthService.verifyOTP. Saves tokens + user.
+  logout()             Calls AuthService.logout. Clears storage. Resets state.
+  refreshUser()        Re-fetches /api/auth/profile/ and updates state.
+  setAuthenticatedUser(user, access, refresh)  Used after verify-otp.
+
+authInitializationProvider  →  FutureProvider<void>
+  Triggers AuthNotifier.initialize() once on app start.
+  The GoRouter listens to authProvider.isInitialized to decide initial route.
+
+authServiceProvider  →  Provider<AuthService>
+  Exposes AuthService instance. Used by AuthNotifier.
+
+--------------------------------------------------------------------------------
+PRODUCT PROVIDER  (lib/providers/product_provider.dart)
+--------------------------------------------------------------------------------
+
+productProvider  →  StateNotifierProvider<ProductNotifier, ProductState>
+
+ProductState:
+  products        List<Product>
+  isLoading       bool
+  error           String?
+  hasMore         bool   (for pagination)
+  currentPage     int
+  selectedProduct Product?  (detail view)
+
+Methods:
+  loadProducts({category, quality, search, minPrice, maxPrice})
+  loadMore()              Load next page
+  loadProductDetail(id)   Fetch single product, set selectedProduct
+  trackInteraction(id, type)  POST to /api/products/interact/
+  loadRecommended()       Fetch personalised recommendations
+
+--------------------------------------------------------------------------------
+CART PROVIDER  (lib/providers/cart_provider.dart)
+--------------------------------------------------------------------------------
+
+cartProvider  →  StateNotifierProvider<CartNotifier, CartState>
+
+CartState:
+  items      List<CartItem>
+  isLoading  bool
+  error      String?
+
+Methods:
+  loadCart()               GET /api/orders/cart/
+  addItem(productId, qty, variantId)  POST /api/orders/cart/
+  updateItem(itemId, qty)  PATCH /api/orders/cart/<id>/
+  removeItem(itemId)       DELETE /api/orders/cart/<id>/
+  clearCart()              Local state clear after order placement
+
+Computed:
+  totalItems   Sum of all CartItem.quantity
+  totalPrice   Sum of all CartItem subtotals
+
+The cart tab badge in BuyerMainScreen reads cartProvider.totalItems.
+
+--------------------------------------------------------------------------------
+ORDERS PROVIDER  (lib/providers/orders_provider.dart)
+--------------------------------------------------------------------------------
+
+ordersProvider  →  StateNotifierProvider<OrdersNotifier, OrdersState>
+
+OrdersState:
+  orders        List<Order>
+  selectedOrder Order?
+  isLoading     bool
+  error         String?
+
+Methods:
+  loadOrders()             GET /api/orders/
+  loadOrderDetail(id)      GET /api/orders/<id>/
+  createOrder(params)      POST /api/orders/create/
+  cancelOrder(id)          POST /api/orders/<id>/cancel/
+  acceptOrder(id)          POST /api/orders/<id>/accept/ (seller)
+  rateOrder(id, ...)       POST /api/orders/<id>/ratings/
+  requestRefund(id, reason) POST /api/orders/<id>/refund-request/
+
+--------------------------------------------------------------------------------
+PAYMENT METHODS PROVIDER  (lib/providers/payment_methods_provider.dart)
+--------------------------------------------------------------------------------
+
+paymentMethodsProvider  →  StateNotifierProvider
+
+State:
+  methods     List<BuyerPaymentMethod>
+  isLoading   bool
+
+Methods:
+  loadMethods()            GET /api/auth/payment-methods/
+  addMethod(provider, phone)  POST /api/auth/payment-methods/
+  removeMethod(id)         DELETE /api/auth/payment-methods/<id>/
+  setDefault(id)           PATCH /api/auth/payment-methods/<id>/set-default/
+
+Used in: CartScreen (checkout selection), BuyerProfileScreen, AddPaymentMethodScreen
+
+--------------------------------------------------------------------------------
+NOTIFICATION PROVIDER  (lib/providers/notification_provider.dart)
+--------------------------------------------------------------------------------
+
+notificationProvider  →  StateNotifierProvider<NotificationNotifier, NotificationState>
+
+State:
+  notifications   List<Notification>
+  unreadCount     int
+  isLoading       bool
+
+Methods:
+  loadNotifications()    GET /api/notifications/
+  markRead(id)           POST /api/notifications/<id>/read/
+  markAllRead()          POST /api/notifications/read-all/
+  loadUnreadCount()      GET /api/notifications/unread-count/
+
+The NotificationBadge widget in AppBar reads unreadCount.
+FCM push notifications call loadUnreadCount() on foreground message.
+
+--------------------------------------------------------------------------------
+DELIVERY PROVIDER  (lib/providers/delivery_provider.dart)
+--------------------------------------------------------------------------------
+
+deliveryProvider  →  StateNotifierProvider<DeliveryNotifier, DeliveryState>
+
+State:
+  availableOrders     List<Order>
+  activeAssignment    DeliveryAssignment?
+  offers              List<DeliveryOffer>
+  trackingData        Map?  (from /api/delivery/track/<order_number>/)
+  isLoading           bool
+
+Methods:
+  loadAvailableOrders()
+  acceptDelivery(orderId)
+  loadActiveAssignment()
+  updateLocation(lat, lng)        Called every 5s during active delivery
+  loadOffers()
+  acceptOffer(offerId)
+  generateHandoffToken(assignmentId, step)
+  verifyHandoffToken(token, orderId, step)
+  loadTrackingData(orderNumber)   Called by OrderTrackingScreen
+
+--------------------------------------------------------------------------------
+BANNER PROVIDER  (lib/providers/banner_provider.dart)
+--------------------------------------------------------------------------------
+
+bannerProvider  →  FutureProvider<List<PromoBanner>>
+  Fetches GET /api/products/banners/
+  Used in BuyerHomeScreen carousel
+
+--------------------------------------------------------------------------------
+CATEGORY PROVIDER  (lib/providers/category_provider.dart)
+--------------------------------------------------------------------------------
+
+categoryProvider  →  FutureProvider<List<Category>>
+  Fetches GET /api/products/categories/
+  Used in BuyerHomeScreen category row and product filters
+
+--------------------------------------------------------------------------------
+WISHLIST PROVIDER  (lib/providers/wishlist_provider.dart)
+--------------------------------------------------------------------------------
+
+wishlistProvider  →  StateNotifierProvider<WishlistNotifier, List<Product>>
+
+Stored locally in SharedPreferences (not synced to backend).
+
+Methods:
+  toggle(product)      Add if not in list, remove if present
+  isWishlisted(id)     Returns bool
+
+Used in BuyerProductDetailsScreen (heart icon) and BuyerWishlistScreen.
+
+--------------------------------------------------------------------------------
+REVIEW PROVIDER  (lib/providers/review_provider.dart)
+--------------------------------------------------------------------------------
+
+reviewProvider  →  StateNotifierProvider
+
+Methods:
+  loadReviews(productId)   GET /api/reviews/products/<id>/
+  submitReview(productId, rating, comment)  POST
+
+--------------------------------------------------------------------------------
+SERVICE CLASSES
+--------------------------------------------------------------------------------
+
+Each service class is a thin HTTP client layer — no state management.
+Injected into providers via serviceProvider instances.
+
+AuthService       (lib/services/auth_service.dart)
+  initialize()    Load tokens + user from SharedPreferences
+  sendOTP(phone)
+  verifyOTP(phone, code, role, name)
+  login(phone, password)
+  getCurrentUser()
+  logout()
+  saveFcmToken(token)
+
+ProductService    (lib/services/product_service.dart)
+  getProducts(filters)
+  getProductDetail(id)
+  searchProducts(query)
+  getRecommended()
+  getBanners()
+  trackInteraction(productId, type)
+
+OrderService      (lib/services/order_service.dart)
+  getCart()
+  addToCart(productId, quantity, variantId)
+  updateCartItem(itemId, quantity)
+  removeCartItem(itemId)
+  createOrder(params)
+  getOrders()
+  getOrderDetail(id)
+  cancelOrder(id)
+  acceptOrder(id)
+  rateOrder(id, targetRole, score, comment)
+  requestRefund(id, reason)
+
+DeliveryService   (lib/services/delivery_service.dart)
+  getAvailableOrders()
+  acceptDelivery(orderId)
+  updateLocation(lat, lng)
+  getActiveAssignment()
+  loadTrackingData(orderNumber)
+  getOffers()
+  generateHandoffToken(assignmentId, step)
+  verifyHandoffToken(token, orderId, step)
+  getDeliveryQuote(address, lat, lng)
+
+CategoryService   (lib/services/category_service.dart)
+  getCategories()
+
+ReviewService     (lib/services/review_service.dart)
+  getReviews(productId)
+  submitReview(productId, rating, comment)
+
+NotificationService (lib/services/notification_service.dart)
+  getNotifications()
+  getUnreadCount()
+  markRead(id)
+  markAllRead()
+
+FirebaseInit      (lib/services/firebase_init.dart)
+  initFirebaseIfSupported()
+    - Initializes Firebase Core
+    - Gets FCM token
+    - Sets up onMessage (foreground notification handler)
+    - Sets up onMessageOpenedApp (tapped notification handler)
+    - Sets up background message handler
+    - Calls POST /api/auth/fcm-token/ to register token with backend
+
+--------------------------------------------------------------------------------
+LOCAL STORAGE KEYS  (SharedPreferences)
+--------------------------------------------------------------------------------
+
+KEY                     TYPE    DESCRIPTION
+access_token            String  JWT access token
+refresh_token           String  JWT refresh token
+current_user_json       String  Serialized User JSON (for offline/cold start)
+wishlist_ids            List    Product IDs saved to wishlist
+
+Defined in: lib/core/constants/app_constants.dart
+
+--------------------------------------------------------------------------------
+DATA MODELS  (Dart)
+--------------------------------------------------------------------------------
+
+lib/models/user.dart
+  User:           id, phoneNumber, email, gender, dateOfBirth, role,
+                  isVerified, isPhoneVerified, dateJoined, firstName,
+                  lastName, profilePhoto, buyerProfile?, sellerProfile?,
+                  deliveryProfile?
+  BuyerProfile:   defaultAddress, preferredPaymentMethod
+  SellerProfile:  shopName, shopLocation, shopLat, shopLng, tier1Status,
+                  tier2Status, isApproved
+  DeliveryProfile: vehicleType, province, town, area, verificationStatus,
+                   isApproved, currentLocationLat, currentLocationLng
+
+lib/models/product.dart
+  Product:       id, name, description, price, category, quality,
+                 sellerId, sellerName, sellerPhone, stockQuantity,
+                 imageUrls (List), isAvailable, isInStock, reviewAverage,
+                 reviewCount, variants (List<ProductVariant>), createdAt
+  ProductVariant: id, name, value, sku, stockQuantity, isActive
+
+lib/models/order.dart
+  Order:         id, orderNumber, buyerId, buyerName, sellerId, sellerName,
+                 sellerShopName, sellerShopLocation, sellerShopLat, sellerShopLng,
+                 totalPrice, deliveryFee, fulfillmentType, status,
+                 deliveryAddress, deliveryLat, deliveryLng, specialInstructions,
+                 paymentMethodId, deliveryAssignmentId,
+                 items (List<OrderItemLine>), ratings (List<OrderRating>),
+                 quotedDeliveryFee, quotedDistanceKm, quotedEtaMinutes,
+                 createdAt, updatedAt
+  OrderItemLine: productId, productName, quantity, price, subtotal
+  OrderRating:   targetRole, score, comment, authorName
+
+lib/models/category.dart
+  Category:  id, name, slug, iconName, parent?
+
+lib/models/cart_item.dart
+  CartItem:  id, product (Product), variant (ProductVariant?),
+             quantity, subtotal
+
+lib/models/promo_banner.dart
+  PromoBanner:  id, title, subtitle, ctaText, bgColor, iconName,
+                image, actionType, actionValue, isActive, priority,
+                startsAt, endsAt
+
+lib/models/review.dart
+  ProductReview:  id, product, authorName, rating, comment,
+                  isVerifiedPurchase, createdAt
+
+All models implement:
+  fromJson(Map<String, dynamic> json) → Model
+  toJson() → Map<String, dynamic>
+  copyWith(...) → Model
+
+================================================================================

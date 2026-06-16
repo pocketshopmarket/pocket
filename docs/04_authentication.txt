@@ -1,0 +1,237 @@
+================================================================================
+POCKET SHOP — AUTHENTICATION & AUTHORIZATION
+================================================================================
+
+--------------------------------------------------------------------------------
+OVERVIEW
+--------------------------------------------------------------------------------
+
+Authentication is phone-number based. There are no usernames or email logins
+by default. Users identify themselves with a Zambian phone number (+260XXXXXXXXX)
+and verify ownership via a one-time passcode (OTP) sent by SMS.
+
+JWT (JSON Web Tokens) are used for API authorization. The Flutter app stores
+tokens in SharedPreferences and attaches them automatically to every API request
+via a Dio interceptor.
+
+--------------------------------------------------------------------------------
+CUSTOM USER MODEL
+--------------------------------------------------------------------------------
+
+Model:          accounts.User
+Extends:        AbstractBaseUser + AbstractUser
+Login Field:    phone_number (replaces username)
+Location:       pocket_backend/accounts/models.py
+
+Key fields:
+  phone_number    CharField, unique — the primary identifier
+  full_name       CharField
+  role            CharField — buyer / seller / delivery / admin
+  is_verified     BooleanField — True when ID verification approved
+  is_phone_verified BooleanField — True after OTP confirmed on signup
+  fcm_token       CharField — Firebase Cloud Messaging token for push notifications
+
+Setting in settings.py:
+  AUTH_USER_MODEL = 'accounts.User'
+
+--------------------------------------------------------------------------------
+JWT CONFIGURATION  (Simple JWT)
+--------------------------------------------------------------------------------
+
+Config location: pocket_backend/pocket_backend/settings.py (SIMPLE_JWT dict)
+
+  ACCESS_TOKEN_LIFETIME    60 minutes
+  REFRESH_TOKEN_LIFETIME   7 days
+  ROTATE_REFRESH_TOKENS    True  — new refresh token issued on every refresh
+  BLACKLIST_AFTER_ROTATION True  — old refresh token immediately invalidated
+  ALGORITHM                HS256
+  SIGNING_KEY              Django SECRET_KEY
+  AUTH_HEADER_TYPES        ('Bearer',)
+
+Token storage in Flutter:
+  Access token  → SharedPreferences key: 'access_token'
+  Refresh token → SharedPreferences key: 'refresh_token'
+
+--------------------------------------------------------------------------------
+OTP FLOW (New User Signup / Phone Verification)
+--------------------------------------------------------------------------------
+
+STEP 1 — Request OTP
+  Client:  POST /api/auth/send-otp/  { "phone_number": "+260XXXXXXXXX" }
+  Backend:
+    1. Validates phone number format
+    2. Checks rate limit: max 5 OTPs per phone per hour (PhoneOTP.generate_otp)
+    3. Generates 6-digit numeric code
+    4. Saves PhoneOTP record (is_verified=False, attempts=0)
+    5. Sends SMS via Africa's Talking API (accounts/sms_service.py)
+  Response: { "detail": "OTP sent" }
+
+STEP 2 — Verify OTP
+  Client:  POST /api/auth/verify-otp/
+    {
+      "phone_number": "+260XXXXXXXXX",
+      "otp_code": "123456",
+      "role": "buyer",
+      "full_name": "Jane Doe"
+    }
+  Backend:
+    1. Finds matching PhoneOTP for phone_number
+    2. Checks not expired (created_at + 10 minutes > now)
+    3. Checks attempts < limit (typically 3 attempts allowed)
+    4. Compares otp_code
+    5. If valid:
+       a. Marks PhoneOTP.is_verified = True
+       b. Creates User if phone_number is new (is_new_user=True)
+       c. Sets User.is_phone_verified = True
+       d. Creates role-specific profile (BuyerProfile / SellerProfile / DeliveryProfile)
+       e. Issues JWT access + refresh tokens
+    6. Returns tokens + user object + is_new_user flag
+
+STEP 3 — Token use
+  Client attaches: Authorization: Bearer <access_token>
+  to every subsequent API request.
+
+--------------------------------------------------------------------------------
+PASSWORD LOGIN FLOW (Returning Users)
+--------------------------------------------------------------------------------
+
+  Client:  POST /api/auth/login/
+    { "phone_number": "+260XXXXXXXXX", "password": "..." }
+  Backend:
+    1. Looks up User by phone_number
+    2. Calls check_password()
+    3. If valid → issues JWT tokens
+  Response: { "access": "...", "refresh": "...", "user": {...} }
+
+Note: Password is an optional secondary credential. Many users only use OTP.
+
+--------------------------------------------------------------------------------
+TOKEN REFRESH FLOW
+--------------------------------------------------------------------------------
+
+URL: POST /api/auth/refresh/
+(Handled by SimpleJWT TokenRefreshView — registered before includes in urls.py)
+
+  Client:  POST /api/auth/refresh/  { "refresh": "<current_refresh_token>" }
+  Backend:
+    1. Validates refresh token
+    2. Checks blacklist
+    3. Issues new access token + new refresh token
+    4. Blacklists old refresh token (ROTATE_REFRESH_TOKENS=True)
+  Response: { "access": "...", "refresh": "..." }
+
+Flutter auto-refresh (api_service.dart Dio interceptor):
+  1. Request fails with HTTP 401
+  2. Interceptor reads refresh token from SharedPreferences
+  3. Calls POST /api/auth/refresh/
+  4. If successful: saves new tokens, retries original request
+  5. If refresh fails (expired/blacklisted): clears tokens, redirects to login
+
+--------------------------------------------------------------------------------
+LOGOUT
+--------------------------------------------------------------------------------
+
+  Client:  POST /api/auth/logout/  { "refresh": "<refresh_token>" }
+  Backend: Blacklists the refresh token via SimpleJWT token_blacklist app
+  Flutter: Clears access_token and refresh_token from SharedPreferences
+           Redirects to /phone (login screen)
+
+--------------------------------------------------------------------------------
+AUTHORIZATION — ROLE-BASED PERMISSIONS
+--------------------------------------------------------------------------------
+
+DRF default permission class:
+  DEFAULT_PERMISSION_CLASSES = ['rest_framework.permissions.IsAuthenticated']
+
+Custom permission classes (accounts/permissions.py):
+  IsBuyer       role == 'buyer'
+  IsSeller      role == 'seller'  AND  SellerProfile.is_approved == True
+  IsDelivery    role == 'delivery' AND DeliveryProfile.is_approved == True
+  IsAdmin       is_staff == True
+
+Applied per-view:
+  permission_classes = [IsAuthenticated, IsBuyer]
+
+Object-level permissions:
+  Sellers can only edit/delete their own products
+  Buyers can only access their own cart and orders
+  Delivery agents can only update their own assignments
+
+--------------------------------------------------------------------------------
+SELLER VERIFICATION (2-TIER)
+--------------------------------------------------------------------------------
+
+Tier 1 (basic — required to list products):
+  Documents: NRC front + back image, live selfie
+  Process:   SellerProfile.tier1_status = 'pending'
+             Admin reviews in Django admin panel
+             Approval: tier1_status = 'approved', is_approved = True
+             Rejection: tier1_status = 'rejected' with reason
+
+Tier 2 (advanced — for higher trust sellers):
+  Documents: Business license
+  Prerequisite: Tier 1 must be approved
+  Process:   Same admin review flow
+
+VerificationRequest model tracks each request with status, timestamps,
+rejection reason, and which admin reviewed it.
+
+--------------------------------------------------------------------------------
+DELIVERY AGENT VERIFICATION
+--------------------------------------------------------------------------------
+
+Documents required:
+  Vehicle type (bicycle/motorcycle/car/van)
+  Driver's license front + back image
+  Province, town, area (service area)
+  Live selfie
+
+Process:
+  DeliveryProfile.verification_status = 'pending'
+  Admin reviews and approves/rejects
+  On approval: is_approved = True, verification_status = 'approved'
+
+Until approved, delivery agents cannot see available orders or accept jobs.
+
+--------------------------------------------------------------------------------
+PASSWORD RESET FLOW
+--------------------------------------------------------------------------------
+
+STEP 1 — POST /api/auth/forgot-password/  { "phone_number": "+260XXXXXXXXX" }
+         → Generates and sends OTP (same mechanism as signup OTP)
+
+STEP 2 — POST /api/auth/reset-password/
+  {
+    "phone_number": "+260XXXXXXXXX",
+    "otp_code": "...",
+    "new_password": "..."
+  }
+  → Validates OTP, sets new password via set_password()
+
+--------------------------------------------------------------------------------
+FCM TOKEN REGISTRATION
+--------------------------------------------------------------------------------
+
+On app start (after session restore), Flutter calls:
+  POST /api/auth/fcm-token/  { "fcm_token": "..." }
+
+Backend saves token to User.fcm_token. This token is used by the notifications
+app to send targeted push notifications via Firebase Cloud Messaging.
+
+Token is refreshed when FCM rotates it (handled by firebase_messaging
+onTokenRefresh callback in firebase_init.dart).
+
+--------------------------------------------------------------------------------
+SECURITY NOTES
+--------------------------------------------------------------------------------
+
+- OTP rate limit: 5 per phone per hour (enforced in PhoneOTP.generate_otp)
+- OTP expiry: 10 minutes (PhoneOTP.is_expired)
+- JWT tokens are signed with Django SECRET_KEY (HS256)
+- Refresh tokens are single-use (rotated + blacklisted after each use)
+- HTTPS enforced in production (SECURE_SSL_REDIRECT = True when DEBUG=False)
+- CSRF protection active for all non-API endpoints
+- API endpoints use JWT Bearer auth, not session cookies → CSRF irrelevant for API
+- NRC/license data should be stored encrypted in production (currently plain fields)
+
+================================================================================

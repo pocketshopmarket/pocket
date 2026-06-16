@@ -1,0 +1,279 @@
+================================================================================
+POCKET SHOP — DEPLOYMENT GUIDE
+================================================================================
+
+--------------------------------------------------------------------------------
+BACKEND DEPLOYMENT (Railway)
+--------------------------------------------------------------------------------
+
+Platform: Railway (https://railway.app)
+Runtime:  Docker (Dockerfile in repo root)
+Process:  Gunicorn WSGI server
+
+KEY DEPLOYMENT FILES:
+  Dockerfile          Container definition
+  Procfile            Process commands (web: gunicorn ...)
+  gunicorn.conf.py    Worker count, timeout, bind address
+  deploy.sh           Pre-start script (migrations, static files)
+  runtime.txt         Python version pin
+
+DEPLOYMENT FLOW:
+  1. Railway detects Dockerfile in repo root
+  2. Docker image is built
+  3. deploy.sh runs before server starts:
+     - python manage.py migrate
+     - python manage.py collectstatic --noinput
+     - python manage.py create_admin  (creates superuser if not exists)
+  4. Gunicorn starts: binds to 0.0.0.0:$PORT
+
+RAILWAY ENVIRONMENT VARIABLES TO SET:
+  DJANGO_ENV=production
+  DJANGO_SECRET_KEY=<50+ char random string>
+  DATABASE_URL=<Railway PostgreSQL connection string>
+  PAWAPAY_JWT_TOKEN=<from PawaPay dashboard>
+  PAWAPAY_WEBHOOK_SECRET=<from PawaPay dashboard>
+  PAWAPAY_BASE_URL=https://api.pawapay.io/v2
+  AFRICAS_TALKING_USERNAME=<your AT username>
+  AFRICAS_TALKING_API_KEY=<your AT API key>
+  AFRICAS_TALKING_SENDER_ID=POCKETSHOP
+  FIREBASE_CREDENTIALS_JSON=<entire service account JSON as one line string>
+  CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+  PUBLIC_BACKEND_URL=https://your-service.railway.app
+  DJANGO_ALLOWED_HOSTS=your-service.railway.app
+  PLATFORM_COMMISSION_RATE=0.05
+  ORDER_ACCEPTANCE_TIMEOUT_MINUTES=30
+  PAYOUT_METHOD=manual
+
+Railway auto-sets:
+  RAILWAY_PUBLIC_DOMAIN  → automatically appended to ALLOWED_HOSTS
+
+DATABASE:
+  Add a PostgreSQL plugin in Railway dashboard
+  Railway auto-provides DATABASE_URL env var pointing to it
+
+STATIC FILES:
+  Collected to staticfiles/ during deploy
+  Served by WhiteNoise middleware directly from Gunicorn (no separate nginx needed)
+
+MEDIA FILES:
+  MUST configure Cloudinary — Railway filesystem resets on each deploy
+  Without Cloudinary, uploaded images will be lost on redeploy
+
+PawaPay WEBHOOK URL:
+  Set in PawaPay dashboard: https://your-service.railway.app/api/payments/webhook/
+  This must be HTTPS — PawaPay rejects HTTP webhook endpoints
+
+FIRST DEPLOY CHECKLIST:
+  [ ] PostgreSQL plugin added to Railway project
+  [ ] All required env vars set in Railway dashboard
+  [ ] Cloudinary account created and CLOUDINARY_URL set
+  [ ] Firebase service account downloaded and set as FIREBASE_CREDENTIALS_JSON
+  [ ] PawaPay webhook URL configured in PawaPay dashboard
+  [ ] Africa's Talking sender ID approved (can take 1-2 days)
+  [ ] deploy.sh creates admin user (check logs for initial password)
+
+--------------------------------------------------------------------------------
+BACKEND LOCAL DEVELOPMENT
+--------------------------------------------------------------------------------
+
+PREREQUISITES:
+  Python 3.11+ (check runtime.txt for pinned version)
+  PostgreSQL (or use SQLite3 for simpler setup)
+  pip
+
+SETUP:
+  cd pocket_backend
+  python -m venv venv
+  source venv/bin/activate        (Windows: venv\Scripts\activate)
+  pip install -r requirements.txt
+  cp ../pocket_backend.env .env   (then fill in values)
+
+DATABASE SETUP:
+  Option A — PostgreSQL:
+    createdb pocket_db
+    Set DB_* vars in .env
+
+  Option B — SQLite3:
+    Comment out the PostgreSQL DATABASES block in settings.py
+    Add: DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3',
+                                   'NAME': BASE_DIR / 'db.sqlite3'}}
+
+MIGRATIONS:
+  python manage.py migrate
+
+SEED DATA:
+  python manage.py seed_categories
+  python manage.py setup_demo         (creates demo users, products, orders)
+  python manage.py seed_lusaka_delivery_zone
+
+CREATE SUPERUSER:
+  python manage.py create_admin       (uses env vars or prompts)
+  OR
+  python manage.py createsuperuser    (interactive)
+
+RUN SERVER:
+  python manage.py runserver 0.0.0.0:8000
+
+NGROK (for PawaPay webhooks in development):
+  ngrok http 8000
+  Copy the https URL → set PUBLIC_BACKEND_URL in .env
+  Set this URL as webhook endpoint in PawaPay sandbox dashboard
+
+DJANGO ADMIN:
+  http://localhost:8000/admin/
+  Login with superuser credentials
+
+MANAGEMENT COMMANDS:
+  python manage.py seed_categories         Seed product categories
+  python manage.py seed_demo_products      Seed test products
+  python manage.py setup_demo              Full demo dataset
+  python manage.py seed_lusaka_delivery_zone  Seed delivery zones
+  python manage.py seed_delivery_scenario  Seed delivery test data
+  python manage.py auto_cancel_stale_orders   Cancel timed-out orders
+  python manage.py create_admin            Create superuser from env vars
+  python manage.py send_test_notification  Send test FCM push notification
+
+--------------------------------------------------------------------------------
+FLUTTER FRONTEND DEPLOYMENT
+--------------------------------------------------------------------------------
+
+PREREQUISITES:
+  Flutter 3.10.8 (see pocket_shop/pubspec.yaml for exact version requirements)
+  Android Studio / Xcode (for mobile builds)
+  Firebase project set up (google-services.json / GoogleService-Info.plist)
+
+CONFIGURATION BEFORE BUILD:
+  1. Set baseUrl in lib/core/constants/app_constants.dart
+     to production backend URL
+  2. Ensure google-services.json is in pocket_shop/android/app/
+  3. Ensure GoogleService-Info.plist is in pocket_shop/ios/Runner/
+
+ANDROID BUILD:
+  cd pocket_shop
+  flutter build apk --release
+  Output: build/app/outputs/flutter-apk/app-release.apk
+
+  OR for App Bundle (Play Store):
+  flutter build appbundle --release
+  Output: build/app/outputs/bundle/release/app-release.aab
+
+  Signing: Configure in pocket_shop/android/app/build.gradle
+  Keystore must be set up: flutter.io/docs/deployment/android
+
+IOS BUILD:
+  flutter build ios --release
+  Open in Xcode: pocket_shop/ios/Runner.xcworkspace
+  Archive and distribute via Xcode
+
+WINDOWS DESKTOP BUILD:
+  flutter build windows --release
+  Output: build/windows/x64/runner/Release/
+
+FLUTTER LOCAL DEVELOPMENT:
+  cd pocket_shop
+  flutter pub get
+  flutter run                      (debug on connected device/emulator)
+  flutter run -d windows           (debug on Windows desktop)
+
+IMPORTANT — BASE URL FOR DEVELOPMENT:
+  Android emulator → use 10.0.2.2:8000 (maps to host machine localhost)
+  Physical Android device → use machine's LAN IP (e.g., 192.168.1.15:8000)
+  iOS simulator → use 127.0.0.1:8000 or machine's LAN IP
+
+--------------------------------------------------------------------------------
+CI/CD  (.github/workflows/)
+--------------------------------------------------------------------------------
+
+GitHub Actions workflows are present in .github/.
+Typical workflow:
+  - On push to main: run Python tests, lint
+  - On Railway: auto-deploy from main branch (Railway GitHub integration)
+
+Railway GitHub Integration:
+  Connect Railway project to GitHub repo
+  Railway auto-deploys on push to selected branch (typically main)
+  Deploy logs viewable in Railway dashboard
+
+--------------------------------------------------------------------------------
+DATABASE MIGRATIONS
+--------------------------------------------------------------------------------
+
+Creating new migrations (after model changes):
+  python manage.py makemigrations <app_name>
+  python manage.py migrate
+
+Migration files location:
+  pocket_backend/<app_name>/migrations/
+
+Migration on deploy:
+  deploy.sh runs python manage.py migrate before starting Gunicorn
+  Migrations are auto-applied on every deploy
+
+Rollback:
+  python manage.py migrate <app_name> <migration_number>
+  Example: python manage.py migrate products 0003
+
+--------------------------------------------------------------------------------
+MONITORING & LOGS
+--------------------------------------------------------------------------------
+
+APPLICATION ERRORS:
+  All unhandled API exceptions are logged to the ErrorLog model
+  View in Django admin: /admin/accounts/errorlog/
+  Each error has a reference_id (e.g. PS-ERR-XXXXXXXX) shown to users
+
+RAILWAY LOGS:
+  Real-time logs: Railway dashboard → Deployments → View Logs
+  Includes Gunicorn access log + Python application log
+
+DATABASE MONITORING:
+  Railway dashboard → PostgreSQL plugin → Metrics tab
+
+PAYMENT MONITORING:
+  PawaPay dashboard: View all transactions, webhook delivery status
+  Django admin: /admin/payments/transaction/
+
+PUSH NOTIFICATION MONITORING:
+  Firebase console → Cloud Messaging → Logs
+
+CRON JOBS (must be set up separately — no Celery):
+  auto_cancel_stale_orders should run every ~10 minutes
+  Railway Cron Jobs (paid plan): set up scheduled tasks in Railway dashboard
+  Alternative: External cron service (e.g., cron-job.org) calling a webhook
+
+  Suggested cron endpoints to add:
+    POST /api/internal/auto-cancel-stale-orders/
+    POST /api/internal/process-pending-payouts/
+
+--------------------------------------------------------------------------------
+SECURITY CHECKLIST FOR PRODUCTION
+--------------------------------------------------------------------------------
+
+  [ ] DJANGO_SECRET_KEY is random, 50+ chars, not committed to git
+  [ ] DEBUG=False (DJANGO_ENV=production)
+  [ ] HTTPS enforced (SECURE_SSL_REDIRECT=True)
+  [ ] HSTS headers set (SECURE_HSTS_SECONDS=31536000)
+  [ ] PAWAPAY_WEBHOOK_SECRET set (HMAC verification active)
+  [ ] DATABASE_URL uses SSL (Railway PostgreSQL does this by default)
+  [ ] FIREBASE_CREDENTIALS_JSON not committed to git
+  [ ] ALLOWED_HOSTS explicitly lists only known domains (not '*')
+  [ ] CORS restricted to known origins (not allow-all in production)
+  [ ] Admin panel at /admin/ behind strong password + 2FA
+  [ ] Error logs (ErrorLog) monitored for suspicious patterns
+  [ ] Rate limiting on OTP endpoint (built-in: 5 per phone per hour)
+
+--------------------------------------------------------------------------------
+ROLLBACK PROCEDURE
+--------------------------------------------------------------------------------
+
+Railway:
+  Go to Deployments in Railway dashboard
+  Click on a previous successful deployment
+  Select "Redeploy" to roll back to that version
+
+Database rollback:
+  If migration broke something:
+    python manage.py migrate <app> <previous_migration>
+  Then redeploy code without the broken migration
+
+================================================================================

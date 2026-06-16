@@ -1,0 +1,569 @@
+================================================================================
+POCKET SHOP — BACKEND DATA MODELS
+================================================================================
+
+All models live in pocket_backend/. Each app has its own models.py.
+Database: PostgreSQL (production), SQLite3 (development).
+
+================================================================================
+APP: accounts
+================================================================================
+
+--------------------------------------------------------------------------------
+Model: User  (custom AUTH_USER_MODEL = 'accounts.User')
+Extends: AbstractUser
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+phone_number        CharField       Unique. Primary identifier. Format: +260XXXXXXXXX
+full_name           CharField       Display name
+role                CharField       Choices: buyer / seller / delivery / admin
+is_verified         BooleanField    True when identity verification approved
+is_phone_verified   BooleanField    True after OTP verified on signup
+gender              CharField       Optional. Choices: male / female / other
+email               EmailField      Optional
+date_of_birth       DateField       Optional
+profile_photo       ImageField      Stored via Cloudinary in production
+fcm_token           CharField       Firebase Cloud Messaging device token
+qr_secret           CharField       Used for QR-based handoff verification
+username            CharField       Inherited from AbstractUser but not used;
+                                    phone_number is the login identifier
+
+USERNAME_FIELD = 'phone_number'
+
+--------------------------------------------------------------------------------
+Model: BuyerProfile
+OneToOne → User
+--------------------------------------------------------------------------------
+FIELD                    TYPE            NOTES
+user                     OneToOneField   User (role=buyer)
+default_address          TextField       Saved delivery address
+preferred_payment_method CharField       MTN / Airtel / Zamtel
+
+--------------------------------------------------------------------------------
+Model: BuyerPaymentMethod
+ForeignKey → User (multiple allowed per buyer)
+--------------------------------------------------------------------------------
+FIELD           TYPE            NOTES
+user            ForeignKey      User
+provider        CharField       Choices: mtn_momo / airtel_money / zamtel
+account_phone   CharField       Phone number for this payment method
+is_verified     BooleanField    True once verified with provider
+is_default      BooleanField    Used for one-click checkout
+
+--------------------------------------------------------------------------------
+Model: SellerProfile
+OneToOne → User
+--------------------------------------------------------------------------------
+FIELD                   TYPE            NOTES
+user                    OneToOneField   User (role=seller)
+shop_name               CharField
+shop_location           CharField       Human-readable address
+shop_lat                DecimalField    GPS latitude
+shop_lng                DecimalField    GPS longitude
+business_license        FileField       Uploaded document
+nrc_number              CharField       National Registration Card number
+nrc_front_image         ImageField
+nrc_back_image          ImageField
+live_verification_photo ImageField      Selfie for liveness check
+tier1_status            CharField       pending / approved / rejected
+tier2_status            CharField       pending / approved / rejected
+is_approved             BooleanField    True when tier1 approved
+approval_date           DateTimeField
+
+--------------------------------------------------------------------------------
+Model: DeliveryProfile
+OneToOne → User
+--------------------------------------------------------------------------------
+FIELD                   TYPE            NOTES
+user                    OneToOneField   User (role=delivery)
+vehicle_type            CharField       bicycle / motorcycle / car / van
+license_number          CharField
+license_front_image     ImageField
+license_back_image      ImageField
+province                CharField
+town                    CharField
+area                    CharField
+live_verification_photo ImageField
+verification_status     CharField       pending / approved / rejected
+is_approved             BooleanField
+current_location_lat    DecimalField    Last known GPS position
+current_location_lng    DecimalField
+
+--------------------------------------------------------------------------------
+Model: VerificationRequest
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+user                ForeignKey      User
+verification_type   CharField       seller_tier1 / seller_tier2 / delivery
+status              CharField       pending / approved / rejected
+rejection_reason    TextField
+submitted_at        DateTimeField
+reviewed_at         DateTimeField   Nullable
+reviewed_by         ForeignKey      User (admin who reviewed). Nullable
+
+--------------------------------------------------------------------------------
+Model: PhoneOTP
+--------------------------------------------------------------------------------
+FIELD           TYPE            NOTES
+phone_number    CharField
+otp_code        CharField       6-digit code
+is_verified     BooleanField    True once used successfully
+created_at      DateTimeField
+attempts        IntegerField    Failed attempt counter
+
+Methods:
+  generate_otp()   Creates new code. Rate-limited: max 5 per phone per hour.
+  is_expired()     Returns True if created_at + 10 minutes < now
+
+--------------------------------------------------------------------------------
+Model: ErrorLog
+--------------------------------------------------------------------------------
+FIELD           TYPE            NOTES
+reference_id    CharField       Unique. Shown to user for support tickets
+error_type      CharField       Category of error
+status_code     IntegerField
+message         TextField
+path            CharField       Request URL that caused the error
+traceback       TextField
+resolved        BooleanField    Admin can mark as resolved
+
+
+================================================================================
+APP: products
+================================================================================
+
+--------------------------------------------------------------------------------
+Model: Category
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+name        CharField       Unique
+slug        SlugField       URL-safe identifier
+icon_name   CharField       Icon identifier for Flutter UI
+parent      ForeignKey      Self (nullable) — supports category hierarchy
+
+--------------------------------------------------------------------------------
+Model: Product
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+name                CharField
+description         TextField
+price               DecimalField    ZMW
+category            ForeignKey      Category
+quality             CharField       new / like_new / good / fair / used
+seller              ForeignKey      User (role=seller)
+stock_quantity      IntegerField
+image               ImageField      Legacy single-image field
+image_url           URLField        Legacy URL field
+is_available        BooleanField    Seller can toggle visibility
+views_count         IntegerField    Auto-incremented on product detail view
+purchases_count     IntegerField    Incremented when order item created
+
+Properties:
+  is_in_stock    True when stock_quantity > 0 and is_available
+
+--------------------------------------------------------------------------------
+Model: ProductImage  (gallery — up to 5 per product)
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+product     ForeignKey      Product
+image       ImageField
+image_url   URLField        Legacy
+sort_order  IntegerField    Display order (0 = primary)
+
+--------------------------------------------------------------------------------
+Model: ProductVariant
+--------------------------------------------------------------------------------
+FIELD           TYPE            NOTES
+product         ForeignKey      Product
+name            CharField       e.g. "Size", "Color"
+value           CharField       e.g. "XL", "Red"
+sku             CharField       Stock keeping unit
+stock_quantity  IntegerField
+is_active       BooleanField
+
+Constraints:
+  Unique on (product, name, value)
+  Unique on (product, sku)
+
+--------------------------------------------------------------------------------
+Model: UserInterest  (recommendation engine input)
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+user        ForeignKey      BuyerProfile
+category    ForeignKey      Category
+weight      FloatField      Higher = stronger interest
+
+--------------------------------------------------------------------------------
+Model: SearchHistory
+--------------------------------------------------------------------------------
+FIELD           TYPE            NOTES
+user            ForeignKey      User
+query           CharField       Search term entered
+timestamp       DateTimeField
+clicked_product ForeignKey      Product — nullable. Which result they tapped
+
+--------------------------------------------------------------------------------
+Model: ProductInteraction
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+user                ForeignKey      User
+product             ForeignKey      Product
+interaction_type    CharField       view / click / add_to_cart
+timestamp           DateTimeField
+
+--------------------------------------------------------------------------------
+Model: PromoBanner  (admin-created promotional carousels)
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+title       CharField
+subtitle    CharField
+cta_text    CharField       Button label
+bg_color    CharField       Hex color code
+icon_name   CharField       Flutter icon name
+image       ImageField
+action_type CharField       category / product / url / none
+action_value CharField      Category slug, product ID, or URL
+is_active   BooleanField
+priority    IntegerField    Lower = shown first
+starts_at   DateTimeField   Nullable — no date restriction if null
+ends_at     DateTimeField   Nullable
+
+
+================================================================================
+APP: orders
+================================================================================
+
+--------------------------------------------------------------------------------
+Model: Cart  (one per user)
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+user        OneToOneField   User
+created_at  DateTimeField
+updated_at  DateTimeField
+
+Properties:
+  total_price    Sum of all CartItem subtotals
+  total_items    Sum of all CartItem quantities
+
+--------------------------------------------------------------------------------
+Model: CartItem
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+cart        ForeignKey      Cart
+product     ForeignKey      Product
+variant     ForeignKey      ProductVariant — nullable
+quantity    IntegerField
+
+Constraint: Unique on (cart, product, variant)
+
+Property:
+  subtotal   product.price × quantity
+
+--------------------------------------------------------------------------------
+Model: Order
+--------------------------------------------------------------------------------
+FIELD                       TYPE            NOTES
+order_number                CharField       Unique. Auto-generated on save (e.g. PS-20240115-XXXX)
+buyer                       ForeignKey      User (role=buyer)
+seller                      ForeignKey      User (role=seller)
+total_price                 DecimalField    Sum of items (ZMW)
+delivery_fee                DecimalField    Quoted at checkout
+fulfillment_type            CharField       delivery / pickup
+status                      CharField       See status flow below
+delivery_address            TextField
+delivery_lat                DecimalField    GPS coordinates of delivery address
+delivery_lng                DecimalField
+special_instructions        TextField
+payment_method              ForeignKey      BuyerPaymentMethod — nullable
+payment_provider_snapshot   CharField       Snapshot of provider at order time
+payment_account_snapshot    CharField       Snapshot of phone number at order time
+
+Properties:
+  grand_total   total_price + delivery_fee
+
+ORDER STATUS FLOW:
+  pending
+    → payment_pending  (payment initiated but not yet confirmed)
+    → accepted         (payment confirmed by PawaPay webhook)
+    → preparing        (seller has started preparing)
+    → out_for_delivery (rider picked up, in transit)
+    → delivered        (QR dropoff confirmed)
+    → cancelled        (payment failed, timeout, or user/seller cancelled)
+
+--------------------------------------------------------------------------------
+Model: OrderItem
+--------------------------------------------------------------------------------
+FIELD           TYPE            NOTES
+order           ForeignKey      Order
+product         ForeignKey      Product
+variant         ForeignKey      ProductVariant — nullable
+variant_label   CharField       Snapshot string e.g. "Size: XL"
+quantity        IntegerField
+price           DecimalField    Snapshot of price at order time
+
+Property:
+  subtotal   price × quantity
+
+--------------------------------------------------------------------------------
+Model: RefundRequest  (one per order)
+--------------------------------------------------------------------------------
+FIELD           TYPE            NOTES
+order           OneToOneField   Order
+requested_by    ForeignKey      User (buyer)
+reason          TextField
+status          CharField       See refund status flow below
+seller_note     TextField       Seller's response
+admin_note      TextField       Admin's final decision
+
+REFUND STATUS FLOW:
+  pending_seller
+    → approved_by_seller   / rejected_by_seller
+    → escalated            (buyer escalates rejected refund to admin)
+    → approved_by_admin    / rejected_by_admin
+    → refunded             (money returned to buyer's mobile money)
+
+--------------------------------------------------------------------------------
+Model: OrderRating  (multi-party ratings)
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+order       ForeignKey      Order
+author      ForeignKey      User (who is giving the rating)
+target_role CharField       buyer / seller / delivery
+score       IntegerField    1–5
+comment     TextField       Optional
+
+Constraint: Unique on (order, author, target_role)
+
+Rating directions:
+  Buyer rates → rider experience (target_role=delivery)
+  Buyer rates → overall order experience (target_role=seller)
+  Rider rates → seller readiness (target_role=seller)
+
+
+================================================================================
+APP: delivery
+================================================================================
+
+--------------------------------------------------------------------------------
+Model: DeliveryPricingConfig  (singleton — only one row)
+--------------------------------------------------------------------------------
+FIELD                           TYPE            NOTES
+per_km_rate                     DecimalField    ZMW per km
+short_distance_threshold_km     DecimalField    Below this → flat rate applies
+short_distance_flat_rate        DecimalField    ZMW flat rate for short trips
+
+Logic:
+  if distance_km <= threshold → fee = short_distance_flat_rate
+  else                        → fee = per_km_rate × distance_km
+
+--------------------------------------------------------------------------------
+Model: DeliveryAssignment
+OneToOne → Order
+--------------------------------------------------------------------------------
+FIELD                       TYPE            NOTES
+order                       OneToOneField   Order
+delivery_person             ForeignKey      User (role=delivery)
+status                      CharField       See status flow below
+pickup_location             JSONField       {lat, lng, address}
+delivery_location           JSONField       {lat, lng, address}
+current_location            JSONField       Last known rider location
+assigned_at                 DateTimeField
+accepted_at                 DateTimeField   Nullable
+picked_up_at                DateTimeField   Nullable
+delivered_at                DateTimeField   Nullable
+estimated_distance          FloatField      km
+estimated_duration          IntegerField    minutes
+actual_distance             FloatField      Nullable
+route_coordinates           JSONField       GeoJSON LineString
+route_distance_m            FloatField      Metres from routing engine
+route_duration_s            IntegerField    Seconds from routing engine
+route_source                CharField       'osrm' / 'straight_line'
+route_confidence            FloatField      0.0 – 1.0
+initial_estimated_duration  IntegerField    ETA at assignment creation
+final_eta_error_minutes     FloatField      Actual vs estimated (post-delivery)
+
+ASSIGNMENT STATUS FLOW:
+  assigned → accepted → picked_up → in_transit → delivered / cancelled
+
+--------------------------------------------------------------------------------
+Model: DeliveryZone
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+name        CharField       e.g. "Lusaka Central"
+area        JSONField       GeoJSON polygon defining zone boundary
+is_active   BooleanField
+base_rate   DecimalField    ZMW
+per_km_rate DecimalField    ZMW per km within this zone
+
+Method:
+  contains_point(lat, lng)   Returns True if point is inside zone polygon
+
+--------------------------------------------------------------------------------
+Model: DeliveryTracking  (GPS breadcrumbs)
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+delivery_assignment ForeignKey      DeliveryAssignment
+latitude            DecimalField
+longitude           DecimalField
+timestamp           DateTimeField
+speed               FloatField      m/s — from device GPS
+accuracy            FloatField      metres
+
+Index: (delivery_assignment, timestamp)
+
+--------------------------------------------------------------------------------
+Model: DeliveryTelemetrySegment  (derived from tracking data)
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+delivery_assignment ForeignKey      DeliveryAssignment
+from_tracking       ForeignKey      DeliveryTracking (start of segment)
+to_tracking         ForeignKey      DeliveryTracking (end of segment)
+phase               CharField       accepted / in_transit / etc
+started_at          DateTimeField
+ended_at            DateTimeField
+duration_s          FloatField      Seconds for this segment
+distance_m          FloatField      Metres covered
+derived_speed_kmh   FloatField      Calculated from distance/duration
+weekday             IntegerField    0=Monday … 6=Sunday
+hour_of_day         IntegerField    0–23
+
+Purpose: Used to train and update DeliverySpeedProfile.
+
+--------------------------------------------------------------------------------
+Model: DeliverySpeedProfile  (ML speed profiles for ETA)
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+phase               CharField       accepted / in_transit
+weekday             IntegerField    0–6
+hour_of_day         IntegerField    0–23
+samples             IntegerField    Number of data points
+total_distance_m    FloatField
+total_duration_s    FloatField
+avg_speed_kmh       FloatField      = total_distance_m / total_duration_s × 3.6
+
+Constraint: Unique on (phase, weekday, hour_of_day)
+
+Updated continuously after every completed delivery segment.
+Minimum samples needed before profile is trusted:
+  DELIVERY_SPEED_PROFILE_MIN_SAMPLES (default 6)
+
+--------------------------------------------------------------------------------
+Model: DeliveryOffer  (system notifies riders of available orders)
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+order               ForeignKey      Order
+rider               ForeignKey      User (role=delivery)
+status              CharField       pending / accepted / expired / taken / declined
+rider_distance_km   FloatField      How far rider is from pickup point
+expires_at          DateTimeField   Offer auto-expires if not accepted
+
+Property:
+  is_expired   True when now > expires_at
+
+--------------------------------------------------------------------------------
+Model: DeliveryHandoffToken  (QR verification at pickup and dropoff)
+--------------------------------------------------------------------------------
+FIELD       TYPE            NOTES
+order       ForeignKey      Order
+assignment  ForeignKey      DeliveryAssignment
+step        CharField       pickup / dropoff
+token       CharField       6-character hex string
+expires_at  DateTimeField   Typically 10 minutes after generation
+status      CharField       active / used / expired
+created_by  ForeignKey      User
+
+Method:
+  generate_token()   Returns secrets.token_hex(3) — 6 hex chars
+
+
+================================================================================
+APP: payments
+================================================================================
+
+--------------------------------------------------------------------------------
+Model: Transaction
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+transaction_id      UUIDField       Primary key. UUID4 generated on creation
+order               ForeignKey      Order
+transaction_type    CharField       deposit / payout / refund
+amount              DecimalField    ZMW
+currency            CharField       Always 'ZMW'
+provider            CharField       MTN_MOMO_ZMB / AIRTEL_OAPI_ZMB / ZAMTEL_MONEY_ZMB
+payer_number        CharField       Phone number that made the payment
+recipient           ForeignKey      User — nullable (for payouts and refunds)
+recipient_role      CharField       seller / delivery / buyer
+payout_stage        CharField       See stages below
+trigger_event       CharField       manual / pickup_qr / dropoff_qr / order_cancelled
+payout_method       CharField       manual / gateway
+failure_message     TextField       PawaPay error message on failure
+status              CharField       pending / accepted / completed / failed / duplicate_ignored
+
+PAYOUT STAGE VALUES:
+  na                      Not a payout (deposit or refund)
+  pickup_pending_scan     Waiting for pickup QR scan
+  dropoff_pending_scan    Waiting for dropoff QR scan
+  ready_for_payout        All conditions met; payout queued
+  payout_sent             Sent to PawaPay payout API or manual
+  payout_paid             Confirmed received by recipient
+  payout_failed           PawaPay returned error on payout
+
+No wallet balance is tracked — this is a pure transaction ledger.
+
+
+================================================================================
+APP: reviews
+================================================================================
+
+--------------------------------------------------------------------------------
+Model: ProductReview
+--------------------------------------------------------------------------------
+FIELD                   TYPE            NOTES
+product                 ForeignKey      Product
+author                  ForeignKey      User (buyer)
+rating                  IntegerField    1–5
+comment                 TextField
+is_verified_purchase    BooleanField    True if author has a delivered order for this product
+
+Constraint: Unique on (product, author) — one review per buyer per product
+
+Indexes: product, author, is_verified_purchase
+
+
+================================================================================
+APP: notifications
+================================================================================
+
+--------------------------------------------------------------------------------
+Model: Notification  (per-user in-app notification)
+--------------------------------------------------------------------------------
+FIELD               TYPE            NOTES
+recipient           ForeignKey      User
+notification_type   CharField       See types below
+title               CharField
+message             TextField
+data                JSONField       Extra payload (e.g. order_id, product_id)
+is_read             BooleanField
+created_at          DateTimeField
+
+NOTIFICATION TYPES:
+  order_placed          order_accepted         payment_completed
+  delivery_assigned     delivery_picked_up     delivery_completed
+  verification_approved verification_rejected  refund_requested
+  refund_approved       refund_rejected        general
+
+Indexes: (recipient, created_at), (recipient, is_read)
+
+--------------------------------------------------------------------------------
+Model: Announcement  (admin broadcast)
+--------------------------------------------------------------------------------
+FIELD             TYPE            NOTES
+title             CharField
+message           TextField
+target_audience   CharField       all / buyers / sellers / delivery
+created_by        ForeignKey      User (admin)
+created_at        DateTimeField
+is_sent           BooleanField
+sent_count        IntegerField    Number of FCM tokens targeted
+
+================================================================================

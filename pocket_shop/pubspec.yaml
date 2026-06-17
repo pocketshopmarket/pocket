@@ -36,8 +36,8 @@ dependencies:
   dio: ^5.4.3+1
   flutter_riverpod: ^2.5.1
   go_router: ^13.2.2
-  shared_preferences: ^2.2.2  # Using instead of flutter_secure_storage for Windows build
-  # flutter_secure_storage: ^9.0.0  # Temporarily disabled for Windows build
+  flutter_secure_storage: ^9.0.0  # Token storage: Keychain (iOS), Keystore (Android), Credential Manager (Windows)
+  shared_preferences: ^2.2.2      # Non-sensitive prefs (cart, etc.)
   geolocator: ^10.1.0
   flutter_map: ^7.0.2
   latlong2: ^0.9.1

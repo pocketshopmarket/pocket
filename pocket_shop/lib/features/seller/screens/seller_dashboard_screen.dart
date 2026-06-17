@@ -27,6 +27,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
   List<Map<String, dynamic>> _topProducts = [];
   List<Map<String, dynamic>> _payouts = [];
   int _days = 7;
+  bool _trendsExpanded = false;
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
     setState(() {
       _loading = true;
       _statsError = null;
+      _trendsExpanded = false;
     });
     await ref.read(authProvider.notifier).refreshUser();
     if (!mounted) return;
@@ -278,7 +280,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '7-day trends',
+                        '$_days-day trends',
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
                               fontWeight: FontWeight.w800,
@@ -288,7 +290,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  ..._trends.map(
+                  ...(_trendsExpanded ? _trends : _trends.take(5).toList()).map(
                     (row) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Container(
@@ -315,9 +317,7 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                             ),
                             Text(
                               '${row['orders_count'] ?? 0} orders',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -332,6 +332,16 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                       ),
                     ),
                   ),
+                  if (_trends.length > 5)
+                    TextButton(
+                      onPressed: () => setState(() => _trendsExpanded = !_trendsExpanded),
+                      child: Text(
+                        _trendsExpanded
+                            ? 'Show less'
+                            : 'Show all $_days days',
+                        style: const TextStyle(color: AppTheme.primaryCyan),
+                      ),
+                    ),
                   const SizedBox(height: 18),
                 ],
                 if (_topProducts.isNotEmpty) ...[
@@ -375,7 +385,23 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Text('${row['units_sold'] ?? 0} sold'),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${row['units_sold'] ?? 0} sold',
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                ),
+                                Text(
+                                  'ZMW ${row['revenue'] ?? '0'}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.darkCyan,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -484,6 +510,8 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
     final pending = _metrics['pending_count']?.toString() ?? '0';
     final revenue = _metrics['revenue']?.toString() ?? '0';
     final lowStock = _metrics['low_stock_products']?.toString() ?? '0';
+    final payoutTotal = _metrics['seller_payout_total']?.toString() ?? '0';
+    final payoutPending = _metrics['seller_pending_payouts']?.toString() ?? '0';
 
     return Column(
       children: [
@@ -526,6 +554,28 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                 value: lowStock,
                 icon: Icons.inventory_2_outlined,
                 color: AppTheme.primaryCyan,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _MetricCard(
+                label: 'Total paid out',
+                value: 'ZMW $payoutTotal',
+                icon: Icons.check_circle_outline_rounded,
+                color: AppTheme.success,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _MetricCard(
+                label: 'Pending payouts',
+                value: 'ZMW $payoutPending',
+                icon: Icons.hourglass_empty_rounded,
+                color: AppTheme.warning,
               ),
             ),
           ],

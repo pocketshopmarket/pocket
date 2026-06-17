@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/constants/app_constants.dart';
 
 class ApiService {
@@ -9,11 +10,16 @@ class ApiService {
   ApiService._internal();
 
   late Dio _dio;
-  SharedPreferences? _storage;
+
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
+  // Emits when the session is force-cleared (refresh token expired / revoked).
+  static final _sessionExpiredController = StreamController<void>.broadcast();
+  static Stream<void> get onSessionExpired => _sessionExpiredController.stream;
 
   Future<void> initialize() async {
-    _storage = await SharedPreferences.getInstance();
-    
     _dio = Dio(BaseOptions(
       baseUrl: AppConstants.baseUrl,
       connectTimeout: Duration(milliseconds: AppConstants.connectTimeout),
@@ -36,7 +42,7 @@ class ApiService {
           if (options.data is FormData) {
             options.contentType = null;
           }
-          final token = _storage?.getString(AppConstants.accessTokenKey);
+          final token = await _storage.read(key: AppConstants.accessTokenKey);
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
@@ -55,7 +61,8 @@ class ApiService {
 
           if (error.response?.statusCode == 401 && !isRefreshCall) {
             try {
-              final refreshToken = _storage?.getString(AppConstants.refreshTokenKey);
+              final refreshToken =
+                  await _storage.read(key: AppConstants.refreshTokenKey);
               if (refreshToken != null && refreshToken.isNotEmpty) {
                 final response = await _dio.post(
                   AppConstants.refreshEndpoint,
@@ -65,16 +72,18 @@ class ApiService {
                 final data = response.data;
                 final newAccess = data['access'] as String?;
                 if (newAccess == null) {
-                  await _clearTokens();
+                  await _clearTokens(expired: true);
                   handler.next(error);
                   return;
                 }
 
-                await _storage?.setString(AppConstants.accessTokenKey, newAccess);
+                await _storage.write(
+                    key: AppConstants.accessTokenKey, value: newAccess);
 
                 final newRefresh = data['refresh'] as String?;
                 if (newRefresh != null && newRefresh.isNotEmpty) {
-                  await _storage?.setString(AppConstants.refreshTokenKey, newRefresh);
+                  await _storage.write(
+                      key: AppConstants.refreshTokenKey, value: newRefresh);
                 }
 
                 final originalRequest = error.requestOptions;
@@ -85,12 +94,12 @@ class ApiService {
                 return;
               }
             } catch (_) {
-              await _clearTokens();
+              await _clearTokens(expired: true);
             }
           }
 
           if (isRefreshCall && error.response?.statusCode == 401) {
-            await _clearTokens();
+            await _clearTokens(expired: true);
           }
 
           handler.next(error);
@@ -101,20 +110,21 @@ class ApiService {
 
   Dio get dio => _dio;
 
-  // Auth methods
   Future<void> saveTokens(String accessToken, String refreshToken) async {
-    await _storage?.setString(AppConstants.accessTokenKey, accessToken);
-    await _storage?.setString(AppConstants.refreshTokenKey, refreshToken);
+    await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
+    await _storage.write(
+        key: AppConstants.refreshTokenKey, value: refreshToken);
   }
 
-  Future<void> _clearTokens() async {
-    await _storage?.remove(AppConstants.accessTokenKey);
-    await _storage?.remove(AppConstants.refreshTokenKey);
-    await _storage?.remove(AppConstants.userKey);
+  Future<void> _clearTokens({bool expired = false}) async {
+    await _storage.delete(key: AppConstants.accessTokenKey);
+    await _storage.delete(key: AppConstants.refreshTokenKey);
+    await _storage.delete(key: AppConstants.userKey);
+    if (expired) _sessionExpiredController.add(null);
   }
 
   Future<String?> getAccessToken() async {
-    return _storage?.getString(AppConstants.accessTokenKey);
+    return _storage.read(key: AppConstants.accessTokenKey);
   }
 
   Future<bool> hasValidToken() async {
@@ -122,7 +132,6 @@ class ApiService {
     return token != null && token.isNotEmpty;
   }
 
-  // Generic API methods
   Future<Response<T>> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,

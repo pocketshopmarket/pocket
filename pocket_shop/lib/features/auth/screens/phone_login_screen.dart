@@ -27,6 +27,24 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
   bool _bannerIsError = true;
 
   @override
+  void initState() {
+    super.initState();
+    // Show a banner if we were redirected here after a forced sign-out
+    // (session expiry or password change). The message is a one-shot flag.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final msg = ref.read(authProvider).signOutMessage;
+      if (msg != null) {
+        setState(() {
+          _bannerMessage = msg;
+          _bannerIsError = true;
+        });
+        ref.read(authProvider.notifier).clearSignOutMessage();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _phoneController.dispose();
     _passwordController.dispose();

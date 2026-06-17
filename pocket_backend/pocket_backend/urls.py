@@ -20,6 +20,8 @@ from django.http import JsonResponse
 from django.urls import path, include, re_path
 from django.views.static import serve
 from rest_framework_simplejwt.views import TokenRefreshView
+from payments.urls import staff_urlpatterns
+from portal.views import PublicSettingsView
 
 
 def _root(_request):
@@ -60,6 +62,8 @@ urlpatterns = [
     path('api/reviews/', include('reviews.urls')),
     path('api/payments/', include('payments.urls')),
     path('api/notifications/', include('notifications.urls')),
+    path('api/staff/', include(staff_urlpatterns)),
+    path('api/settings/', PublicSettingsView.as_view(), name='public-settings'),
 ]
 
 urlpatterns += [

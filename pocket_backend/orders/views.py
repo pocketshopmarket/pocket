@@ -268,6 +268,9 @@ class CreateOrderView(APIView):
                     fulfillment_type=fulfillment_type,
                     delivery_address=delivery_address,
                     special_instructions=special_instructions,
+                    pickup_time_slot=ps_meta.get('pickup_time_slot', ''),
+                    quoted_distance_km=ps_meta.get('quoted_distance_km'),
+                    quoted_eta_minutes=ps_meta.get('quoted_eta_minutes'),
                     payment_method=None,
                     payment_provider_snapshot='payment_disabled',
                     payment_account_snapshot='payment_disabled',
@@ -697,7 +700,7 @@ class RefundRequestListView(APIView):
             qs = RefundRequest.objects.filter(requested_by=user)
         elif user.role == 'seller':
             qs = RefundRequest.objects.filter(order__seller=user)
-        elif user.role == 'admin' or user.is_staff:
+        elif user.role in ('admin', 'staff') or user.is_staff:
             qs = RefundRequest.objects.all()
         else:
             return Response(status=status.HTTP_403_FORBIDDEN)
@@ -733,7 +736,7 @@ class RefundRequestRespondView(APIView):
             if action == 'approve':
                 cancel_order_with_refund(refund.order, reason='Seller approved refund request')
 
-        elif user.role == 'admin' or user.is_staff:
+        elif user.role in ('admin', 'staff') or user.is_staff:
             if refund.status not in ('escalated', 'rejected_by_seller'):
                 return Response(
                     {'error': 'Not available for admin action at this stage.'},
@@ -802,7 +805,7 @@ class CancellationRequestListView(APIView):
             qs = CancellationRequest.objects.filter(requested_by=user)
         elif user.role == 'seller':
             qs = CancellationRequest.objects.filter(order__seller=user)
-        elif user.role == 'admin' or user.is_staff:
+        elif user.role in ('admin', 'staff') or user.is_staff:
             qs = CancellationRequest.objects.all()
         else:
             return Response(status=status.HTTP_403_FORBIDDEN)
@@ -838,7 +841,7 @@ class CancellationRequestRespondView(APIView):
             if action == 'approve':
                 cancel_order_with_refund(req.order, reason='Seller approved cancellation request')
 
-        elif user.role == 'admin' or user.is_staff:
+        elif user.role in ('admin', 'staff') or user.is_staff:
             if req.status not in ('escalated', 'rejected_by_seller'):
                 return Response(
                     {'error': 'Not available for admin action at this stage.'},

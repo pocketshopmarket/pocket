@@ -28,6 +28,7 @@ class PocketShopApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(authInitializationProvider);
+    ref.watch(sessionExpiredWatcherProvider);
     final router = ref.watch(goRouterProvider);
 
     return ScreenUtilInit(

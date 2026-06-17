@@ -52,36 +52,9 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
-# ─── Plugin build rules ──────────────────────────────────────────────────
-# NOTE: We do NOT include flutter/generated_plugins.cmake because it
-# contains firebase_core, whose C++ SDK does not support Windows desktop.
-# Instead we define the plugin list here minus firebase_core.
-# If you add a new Flutter plugin with native Windows code, add it below.
-set(FLUTTER_PLUGIN_LIST
-  file_selector_windows
-  geolocator_windows
-  objectbox_flutter_libs
-  url_launcher_windows
-)
-
-set(FLUTTER_FFI_PLUGIN_LIST
-  # jni removed — Java Native Interface is Android-only
-)
-
-set(PLUGIN_BUNDLED_LIBRARIES)
-
-foreach(plugin ${FLUTTER_PLUGIN_LIST})
-  add_subdirectory(flutter/ephemeral/.plugin_symlinks/${plugin}/windows plugins/${plugin})
-  target_link_libraries(${BINARY_NAME} PRIVATE ${plugin}_plugin)
-  list(APPEND PLUGIN_BUNDLED_LIBRARIES $<TARGET_FILE:${plugin}_plugin>)
-  list(APPEND PLUGIN_BUNDLED_LIBRARIES ${${plugin}_bundled_libraries})
-endforeach(plugin)
-
-foreach(ffi_plugin ${FLUTTER_FFI_PLUGIN_LIST})
-  add_subdirectory(flutter/ephemeral/.plugin_symlinks/${ffi_plugin}/windows plugins/${ffi_plugin})
-  list(APPEND PLUGIN_BUNDLED_LIBRARIES ${${ffi_plugin}_bundled_libraries})
-endforeach(ffi_plugin)
-
+# Generated plugin build rules, which manage building plugins and adding
+# them to the application.
+include(flutter/generated_plugins.cmake)
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can

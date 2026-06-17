@@ -15,6 +15,9 @@ class ProductState {
   final String selectedCategory;
   final bool inStockOnly;
   final String sortBy;
+  final double? minPrice;
+  final double? maxPrice;
+  final String? quality;
   final String? error;
 
   ProductState({
@@ -29,6 +32,9 @@ class ProductState {
     this.selectedCategory = 'all',
     this.inStockOnly = false,
     this.sortBy = 'default',
+    this.minPrice,
+    this.maxPrice,
+    this.quality,
     this.error,
   });
 
@@ -44,7 +50,13 @@ class ProductState {
     String? selectedCategory,
     bool? inStockOnly,
     String? sortBy,
+    double? minPrice,
+    double? maxPrice,
+    String? quality,
     String? error,
+    bool clearMinPrice = false,
+    bool clearMaxPrice = false,
+    bool clearQuality = false,
   }) {
     return ProductState(
       products: products ?? this.products,
@@ -58,6 +70,9 @@ class ProductState {
       selectedCategory: selectedCategory ?? this.selectedCategory,
       inStockOnly: inStockOnly ?? this.inStockOnly,
       sortBy: sortBy ?? this.sortBy,
+      minPrice: clearMinPrice ? null : (minPrice ?? this.minPrice),
+      maxPrice: clearMaxPrice ? null : (maxPrice ?? this.maxPrice),
+      quality: clearQuality ? null : (quality ?? this.quality),
       error: error,
     );
   }
@@ -78,6 +93,9 @@ class ProductNotifier extends StateNotifier<ProductState> {
       category: state.selectedCategory,
       inStockOnly: state.inStockOnly,
       sortBy: state.sortBy,
+      minPrice: state.minPrice,
+      maxPrice: state.maxPrice,
+      quality: state.quality,
     );
   }
 
@@ -94,12 +112,24 @@ class ProductNotifier extends StateNotifier<ProductState> {
     String? category,
     bool? inStockOnly,
     String? sortBy,
+    double? minPrice,
+    double? maxPrice,
+    String? quality,
+    bool clearMinPrice = false,
+    bool clearMaxPrice = false,
+    bool clearQuality = false,
   }) async {
     state = state.copyWith(
       searchQuery: searchQuery ?? state.searchQuery,
       selectedCategory: category ?? state.selectedCategory,
       inStockOnly: inStockOnly ?? state.inStockOnly,
       sortBy: sortBy ?? state.sortBy,
+      minPrice: minPrice,
+      maxPrice: maxPrice,
+      quality: quality,
+      clearMinPrice: clearMinPrice,
+      clearMaxPrice: clearMaxPrice,
+      clearQuality: clearQuality,
     );
     await fetchProducts(reset: true);
     await fetchTrendingProducts();

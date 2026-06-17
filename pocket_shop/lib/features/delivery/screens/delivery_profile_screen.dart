@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../services/api_service.dart';
 import '../../../widgets/qr_identity_sheet.dart';
 
 class DeliveryProfileScreen extends ConsumerStatefulWidget {
@@ -31,6 +33,9 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
   String? _licenseBackPath;
   String? _livePhotoPath;
   String? _profilePhotoPath;
+  bool _resubmitRequested = false;
+  bool _isAvailable = true;
+  bool _updatingAvailability = false;
 
   @override
   void initState() {
@@ -62,10 +67,12 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
         _provinceController.text = profile['province']?.toString() ?? '';
         _townController.text = profile['town']?.toString() ?? '';
         _areaController.text = profile['area']?.toString() ?? '';
+        _isAvailable = profile['is_available'] == true;
       }
       setState(() {
         _payload = data;
         _loading = false;
+        _resubmitRequested = false;
       });
     } catch (e) {
       if (!mounted) return;
@@ -229,12 +236,7 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
             icon: Icons.verified_outlined,
             emphasized: profile['is_approved'] == true,
           ),
-          _tile(
-            'Available for jobs',
-            profile['is_available'] == true ? 'Yes' : 'No',
-            icon: Icons.bolt_outlined,
-            emphasized: profile['is_available'] == true,
-          ),
+          _availabilityTile(),
         ],
         const SizedBox(height: 14),
         _verificationPanel(profile),
@@ -395,6 +397,34 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
               AppTheme.success,
               Icons.check_circle_outline_rounded,
             ),
+            const SizedBox(height: 8),
+            if (_resubmitRequested) ...[
+              _statusBox(
+                'Submitting new details will reset your status to pending review until staff approve again.',
+                AppTheme.warning,
+                Icons.info_outline_rounded,
+              ),
+              const SizedBox(height: 10),
+              ..._verificationFormFields(),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: _submitting ? null : _submitVerification,
+                child: Text(_submitting ? 'Submitting...' : 'Submit update'),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed: () => setState(() => _resubmitRequested = false),
+                child: const Text('Cancel'),
+              ),
+            ] else
+              TextButton.icon(
+                onPressed: () => setState(() => _resubmitRequested = true),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Request profile update'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.textSecondary,
+                ),
+              ),
           ] else if (rawStatus == 'submitted') ...[
             const SizedBox(height: 10),
             _statusBox(
@@ -408,65 +438,7 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
               _statusBox(reason, AppTheme.error, Icons.info_outline_rounded),
             ],
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _vehicleType,
-              items: const [
-                DropdownMenuItem(value: 'bicycle', child: Text('Bicycle')),
-                DropdownMenuItem(value: 'motorcycle', child: Text('Motorcycle')),
-                DropdownMenuItem(value: 'car', child: Text('Car')),
-                DropdownMenuItem(value: 'van', child: Text('Van')),
-              ],
-              onChanged: (v) => setState(() => _vehicleType = v ?? 'motorcycle'),
-              decoration: const InputDecoration(labelText: 'Vehicle type'),
-            ),
-            const SizedBox(height: 10),
-            _textField(_licenseController, 'Driver license number'),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _fileButton(
-                    label: _fileLabel(_licenseFrontPath, 'License front'),
-                    onPressed: () async {
-                      final path = await _pickImage();
-                      if (path != null) setState(() => _licenseFrontPath = path);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _fileButton(
-                    label: _fileLabel(_licenseBackPath, 'License back'),
-                    onPressed: () async {
-                      final path = await _pickImage();
-                      if (path != null) setState(() => _licenseBackPath = path);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _textField(_provinceController, 'Province'),
-            const SizedBox(height: 10),
-            _textField(_townController, 'Town / city'),
-            const SizedBox(height: 10),
-            _textField(_areaController, 'Area / compound'),
-            const SizedBox(height: 10),
-            _fileButton(
-              label: _fileLabel(_livePhotoPath, 'Live verification photo'),
-              onPressed: () async {
-                final path = await _captureLivePhoto();
-                if (path != null) setState(() => _livePhotoPath = path);
-              },
-            ),
-            const SizedBox(height: 10),
-            _fileButton(
-              label: _fileLabel(_profilePhotoPath, 'Profile photo (optional)'),
-              onPressed: () async {
-                final path = await _pickImage();
-                if (path != null) setState(() => _profilePhotoPath = path);
-              },
-            ),
+            ..._verificationFormFields(),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _submitting ? null : _submitVerification,
@@ -476,6 +448,142 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _verificationFormFields() {
+    return [
+      DropdownButtonFormField<String>(
+        value: _vehicleType,
+        items: const [
+          DropdownMenuItem(value: 'bicycle', child: Text('Bicycle')),
+          DropdownMenuItem(value: 'motorcycle', child: Text('Motorcycle')),
+          DropdownMenuItem(value: 'car', child: Text('Car')),
+          DropdownMenuItem(value: 'van', child: Text('Van')),
+        ],
+        onChanged: (v) => setState(() => _vehicleType = v ?? 'motorcycle'),
+        decoration: const InputDecoration(labelText: 'Vehicle type'),
+      ),
+      const SizedBox(height: 10),
+      _textField(_licenseController, 'Driver license number'),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: _fileButton(
+              label: _fileLabel(_licenseFrontPath, 'License front'),
+              onPressed: () async {
+                final path = await _pickImage();
+                if (path != null) setState(() => _licenseFrontPath = path);
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _fileButton(
+              label: _fileLabel(_licenseBackPath, 'License back'),
+              onPressed: () async {
+                final path = await _pickImage();
+                if (path != null) setState(() => _licenseBackPath = path);
+              },
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      _textField(_provinceController, 'Province'),
+      const SizedBox(height: 10),
+      _textField(_townController, 'Town / city'),
+      const SizedBox(height: 10),
+      _textField(_areaController, 'Area / compound'),
+      const SizedBox(height: 10),
+      _fileButton(
+        label: _fileLabel(_livePhotoPath, 'Live verification photo'),
+        onPressed: () async {
+          final path = await _captureLivePhoto();
+          if (path != null) setState(() => _livePhotoPath = path);
+        },
+      ),
+      const SizedBox(height: 10),
+      _fileButton(
+        label: _fileLabel(_profilePhotoPath, 'Profile photo (optional)'),
+        onPressed: () async {
+          final path = await _pickImage();
+          if (path != null) setState(() => _profilePhotoPath = path);
+        },
+      ),
+    ];
+  }
+
+  Widget _availabilityTile() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.divider),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.bolt_outlined, size: 18, color: AppTheme.primaryCyan),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Available for jobs',
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+            ),
+            if (_updatingAvailability)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primaryCyan,
+                ),
+              )
+            else
+              Switch.adaptive(
+                value: _isAvailable,
+                activeThumbColor: AppTheme.primaryCyan,
+                onChanged: _updateAvailability,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateAvailability(bool value) async {
+    setState(() {
+      _isAvailable = value;
+      _updatingAvailability = true;
+    });
+    try {
+      await ApiService().put(
+        AppConstants.profileEndpoint,
+        data: {'is_available': value},
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isAvailable = !value);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update availability. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _updatingAvailability = false);
+    }
   }
 
   Widget _textField(TextEditingController controller, String label) {

@@ -29,6 +29,11 @@ import '../features/delivery/screens/delivery_offers_screen.dart';
 import '../features/delivery/screens/delivery_profile_screen.dart';
 import '../features/delivery/screens/earnings_screen.dart';
 import '../features/admin/screens/admin_dashboard_screen.dart';
+import '../features/staff/screens/staff_home_screen.dart';
+import '../features/staff/screens/staff_main_screen.dart';
+import '../features/staff/screens/staff_payouts_screen.dart';
+import '../features/staff/screens/staff_refunds_screen.dart';
+import '../features/staff/screens/staff_verifications_screen.dart';
 import '../features/seller/screens/add_product_screen.dart';
 import '../features/seller/screens/edit_product_screen.dart';
 import '../features/seller/screens/seller_dashboard_screen.dart';
@@ -71,6 +76,11 @@ final _deliveryBranchActive = GlobalKey<NavigatorState>(debugLabel: 'delivery/ac
 final _deliveryBranchEarnings = GlobalKey<NavigatorState>(debugLabel: 'delivery/earnings');
 final _deliveryBranchAccount = GlobalKey<NavigatorState>(debugLabel: 'delivery/account');
 
+final _staffBranchHome = GlobalKey<NavigatorState>(debugLabel: 'staff/home');
+final _staffBranchPayouts = GlobalKey<NavigatorState>(debugLabel: 'staff/payouts');
+final _staffBranchVerify = GlobalKey<NavigatorState>(debugLabel: 'staff/verify');
+final _staffBranchRefunds = GlobalKey<NavigatorState>(debugLabel: 'staff/refunds');
+
 final routerRefreshProvider = Provider<RouterRefresh>((ref) {
   final refresh = RouterRefresh();
   ref.listen<AuthState>(authProvider, (prev, next) {
@@ -110,8 +120,10 @@ String? _authRedirect(Ref ref, GoRouterState state) {
           return '/seller/dashboard';
         case AppConstants.deliveryRole:
           return '/delivery/home';
-        case 'admin':
+        case AppConstants.adminRole:
           return '/admin';
+        case AppConstants.staffRole:
+          return '/staff/home';
         default:
           return '/buyer/home';
       }
@@ -133,8 +145,10 @@ String? _authRedirect(Ref ref, GoRouterState state) {
           return '/seller/dashboard';
         case AppConstants.deliveryRole:
           return '/delivery/home';
-        case 'admin':
+        case AppConstants.adminRole:
           return '/admin';
+        case AppConstants.staffRole:
+          return '/staff/home';
         default:
           return '/buyer/home';
       }
@@ -151,8 +165,10 @@ String? _authRedirect(Ref ref, GoRouterState state) {
           return '/seller/dashboard';
         case AppConstants.deliveryRole:
           return '/delivery/home';
-        case 'admin':
+        case AppConstants.adminRole:
           return '/admin';
+        case AppConstants.staffRole:
+          return '/staff/home';
         default:
           return '/buyer/home';
       }
@@ -255,6 +271,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/delivery',
         redirect: (context, state) => '/delivery/home',
+      ),
+      GoRoute(
+        path: '/staff',
+        redirect: (context, state) => '/staff/home',
       ),
 
       // ── Delivery offers — standalone, renders above the shell ──────────
@@ -505,6 +525,50 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/delivery/payout',
                 builder: (context, state) => const PayoutScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // ── Staff shell ─────────────────────────────────────────────────────
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            StaffMainScreen(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            navigatorKey: _staffBranchHome,
+            routes: [
+              GoRoute(
+                path: '/staff/home',
+                builder: (context, state) => const StaffHomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _staffBranchPayouts,
+            routes: [
+              GoRoute(
+                path: '/staff/payouts',
+                builder: (context, state) => const StaffPayoutsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _staffBranchVerify,
+            routes: [
+              GoRoute(
+                path: '/staff/verifications',
+                builder: (context, state) => const StaffVerificationsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _staffBranchRefunds,
+            routes: [
+              GoRoute(
+                path: '/staff/refunds',
+                builder: (context, state) => const StaffRefundsScreen(),
               ),
             ],
           ),

@@ -368,7 +368,7 @@ class _CancellationCard extends StatelessWidget {
             ),
           ],
           // Admin actions
-          if ((role == 'admin') &&
+          if ((role == 'admin' || role == 'staff') &&
               (status == 'escalated' ||
                   status == 'rejected_by_seller')) ...[
             const SizedBox(height: 12),

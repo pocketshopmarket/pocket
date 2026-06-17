@@ -1,3 +1,6 @@
+import random
+import string
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
@@ -11,6 +14,11 @@ from .models import (
 )
 
 
+def _generate_staff_password(length=6):
+    chars = string.ascii_letters + string.digits
+    return ''.join(random.choices(chars, k=length))
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = ['full_name', 'phone_number', 'email', 'role', 'gender', 'is_verified', 'is_phone_verified', 'date_joined', 'is_active']
@@ -18,20 +26,38 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ['full_name', 'phone_number', 'email']
     ordering = ['-date_joined']
     readonly_fields = ['date_joined', 'last_login']
-    
+
     fieldsets = (
         (None, {'fields': ('phone_number', 'password')}),
         ('Personal info', {'fields': ('full_name', 'gender', 'date_of_birth', 'email')}),
         ('Permissions', {'fields': ('role', 'is_verified', 'is_phone_verified', 'is_active', 'is_staff', 'is_superuser')}),
         ('Important dates', {'fields': ('date_joined', 'last_login')}),
     )
-    
+
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
             'fields': ('phone_number', 'full_name', 'gender', 'role'),
         }),
     )
+
+    def save_model(self, request, obj, form, change):
+        if not change and obj.role == 'staff':
+            raw = _generate_staff_password()
+            obj.set_password(raw)
+            request._staff_generated_password = raw
+        super().save_model(request, obj, form, change)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        response = super().response_add(request, obj, post_url_continue)
+        pwd = getattr(request, '_staff_generated_password', None)
+        if pwd:
+            self.message_user(
+                request,
+                f'Staff account created. Generated password: {pwd} — copy this now, it cannot be recovered.',
+                level='warning',
+            )
+        return response
 
 
 @admin.register(BuyerProfile)

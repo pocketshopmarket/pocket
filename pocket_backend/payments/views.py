@@ -13,12 +13,14 @@ from rest_framework.views import APIView
 
 from .models import Transaction
 from .services.pawapay import PawaPayService
+from .staff_views import notify_staff_new_withdrawal
 from accounts.models import BuyerPaymentMethod
 from accounts.phone_utils import normalize_zambia_phone_to_e164
 from notifications.signals import (
     create_payment_notification,
     create_payout_completed_notification,
 )
+from delivery.models import DeliveryAssignment
 from orders.models import Order
 from orders.services import cancel_order_with_refund
 
@@ -564,20 +566,20 @@ class RequestPayoutView(APIView):
             or Decimal('0.00')
         )
 
-        # Already withdrawn via manual payout requests
-        total_withdrawn = (
+        # All completed payouts — covers both staff-direct (pickup_qr/dropoff_qr)
+        # and manual withdrawal claims so neither path causes a double-pay.
+        total_paid_out = (
             Transaction.objects.filter(
                 transaction_type='payout',
                 recipient=request.user,
                 recipient_role=role_key,
-                trigger_event='manual',
                 status='completed',
                 payout_stage='payout_paid',
             ).aggregate(total=Sum('amount'))['total']
             or Decimal('0.00')
         )
 
-        # Pending manual withdrawal requests
+        # Pending manual withdrawal requests (submitted but not yet paid)
         pending_withdrawals = (
             Transaction.objects.filter(
                 transaction_type='payout',
@@ -589,12 +591,12 @@ class RequestPayoutView(APIView):
             or Decimal('0.00')
         )
 
-        available = total_earned - total_withdrawn - pending_withdrawals
+        available = total_earned - total_paid_out - pending_withdrawals
 
         # Ensure all amounts are formatted to 2 decimal places
         _fmt = Decimal('0.01')
         total_earned = total_earned.quantize(_fmt)
-        total_withdrawn = total_withdrawn.quantize(_fmt)
+        total_paid_out = total_paid_out.quantize(_fmt)
         pending_withdrawals = pending_withdrawals.quantize(_fmt)
         available = available.quantize(_fmt)
 
@@ -611,7 +613,7 @@ class RequestPayoutView(APIView):
         return Response({
             'role': role_key,
             'total_earned': str(total_earned),
-            'total_paid_out': str(total_withdrawn),
+            'total_paid_out': str(total_paid_out),
             'pending_payouts': str(pending_withdrawals),
             'available_earnings': str(available),
             'has_payout_method': method is not None,
@@ -673,12 +675,11 @@ class RequestPayoutView(APIView):
             ).aggregate(total=Sum('amount'))['total']
             or Decimal('0.00')
         )
-        total_withdrawn = (
+        total_paid_out = (
             Transaction.objects.filter(
                 transaction_type='payout',
                 recipient=request.user,
                 recipient_role=role_key,
-                trigger_event='manual',
                 status='completed',
                 payout_stage='payout_paid',
             ).aggregate(total=Sum('amount'))['total']
@@ -694,7 +695,7 @@ class RequestPayoutView(APIView):
             ).aggregate(total=Sum('amount'))['total']
             or Decimal('0.00')
         )
-        available = total_earned - total_withdrawn - pending_withdrawals
+        available = total_earned - total_paid_out - pending_withdrawals
 
         if amount > available:
             return Response(
@@ -717,15 +718,28 @@ class RequestPayoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Create manual withdrawal transaction (no order link needed,
-        # but the model requires one — use the latest completed order).
-        latest_order = Order.objects.filter(
-            **{('seller' if role_key == 'seller' else 'buyer'): request.user},
-        ).order_by('-created_at').first()
+        # Transaction.order is a required FK — find the most recent relevant order
+        # to use as a reference record. For sellers that's their latest sold order;
+        # for delivery riders it's the order on their most recent assignment.
+        if role_key == 'seller':
+            latest_order = (
+                Order.objects.filter(seller=request.user)
+                .order_by('-created_at')
+                .first()
+            )
+        else:
+            latest_assignment = (
+                DeliveryAssignment.objects
+                .filter(delivery_person=request.user)
+                .select_related('order')
+                .order_by('-assigned_at')
+                .first()
+            )
+            latest_order = latest_assignment.order if latest_assignment else None
 
         if not latest_order:
             return Response(
-                {'error': 'No orders found to reference for payout.'},
+                {'error': 'No orders found. Complete at least one delivery before claiming earnings.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -773,9 +787,36 @@ class RequestPayoutView(APIView):
                 'payout_to': phone,
             }, status=status.HTTP_201_CREATED)
 
+        # Notify staff team about this new withdrawal request.
+        try:
+            notify_staff_new_withdrawal(tx)
+        except Exception as exc:
+            logger.warning('Staff withdrawal notification failed: %s', exc)
+
         # Manual mode — admin will action the payment from their own phone.
         network_label = PROVIDER_TO_NETWORK_LABEL.get(provider_code, provider_code)
         phone_hint = phone[-4:] if len(phone) >= 4 else phone
+
+        # Notify the requester that their payout is being processed.
+        try:
+            from notifications.signals import _create_notification
+            _create_notification(
+                recipient=request.user,
+                notification_type='payout_processing',
+                title='Payout Being Processed',
+                message=(
+                    f'Your payout of ZMW {amount} to your {network_label} '
+                    f'number ending in {phone_hint} is being processed. '
+                    f'We\'ll notify you once it\'s been sent.'
+                ),
+                data_payload={
+                    'transaction_id': str(tx.transaction_id),
+                    'amount': str(amount),
+                    'network': network_label,
+                },
+            )
+        except Exception as exc:
+            logger.warning('Payout processing notification failed: %s', exc)
         logger.info(
             'Manual claim queued: tx=%s amount=%s user=%s',
             tx.transaction_id, amount, request.user.id,

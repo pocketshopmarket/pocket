@@ -35,6 +35,7 @@ class User(AbstractUser):
         ('seller', 'Seller'),
         ('delivery', 'Delivery'),
         ('admin', 'Admin'),
+        ('staff', 'Staff'),
     ]
 
     GENDER_CHOICES = [

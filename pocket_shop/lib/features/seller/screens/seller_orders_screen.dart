@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/order.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/cart_provider.dart';
+import '../../../providers/platform_settings_provider.dart';
 import '../../shared/screens/refund_requests_screen.dart';
 import '../../shared/screens/cancellation_requests_screen.dart';
 
@@ -60,6 +61,7 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final timeoutMinutes = ref.watch(orderTimeoutMinutesProvider);
     final pendingCount = _orders.where((o) => o.status == 'pending').length;
     final activeCount = _orders
         .where((o) => o.status == 'accepted' || o.status == 'preparing')
@@ -240,7 +242,8 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
                   (o) => _OrderCard(
                     order: o,
                     canUpdateStatus: _sellerApproved,
-                    onOpen: () => _openOrderSheet(o),
+                    timeoutMinutes: timeoutMinutes,
+                    onOpen: () => _openOrderSheet(o, timeoutMinutes),
                   ),
                 ),
             ],
@@ -250,7 +253,7 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
     );
   }
 
-  Future<void> _openOrderSheet(Order initial) async {
+  Future<void> _openOrderSheet(Order initial, int timeoutMinutes) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -262,6 +265,7 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
         return _SellerOrderSheet(
           initialOrder: initial,
           canUpdateStatus: _sellerApproved,
+          timeoutMinutes: timeoutMinutes,
           onStatusChanged: _load,
         );
       },
@@ -273,11 +277,13 @@ class _OrderCard extends StatelessWidget {
   const _OrderCard({
     required this.order,
     required this.canUpdateStatus,
+    required this.timeoutMinutes,
     required this.onOpen,
   });
 
   final Order order;
   final bool canUpdateStatus;
+  final int timeoutMinutes;
   final VoidCallback onOpen;
 
   @override
@@ -351,7 +357,7 @@ class _OrderCard extends StatelessWidget {
                       children: [
                         const Icon(Icons.timer_outlined, size: 14, color: AppTheme.warning),
                         const SizedBox(width: 6),
-                        _CountdownTimer(expiresAt: order.updatedAt.add(const Duration(minutes: 30))),
+                        _CountdownTimer(expiresAt: order.updatedAt.add(Duration(minutes: timeoutMinutes))),
                       ],
                     ),
                   ),
@@ -447,11 +453,13 @@ class _SellerOrderSheet extends ConsumerStatefulWidget {
   const _SellerOrderSheet({
     required this.initialOrder,
     required this.canUpdateStatus,
+    required this.timeoutMinutes,
     required this.onStatusChanged,
   });
 
   final Order initialOrder;
   final bool canUpdateStatus;
+  final int timeoutMinutes;
   final Future<void> Function() onStatusChanged;
 
   @override
@@ -730,7 +738,7 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                   children: [
                     const Icon(Icons.timer_outlined, size: 16, color: AppTheme.warning),
                     const SizedBox(width: 8),
-                    _CountdownTimer(expiresAt: _order.updatedAt.add(const Duration(minutes: 30))),
+                    _CountdownTimer(expiresAt: _order.updatedAt.add(Duration(minutes: widget.timeoutMinutes))),
                   ],
                 ),
               ),

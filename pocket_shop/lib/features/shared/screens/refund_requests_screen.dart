@@ -267,7 +267,7 @@ class _RefundCard extends StatelessWidget {
             ),
           ],
           // Action buttons for admin
-          if ((role == 'admin') && (status == 'escalated' || status == 'rejected_by_seller')) ...[
+          if ((role == 'admin' || role == 'staff') && (status == 'escalated' || status == 'rejected_by_seller')) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,

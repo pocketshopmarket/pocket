@@ -406,12 +406,18 @@ class CartScreen extends ConsumerWidget {
                                 searchingAddress = false;
                                 addressSuggestions = [];
                                 addressSearchFailed = false;
+                                selectedLat = null;
+                                selectedLng = null;
+                                locationLabel = null;
                               });
                               return;
                             }
                             setModalState(() {
                               searchingAddress = true;
                               addressSearchFailed = false;
+                              selectedLat = null;
+                              selectedLng = null;
+                              locationLabel = null;
                             });
                             manualSearchDebounce = Timer(
                               const Duration(milliseconds: 350),

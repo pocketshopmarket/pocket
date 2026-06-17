@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../models/category.dart';
 import '../../../../models/product.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/category_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../services/product_service.dart';
 import '../../../../widgets/product_list_thumbnail.dart';
@@ -33,6 +35,9 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
   String _selectedCategory = 'all';
   bool _inStockOnly = false;
   String _sortBy = 'latest';
+  double? _minPrice;
+  double? _maxPrice;
+  String? _quality;
 
   @override
   void initState() {
@@ -92,6 +97,9 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
           sortBy: _sortBy,
           category: _selectedCategory,
           inStockOnly: _inStockOnly,
+          minPrice: _minPrice,
+          maxPrice: _maxPrice,
+          quality: _quality,
         ),
       );
 
@@ -117,14 +125,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 360;
-    final categories = const [
-      'all',
-      'electronics',
-      'clothing',
-      'food',
-      'home',
-      'other',
-    ];
+    final allCategories = ref.watch(categoryProvider).valueOrNull ?? <Category>[];
     final wishlist = ref.watch(wishlistProvider);
     final wishlistNotifier = ref.read(wishlistProvider.notifier);
     final cartNotifier = ref.read(cartProvider.notifier);
@@ -252,31 +253,18 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
+              itemCount: 1 + allCategories.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, index) {
-                final category = categories[index];
-                final selected = _selectedCategory == category;
+                final isAll = index == 0;
+                final catId = isAll ? 'all' : allCategories[index - 1].id.toString();
+                final catName = isAll ? 'All' : allCategories[index - 1].name;
+                final selected = _selectedCategory == catId;
                 return ChoiceChip(
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        category == 'all'
-                            ? 'All'
-                            : '${category[0].toUpperCase()}${category.substring(1)}',
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 14,
-                        color: selected ? Colors.white : AppTheme.textSecondary,
-                      ),
-                    ],
-                  ),
+                  label: Text(catName),
                   selected: selected,
                   onSelected: (_) {
-                    setState(() => _selectedCategory = category);
+                    setState(() => _selectedCategory = catId);
                     _fetch(reset: true);
                   },
                   labelStyle: TextStyle(
@@ -456,16 +444,49 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                                         color: AppTheme.textSecondary,
                                       ),
                                     ),
+                                    if (product.sellerName != null) ...[
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
+                                          const SizedBox(width: 3),
+                                          Expanded(
+                                            child: Text(
+                                              product.sellerName!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                     const SizedBox(height: 4),
                                     Row(
                                       children: [
                                         Expanded(
-                                          child: Text(
-                                            'ZMW ${product.price.toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              color: AppTheme.textPrimary,
-                                            ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'ZMW ${product.price.toStringAsFixed(2)}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppTheme.textPrimary,
+                                                ),
+                                              ),
+                                              if (product.reviewCount > 0)
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.star_rounded, size: 11, color: Color(0xFFF59E0B)),
+                                                    const SizedBox(width: 2),
+                                                    Text(
+                                                      '${product.reviewAverage.toStringAsFixed(1)} (${product.reviewCount})',
+                                                      style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                                                    ),
+                                                  ],
+                                                ),
+                                            ],
                                           ),
                                         ),
                                         _ActionIconButton(
@@ -511,18 +532,27 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
   }
 
   Future<void> _openFilters() async {
+    final categories = ref.read(categoryProvider).valueOrNull ?? <Category>[];
     String tempCategory = _selectedCategory;
     bool tempInStock = _inStockOnly;
     String tempSort = _sortBy;
+    final minController = TextEditingController(
+      text: _minPrice != null ? _minPrice!.toStringAsFixed(0) : '',
+    );
+    final maxController = TextEditingController(
+      text: _maxPrice != null ? _maxPrice!.toStringAsFixed(0) : '',
+    );
+    String? tempQuality = _quality;
 
     await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        builder: (context, setModalState) => SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,25 +565,56 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
               DropdownButtonFormField<String>(
                 value: tempCategory,
                 decoration: const InputDecoration(labelText: 'Category'),
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('All')),
-                  DropdownMenuItem(
-                    value: 'electronics',
-                    child: Text('Electronics'),
-                  ),
-                  DropdownMenuItem(value: 'clothing', child: Text('Clothing')),
-                  DropdownMenuItem(value: 'food', child: Text('Food')),
-                  DropdownMenuItem(value: 'books', child: Text('Books')),
-                  DropdownMenuItem(value: 'home', child: Text('Home')),
-                  DropdownMenuItem(value: 'sports', child: Text('Sports')),
-                  DropdownMenuItem(value: 'toys', child: Text('Toys')),
-                  DropdownMenuItem(value: 'other', child: Text('Other')),
+                items: [
+                  const DropdownMenuItem(value: 'all', child: Text('All')),
+                  ...categories.map((c) => DropdownMenuItem(
+                    value: c.id.toString(),
+                    child: Text(c.name),
+                  )),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setModalState(() => tempCategory = value);
-                  }
+                onChanged: (v) {
+                  if (v != null) setModalState(() => tempCategory = v);
                 },
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String?>(
+                value: tempQuality,
+                decoration: const InputDecoration(labelText: 'Condition'),
+                items: const [
+                  DropdownMenuItem(value: null, child: Text('Any')),
+                  DropdownMenuItem(value: 'new', child: Text('New')),
+                  DropdownMenuItem(value: 'like_new', child: Text('Like new')),
+                  DropdownMenuItem(value: 'good', child: Text('Good')),
+                  DropdownMenuItem(value: 'fair', child: Text('Fair')),
+                  DropdownMenuItem(value: 'used', child: Text('Used')),
+                ],
+                onChanged: (v) => setModalState(() => tempQuality = v),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: minController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Min price (ZMW)',
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: maxController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Max price (ZMW)',
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               SwitchListTile(
@@ -568,20 +629,13 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                 decoration: const InputDecoration(labelText: 'Sort'),
                 items: const [
                   DropdownMenuItem(value: 'latest', child: Text('Latest')),
-                  DropdownMenuItem(
-                    value: 'price_low',
-                    child: Text('Price: low to high'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'price_high',
-                    child: Text('Price: high to low'),
-                  ),
+                  DropdownMenuItem(value: 'popular', child: Text('Most popular')),
+                  DropdownMenuItem(value: 'price_low', child: Text('Price: low to high')),
+                  DropdownMenuItem(value: 'price_high', child: Text('Price: high to low')),
                   DropdownMenuItem(value: 'name_az', child: Text('Name: A-Z')),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setModalState(() => tempSort = value);
-                  }
+                onChanged: (v) {
+                  if (v != null) setModalState(() => tempSort = v);
                 },
               ),
               const SizedBox(height: 12),
@@ -590,10 +644,15 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
+                        minController.dispose();
+                        maxController.dispose();
                         setState(() {
                           _selectedCategory = 'all';
                           _inStockOnly = false;
                           _sortBy = 'latest';
+                          _minPrice = null;
+                          _maxPrice = null;
+                          _quality = null;
                         });
                         Navigator.pop(ctx);
                         _fetch(reset: true);
@@ -605,10 +664,17 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                   Expanded(
                     child: FilledButton(
                       onPressed: () {
+                        final minVal = double.tryParse(minController.text.trim());
+                        final maxVal = double.tryParse(maxController.text.trim());
+                        minController.dispose();
+                        maxController.dispose();
                         setState(() {
                           _selectedCategory = tempCategory;
                           _inStockOnly = tempInStock;
                           _sortBy = tempSort;
+                          _minPrice = minVal;
+                          _maxPrice = maxVal;
+                          _quality = tempQuality;
                         });
                         Navigator.pop(ctx);
                         _fetch(reset: true);

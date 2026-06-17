@@ -77,6 +77,9 @@ class Order(models.Model):
         on_delete=models.SET_NULL,
         related_name='orders',
     )
+    pickup_time_slot = models.CharField(max_length=100, blank=True)
+    quoted_distance_km = models.FloatField(null=True, blank=True)
+    quoted_eta_minutes = models.PositiveIntegerField(null=True, blank=True)
     payment_provider_snapshot = models.CharField(max_length=64, blank=True)
     payment_account_snapshot = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

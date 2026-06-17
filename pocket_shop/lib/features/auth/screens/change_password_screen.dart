@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/validators.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../services/auth_service.dart';
 import '../auth_navigation.dart';
 import '../widgets/auth_message_banner.dart';
 
-class ChangePasswordScreen extends StatefulWidget {
+class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
 
   @override
-  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+  ConsumerState<ChangePasswordScreen> createState() =>
+      _ChangePasswordScreenState();
 }
 
-class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   final _oldController = TextEditingController();
   final _newController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -50,8 +53,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         _bannerMessage = result['message']?.toString() ?? 'Password changed.';
         _bannerIsError = false;
       });
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      if (mounted) GoRouter.of(context).pop();
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      if (!mounted) return;
+      // Sign out all sessions (tokens already blacklisted on server).
+      await AuthService().logout();
+      ref.read(authProvider.notifier).handlePasswordChanged();
+      GoRouter.of(context).go('/phone');
     } else {
       setState(() {
         _bannerMessage =

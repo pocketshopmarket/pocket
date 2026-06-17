@@ -5,8 +5,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/delivery_provider.dart';
+import '../../../services/api_service.dart';
 import '../../../widgets/notification_bell.dart';
 import '../../../widgets/osm_route_map.dart';
 
@@ -19,6 +21,7 @@ class DeliveryHomeScreen extends ConsumerStatefulWidget {
 
 class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
   bool _online = true;
+  bool _updatingOnline = false;
   bool _loading = false;
   String? _locationNote;
   List<Map<String, dynamic>> _orders = [];
@@ -62,6 +65,33 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
       _lng = pos.longitude;
       _locationNote = null;
     });
+  }
+
+  Future<void> _setOnlineStatus(bool value) async {
+    setState(() {
+      _online = value;
+      _updatingOnline = true;
+    });
+    try {
+      await ApiService().put(
+        AppConstants.profileEndpoint,
+        data: {'is_available': value},
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(() => _online = !value);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update status. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _updatingOnline = false);
+    }
+    if (value) {
+      _refresh();
+    } else {
+      setState(() => _orders = []);
+    }
   }
 
   Future<void> _refresh() async {
@@ -504,18 +534,20 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
               ),
               const NotificationBell(),
               const SizedBox(width: 4),
-              Switch(
-                value: _online,
-                activeThumbColor: AppTheme.primaryCyan,
-                onChanged: (v) {
-                  setState(() => _online = v);
-                  if (v) {
-                    _refresh();
-                  } else {
-                    setState(() => _orders = []);
-                  }
-                },
-              ),
+              _updatingOnline
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryCyan,
+                      ),
+                    )
+                  : Switch(
+                      value: _online,
+                      activeThumbColor: AppTheme.primaryCyan,
+                      onChanged: _setOnlineStatus,
+                    ),
             ],
           ),
           const SizedBox(height: 10),

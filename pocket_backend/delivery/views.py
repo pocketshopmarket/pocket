@@ -1059,6 +1059,10 @@ class VerifyIdentityQRView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_throttles(self):
+        from accounts.throttles import QRVerifyThrottle
+        return [QRVerifyThrottle()]
+
     def post(self, request, assignment_id):
         step = str(request.data.get('step', '')).strip()
         qr_data = str(request.data.get('qr_data', '')).strip()
@@ -1109,6 +1113,19 @@ class VerifyIdentityQRView(APIView):
                 {'error': "This QR does not belong to this order's buyer"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Idempotency: if this step was already verified, return success without re-processing.
+        already_verified = DeliveryHandoffToken.objects.filter(
+            assignment=assignment,
+            step=step,
+            status='used',
+        ).exists()
+        if already_verified:
+            return Response({
+                'verified': True,
+                'step': step,
+                'message': f'{"Pickup" if step == "pickup" else "Drop-off"} already verified.',
+            })
 
         # Expire any active tokens for this step, then record a used one
         # so UpdateDeliveryStatusView's handoff check passes.

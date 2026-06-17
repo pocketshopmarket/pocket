@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -161,9 +162,17 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   }
 
   Future<void> _openFilterSortSheet(List<Category> allCategories) async {
+    final productState = ref.read(productProvider);
     String tempCategory = _selectedCategory;
     bool tempInStockOnly = _inStockOnly;
     String tempSortBy = _sortBy;
+    String? tempQuality = productState.quality;
+    final minController = TextEditingController(
+      text: productState.minPrice != null ? productState.minPrice!.toStringAsFixed(0) : '',
+    );
+    final maxController = TextEditingController(
+      text: productState.maxPrice != null ? productState.maxPrice!.toStringAsFixed(0) : '',
+    );
 
     await showModalBottomSheet(
       context: context,
@@ -189,11 +198,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     const SizedBox(height: 14),
                     const Text(
                       'Category',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -204,27 +209,57 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         ...allCategories.map((cat) => _buildCategoryChip(cat.id.toString(), cat.name, tempCategory, (val) => setModalState(() => tempCategory = val))),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String?>(
+                      value: tempQuality,
+                      decoration: const InputDecoration(labelText: 'Condition', isDense: true),
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('Any')),
+                        DropdownMenuItem(value: 'new', child: Text('New')),
+                        DropdownMenuItem(value: 'like_new', child: Text('Like new')),
+                        DropdownMenuItem(value: 'good', child: Text('Good')),
+                        DropdownMenuItem(value: 'fair', child: Text('Fair')),
+                        DropdownMenuItem(value: 'used', child: Text('Used')),
+                      ],
+                      onChanged: (v) => setModalState(() => tempQuality = v),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: minController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Min price (ZMW)', isDense: true),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: maxController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Max price (ZMW)', isDense: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('In-stock only'),
                       value: tempInStockOnly,
                       activeColor: AppTheme.primaryCyan,
-                      onChanged: (value) =>
-                          setModalState(() => tempInStockOnly = value),
+                      onChanged: (value) => setModalState(() => tempInStockOnly = value),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     const Text(
                       'Sort',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
                     ),
                     const SizedBox(height: 8),
                     ...[
                       ('default', 'Default'),
+                      ('popular', 'Most popular'),
                       ('latest', 'Latest'),
                       ('price_low', 'Price: low to high'),
                       ('price_high', 'Price: high to low'),
@@ -235,14 +270,9 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         groupValue: tempSortBy,
                         activeColor: AppTheme.primaryCyan,
                         contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          option.$2,
-                          style: const TextStyle(fontSize: 13),
-                        ),
+                        title: Text(option.$2, style: const TextStyle(fontSize: 13)),
                         onChanged: (value) {
-                          if (value != null) {
-                            setModalState(() => tempSortBy = value);
-                          }
+                          if (value != null) setModalState(() => tempSortBy = value);
                         },
                       );
                     }),
@@ -252,18 +282,21 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         Expanded(
                           child: OutlinedButton(
                             onPressed: () {
+                              minController.dispose();
+                              maxController.dispose();
                               setState(() {
                                 _selectedCategory = 'all';
                                 _inStockOnly = false;
                                 _sortBy = 'default';
                               });
-                              ref
-                                  .read(productProvider.notifier)
-                                  .updateFilters(
-                                    category: 'all',
-                                    inStockOnly: false,
-                                    sortBy: 'default',
-                                  );
+                              ref.read(productProvider.notifier).updateFilters(
+                                category: 'all',
+                                inStockOnly: false,
+                                sortBy: 'default',
+                                clearMinPrice: true,
+                                clearMaxPrice: true,
+                                clearQuality: true,
+                              );
                               Navigator.pop(context);
                             },
                             child: const Text('Reset'),
@@ -273,18 +306,26 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
+                              final minVal = double.tryParse(minController.text.trim());
+                              final maxVal = double.tryParse(maxController.text.trim());
+                              minController.dispose();
+                              maxController.dispose();
                               setState(() {
                                 _selectedCategory = tempCategory;
                                 _inStockOnly = tempInStockOnly;
                                 _sortBy = tempSortBy;
                               });
-                              ref
-                                  .read(productProvider.notifier)
-                                  .updateFilters(
-                                    category: tempCategory,
-                                    inStockOnly: tempInStockOnly,
-                                    sortBy: tempSortBy,
-                                  );
+                              ref.read(productProvider.notifier).updateFilters(
+                                category: tempCategory,
+                                inStockOnly: tempInStockOnly,
+                                sortBy: tempSortBy,
+                                minPrice: minVal,
+                                maxPrice: maxVal,
+                                quality: tempQuality,
+                                clearMinPrice: minVal == null,
+                                clearMaxPrice: maxVal == null,
+                                clearQuality: tempQuality == null,
+                              );
                               Navigator.pop(context);
                             },
                             child: const Text('Apply'),
@@ -747,13 +788,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   itemBuilder: (_, i) {
                     final banner = banners[i];
                     final bg = banner.backgroundColor;
-                    // CTA button colors: light button on dark bg for first, purple for others
-                    final ctaBg = i.isEven
-                        ? Colors.white
-                        : AppTheme.accentPurple;
-                    final ctaTextColor = i.isEven
-                        ? banner.backgroundColor
-                        : Colors.white;
+                    // Derive CTA colors from bg luminance: use dark button on light bg, light on dark.
+                    final isDark = bg.computeLuminance() < 0.4;
+                    final ctaBg = isDark ? Colors.white : Colors.black.withValues(alpha: 0.18);
+                    final ctaTextColor = isDark ? bg : Colors.white;
                     return LayoutBuilder(
                       builder: (context, constraints) {
                         final compact = constraints.maxWidth < 320;
@@ -767,58 +805,92 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                           onTap: () => _onBannerTap(banner),
                           child: Container(
                             margin: const EdgeInsets.only(right: 10),
-                            padding: EdgeInsets.all(bannerPadding),
                             decoration: BoxDecoration(
                               color: bg,
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: Row(
+                            clipBehavior: Clip.antiAlias,
+                            child: Stack(
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                // Background image if available
+                                if (banner.imageUrl != null)
+                                  Positioned.fill(
+                                    child: CachedNetworkImage(
+                                      imageUrl: banner.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                    ),
+                                  ),
+                                // Semi-transparent overlay when image is present
+                                if (banner.imageUrl != null)
+                                  Positioned.fill(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            bg.withValues(alpha: 0.75),
+                                            bg.withValues(alpha: 0.35),
+                                          ],
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                Padding(
+                                  padding: EdgeInsets.all(bannerPadding),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        '${banner.title}\n${banner.subtitle}',
-                                        maxLines: compact ? 3 : 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: titleSize,
-                                          height: 1.0,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      GestureDetector(
-                                        onTap: () => _onBannerTap(banner),
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: ctaHorizontalPadding,
-                                            vertical: ctaVerticalPadding,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: ctaBg,
-                                            borderRadius: BorderRadius.circular(22),
-                                          ),
-                                          child: Text(
-                                            banner.ctaText,
-                                            style: TextStyle(
-                                              fontSize: ctaFontSize,
-                                              fontWeight: FontWeight.w700,
-                                              color: ctaTextColor,
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${banner.title}\n${banner.subtitle}',
+                                              maxLines: compact ? 3 : 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: titleSize,
+                                                height: 1.0,
+                                                fontWeight: FontWeight.w800,
+                                                color: Colors.white,
+                                              ),
                                             ),
-                                          ),
+                                            const Spacer(),
+                                            GestureDetector(
+                                              onTap: () => _onBannerTap(banner),
+                                              child: Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: ctaHorizontalPadding,
+                                                  vertical: ctaVerticalPadding,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: ctaBg,
+                                                  borderRadius: BorderRadius.circular(22),
+                                                ),
+                                                child: Text(
+                                                  banner.ctaText,
+                                                  style: TextStyle(
+                                                    fontSize: ctaFontSize,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: ctaTextColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
+                                      if (banner.imageUrl == null) ...[
+                                        SizedBox(width: compact ? 4 : 8),
+                                        Icon(
+                                          banner.icon,
+                                          size: iconSize,
+                                          color: Colors.white70,
+                                        ),
+                                      ],
                                     ],
                                   ),
-                                ),
-                                SizedBox(width: compact ? 4 : 8),
-                                Icon(
-                                  banner.icon,
-                                  size: iconSize,
-                                  color: Colors.white70,
                                 ),
                               ],
                             ),
@@ -1425,7 +1497,24 @@ class _ProductCard extends StatelessWidget {
                             color: AppTheme.darkCyan,
                           ),
                         ),
-                        const SizedBox(height: 1),
+                        if (product.sellerName != null) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  product.sellerName!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 2),
                         Text(
                           'ZMW ${product.price.toStringAsFixed(2)}',
                           style: TextStyle(
@@ -1434,16 +1523,17 @@ class _ProductCard extends StatelessWidget {
                             color: AppTheme.textPrimary,
                           ),
                         ),
-                        Text(
-                          'ZMW ${(product.price * 1.25).toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textSecondary.withValues(
-                              alpha: 0.8,
-                            ),
-                            decoration: TextDecoration.lineThrough,
+                        if (product.reviewCount > 0)
+                          Row(
+                            children: [
+                              const Icon(Icons.star_rounded, size: 11, color: Color(0xFFF59E0B)),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${product.reviewAverage.toStringAsFixed(1)} (${product.reviewCount})',
+                                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                              ),
+                            ],
                           ),
-                        ),
                         const Spacer(),
                         SizedBox(
                           width: double.infinity,

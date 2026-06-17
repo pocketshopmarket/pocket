@@ -66,11 +66,21 @@ class AppConstants {
   // Backend uses a random OTP; check Django runserver logs in development.
   static const String testOtp = '123456';
   
+  // Staff endpoints
+  static const String staffStatsEndpoint = 'staff/stats/';
+  static const String staffPayoutQueueEndpoint = 'staff/payout-queue/';
+  static const String staffMarkPaidPrefix = 'staff/mark-paid/';
+  static const String staffWithdrawalsEndpoint = 'staff/withdrawals/';
+  static const String staffVerificationsEndpoint = 'staff/verifications/';
+  static const String staffRefundsEndpoint = 'staff/refunds/';
+  static const String settingsEndpoint = 'settings/';
+
   // User Roles
   static const String buyerRole = 'buyer';
   static const String sellerRole = 'seller';
   static const String deliveryRole = 'delivery';
   static const String adminRole = 'admin';
+  static const String staffRole = 'staff';
   
   // Timeouts
   static const int connectTimeout = 30000;

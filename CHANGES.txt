@@ -1,0 +1,289 @@
+================================================================================
+POCKET APP — CHANGE LOG
+Session dates: 2026-06-16 to 2026-06-18
+================================================================================
+
+All changes listed below were made across two sessions. They cover the Seller,
+Rider (Delivery), Buyer-adjacent, and Staff parts of the system.
+
+================================================================================
+SECTION 1 — SELLER SIDE
+================================================================================
+
+FILE: pocket_shop/lib/features/seller/screens/edit_product_screen.dart
+-----------------------------------------------------------------------
+BUG FIX 1 — Category never matched on edit load
+  Before: The screen compared the category name string from the server to the
+          category name in the dropdown list. The server returns the category
+          as an integer ID, so nothing ever matched and the dropdown showed
+          a blank selection every time a seller opened an existing product.
+  After:  The screen now parses the integer ID directly and matches it to the
+          correct dropdown item.
+
+BUG FIX 2 — Deleting gallery images was silently ignored
+  Before: The list of images to keep (keptImageUrls) was only sent to the
+          backend when new images were also being uploaded. If a seller removed
+          an existing photo without adding a new one, the backend received no
+          instruction about which images to keep and kept all of them.
+  After:  keptImageUrls is always included in the request, so the backend
+          always knows exactly which images to keep and which to delete.
+
+BUG FIX 3 — "Available" toggle had no effect
+  Before: The is_available field was never included in the update request.
+          Toggling the switch on the edit screen changed nothing on the server.
+  After:  The is_available value is included in the data map on every save,
+          so toggling the switch actually updates the product's availability.
+
+--------------------------------------------------------------------------------
+
+FILE: pocket_shop/lib/features/seller/screens/seller_orders_screen.dart
+-----------------------------------------------------------------------
+IMPROVEMENT — Order acceptance timer was hard-coded to 30 minutes
+  Before: The countdown timer that auto-cancels unaccepted orders was always
+          30 minutes in the Flutter app, regardless of what was set on the
+          server. If an admin changed the timeout in the backend, the app
+          would still show 30 minutes.
+  After:  The timer reads the timeout value from a new platform settings
+          endpoint (/api/settings/). It defaults to 30 minutes if the server
+          has not responded yet, so it works offline as well.
+
+--------------------------------------------------------------------------------
+
+FILE: pocket_shop/lib/features/seller/screens/seller_dashboard_screen.dart
+--------------------------------------------------------------------------
+IMPROVEMENT 1 — Trends list was endless with no collapse
+  Before: When a seller selected a 90-day range, all 90 daily rows were shown
+          in a single scrolling list with no way to collapse them.
+  After:  The list shows 5 rows by default. A "Show all N days" button appears
+          if there are more. Tapping it expands the list; tapping again
+          collapses it back.
+
+IMPROVEMENT 2 — Trends label did not reflect the selected period
+  Before: The section heading always said "7-day trends" even when the seller
+          had selected 30 days or 90 days.
+  After:  The heading now reads "{N}-day trends" to match the selected period.
+
+IMPROVEMENT 3 — Top products only showed units sold, not revenue
+  Before: Each product in the Top Products section showed only how many units
+          were sold.
+  After:  Each product now shows both units sold and the revenue earned from
+          those sales.
+
+IMPROVEMENT 4 — Payout totals were not displayed
+  Before: The dashboard fetched total paid out and pending payout amounts from
+          the server but never showed them on screen.
+  After:  Two new metric cards are shown: "Total paid out" and "Pending
+          payouts", giving sellers a full financial overview at a glance.
+
+--------------------------------------------------------------------------------
+
+FILE: pocket_shop/lib/features/seller/screens/seller_payout_history_screen.dart
+--------------------------------------------------------------------------------
+IMPROVEMENT — Date was missing from payout history rows
+  Before: Each payout row only showed the order number, status, and amount.
+          There was no date, making it hard to trace when a payment happened.
+  After:  The date (YYYY-MM-DD) is shown next to the status on each row.
+
+================================================================================
+SECTION 2 — ORDERS / REFUNDS / CANCELLATIONS
+================================================================================
+
+FILE: pocket_backend/orders/views.py
+------------------------------------
+BUG FIX — Staff role could not respond to refund or cancellation requests
+  Before: All four admin-only views (list and respond for refunds and
+          cancellations) checked only for role == 'admin'. Users with
+          role == 'staff' were blocked with a permission denied error even
+          though staff are meant to handle these by policy.
+  After:  All four views now accept role in ('admin', 'staff') so staff
+          members can view and respond to refund and cancellation requests.
+
+FILE: pocket_shop/lib/features/shared/screens/refund_requests_screen.dart
+FILE: pocket_shop/lib/features/shared/screens/cancellation_requests_screen.dart
+--------------------------------------------------------------------------------
+BUG FIX — Approve/Reject action buttons were hidden from staff
+  Before: The action buttons (Approve / Reject) were only rendered when
+          role == 'admin'. Staff users saw the list but had no buttons.
+  After:  Buttons are shown when role == 'admin' OR role == 'staff'.
+
+================================================================================
+SECTION 3 — PLATFORM SETTINGS ENDPOINT (BACKEND + FLUTTER)
+================================================================================
+
+FILE: pocket_backend/portal/views.py
+FILE: pocket_backend/pocket_backend/urls.py
+-------------------------------------------
+NEW — Public settings API endpoint
+  Added GET /api/settings/ (no authentication required).
+  Currently returns: order_acceptance_timeout_minutes.
+  This allows the Flutter app to read server-side configuration without
+  requiring a logged-in user.
+
+FILE: pocket_shop/lib/core/constants/app_constants.dart
+FILE: pocket_shop/lib/providers/platform_settings_provider.dart
+---------------------------------------------------------------
+NEW — Platform settings provider in Flutter
+  Added settingsEndpoint constant and a new Riverpod provider:
+    - platformSettingsProvider: fetches the settings map from the server.
+    - orderTimeoutMinutesProvider: convenience provider that reads the
+      timeout value from the settings map and defaults to 30 if unavailable.
+
+================================================================================
+SECTION 4 — RIDER (DELIVERY) SIDE
+================================================================================
+
+FILE: pocket_shop/lib/features/delivery/screens/delivery_profile_screen.dart
+------------------------------------------------------------------------------
+IMPROVEMENT 1 — Rider could not update profile after approval
+  Before: Once a rider was approved, the verification form disappeared
+          completely. There was no way for a rider to update their vehicle,
+          license, or service area.
+  After:  A "Request profile update" button appears when the rider is approved.
+          Tapping it opens the form again with a warning explaining that
+          submitting will reset their status to pending review. When submitted,
+          the backend resets is_approved to False and verification_status to
+          'submitted', creating a new VerificationRequest for staff to review.
+
+IMPROVEMENT 2 — Available for jobs toggle was display-only
+  Before: The "Available for jobs" tile showed Yes or No but had no toggle.
+          Riders could not change their availability from the Account tab.
+  After:  The tile is replaced with a Switch that saves immediately to the
+          server via PUT /api/auth/profile/ with {'is_available': value}.
+          A spinner appears while saving. If the save fails, the switch
+          reverts and a snackbar error is shown.
+
+REFACTOR — Extracted _verificationFormFields() helper
+  The verification form fields are now in a shared helper method to avoid
+  duplicating code between the initial submission form and the re-submit
+  form shown to approved riders.
+
+--------------------------------------------------------------------------------
+
+FILE: pocket_shop/lib/features/delivery/screens/earnings_screen.dart
+---------------------------------------------------------------------
+IMPROVEMENT 1 — Earnings history was cut at 5 with no way to see more
+  Before: The earnings history list always showed only the last 5 payout
+          records. If a rider had more, they could never see them.
+  After:  The list shows 5 by default. If there are more, a "Show all N
+          entries" button appears. Tapping it shows everything; tapping
+          again collapses back to 5.
+
+IMPROVEMENT 2 — Date was missing from earnings history rows
+  Before: Each payout row showed only the order number and amount.
+  After:  The date (YYYY-MM-DD) is now shown between the order number and
+          the amount on each row.
+
+--------------------------------------------------------------------------------
+
+FILE: pocket_shop/lib/features/delivery/screens/delivery_home_screen.dart
+--------------------------------------------------------------------------
+BUG FIX — Online/Offline switch did not update the server
+  Before: The switch on the Home tab only hid or showed the order list
+          locally inside the app. The server's is_available field was never
+          updated, so the system still considered the rider available even
+          when they switched off.
+  After:  Toggling the switch now calls PUT /api/auth/profile/ with the new
+          is_available value. The switch shows a spinner while the call is
+          in progress. If the call fails, the switch reverts and an error
+          snackbar is shown. The Account tab and Home tab now stay in sync
+          because both write to the same is_available field on the server.
+
+================================================================================
+SECTION 5 — PAYOUT SYSTEM (BACKEND)
+================================================================================
+
+FILE: pocket_backend/payments/views.py
+---------------------------------------
+BUG FIX 1 — Delivery riders could never claim earnings
+  Before: When a rider submitted a claim request, the backend tried to find
+          an order where buyer = rider_user to use as a reference record.
+          Riders are never buyers of the orders they deliver, so this query
+          always returned nothing, and the claim failed with the error:
+          "No orders found to reference for payout."
+  After:  For delivery riders, the backend now looks through DeliveryAssignment
+          records to find the rider's most recent order. For sellers, the
+          original logic (filter by seller = user) is unchanged.
+          DeliveryAssignment is now imported at the top of the file.
+
+BUG FIX 2 — Double-pay risk: available balance ignored queue payments
+  Before: The "available earnings" balance subtracted only manual claim
+          requests that had been paid (trigger_event = 'manual'). It ignored
+          per-delivery payout rows that staff had already marked as paid
+          directly from the payout queue (trigger_event = 'pickup_qr' or
+          'dropoff_qr'). This meant a rider or seller could claim money that
+          staff had already sent them from the queue.
+  After:  The balance formula now subtracts ALL completed payouts regardless
+          of how they were paid (queue direct or manual claim).
+          New formula:
+            Available = Total earned
+                      - All completed payouts (any method)
+                      - Pending manual claim requests
+          This fix was applied in both the GET (balance display) and POST
+          (balance check before creating a new claim) methods.
+
+================================================================================
+SECTION 6 — STAFF PAYOUT WARNINGS
+================================================================================
+
+FILE: pocket_backend/payments/staff_views.py
+--------------------------------------------
+IMPROVEMENT — Withdrawal list now includes balance context
+  Before: Each withdrawal item only showed basic info (name, phone, amount,
+          network). Staff had no way to know if the person had already been
+          paid from the payout queue.
+  After:  Each withdrawal item now includes three extra fields:
+            - total_earned: total earned from all completed deliveries/sales
+            - queue_already_paid: amount already sent via the payout queue
+            - available_balance: what is genuinely left after accounting
+              for all payments and pending requests
+  These are calculated per-recipient when the staff withdrawals list loads.
+
+FILE: pocket_shop/lib/features/staff/screens/staff_payouts_screen.dart
+-----------------------------------------------------------------------
+IMPROVEMENT — Visual warnings on withdrawal cards
+  Each withdrawal card now shows a summary row: Total earned / Queue paid /
+  Balance left, so staff can see the full picture at a glance.
+
+  ORANGE WARNING (caution):
+    Shown when some money was already paid from the payout queue, but the
+    remaining balance is still enough to cover this claim. The claim is safe
+    to pay but staff are informed.
+    Example: "Note: ZMW 300 was already paid from the payout queue.
+    This claim of ZMW 200 is still within their available balance — safe to pay."
+
+  RED WARNING + RED BUTTON (danger):
+    Shown when the payout queue already covered all the earnings. Paying this
+    claim would be a double payment. The "Mark Paid" button turns red and
+    changes to "Mark Paid (double-pay risk)". Staff can still override if
+    needed but the danger is clearly visible.
+    Example: "ZMW 5,000 was already paid from the payout queue. Paying this
+    claim of ZMW 300 would be a double payment."
+
+================================================================================
+SUMMARY OF ALL FILES CHANGED
+================================================================================
+
+BACKEND (Django)
+  pocket_backend/portal/views.py                   - new PublicSettingsView
+  pocket_backend/pocket_backend/urls.py            - added /api/settings/ URL
+  pocket_backend/orders/views.py                   - staff role for refunds/cancellations
+  pocket_backend/payments/views.py                 - rider order lookup fix, double-pay fix
+  pocket_backend/payments/staff_views.py           - balance context in withdrawals list
+
+FLUTTER
+  pocket_shop/lib/core/constants/app_constants.dart          - settingsEndpoint constant
+  pocket_shop/lib/providers/platform_settings_provider.dart  - NEW FILE
+  pocket_shop/lib/features/seller/screens/edit_product_screen.dart
+  pocket_shop/lib/features/seller/screens/seller_orders_screen.dart
+  pocket_shop/lib/features/seller/screens/seller_dashboard_screen.dart
+  pocket_shop/lib/features/seller/screens/seller_payout_history_screen.dart
+  pocket_shop/lib/features/shared/screens/refund_requests_screen.dart
+  pocket_shop/lib/features/shared/screens/cancellation_requests_screen.dart
+  pocket_shop/lib/features/delivery/screens/delivery_profile_screen.dart
+  pocket_shop/lib/features/delivery/screens/earnings_screen.dart
+  pocket_shop/lib/features/delivery/screens/delivery_home_screen.dart
+  pocket_shop/lib/features/staff/screens/staff_payouts_screen.dart
+
+================================================================================
+END OF CHANGE LOG
+================================================================================

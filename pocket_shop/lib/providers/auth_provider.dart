@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/firebase_init.dart';
 
@@ -31,6 +32,9 @@ class AuthState {
   final String? error;
   final bool isAuthenticated;
   final bool isInitialized;
+  /// Message to display as a banner on the phone login screen after a forced
+  /// sign-out (session expiry, password change, etc.).
+  final String? signOutMessage;
 
   AuthState({
     this.user,
@@ -38,6 +42,7 @@ class AuthState {
     this.error,
     this.isAuthenticated = false,
     this.isInitialized = false,
+    this.signOutMessage,
   });
 
   AuthState copyWith({
@@ -46,6 +51,8 @@ class AuthState {
     String? error,
     bool? isAuthenticated,
     bool? isInitialized,
+    String? signOutMessage,
+    bool clearSignOutMessage = false,
   }) {
     return AuthState(
       user: user ?? this.user,
@@ -53,6 +60,8 @@ class AuthState {
       error: error ?? this.error,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isInitialized: isInitialized ?? this.isInitialized,
+      signOutMessage:
+          clearSignOutMessage ? null : (signOutMessage ?? this.signOutMessage),
     );
   }
 }
@@ -249,6 +258,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  // Called when the refresh token is rejected by the server (token expired/revoked).
+  void handleSessionExpired() {
+    state = AuthState(
+      isAuthenticated: false,
+      isInitialized: true,
+      signOutMessage: 'Your session has expired. Please sign in again.',
+    );
+  }
+
+  // Called after a successful password change so all devices are signed out.
+  void handlePasswordChanged() {
+    state = AuthState(
+      isAuthenticated: false,
+      isInitialized: true,
+      signOutMessage: 'Password changed. Please sign in with your new password.',
+    );
+  }
+
+  // Clears the one-time banner message after it has been shown.
+  void clearSignOutMessage() {
+    state = state.copyWith(clearSignOutMessage: true);
+  }
+
   // Clear error
   void clearError() {
     state = state.copyWith(error: null);
@@ -311,4 +343,14 @@ final authLoadingProvider = Provider<bool>((ref) {
 
 final authErrorProvider = Provider<String?>((ref) {
   return ref.watch(authProvider).error;
+});
+
+/// Subscribes to [ApiService.onSessionExpired] and calls [handleSessionExpired]
+/// whenever the interceptor is forced to clear tokens (refresh rejected).
+/// Must be watched from the root widget so it stays alive.
+final sessionExpiredWatcherProvider = Provider<void>((ref) {
+  final sub = ApiService.onSessionExpired.listen((_) {
+    ref.read(authProvider.notifier).handleSessionExpired();
+  });
+  ref.onDispose(sub.cancel);
 });

@@ -28,7 +28,7 @@ android {
         applicationId = "com.example.pocket_shop"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 23  // flutter_secure_storage requires API 23+ for EncryptedSharedPreferences
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

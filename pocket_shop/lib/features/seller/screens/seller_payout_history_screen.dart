@@ -55,13 +55,27 @@ class SellerPayoutHistoryScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  row['status']?.toString().toUpperCase() ?? 'PENDING',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.textSecondary.withValues(alpha: 0.7),
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      row['status']?.toString().toUpperCase() ?? 'PENDING',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.textSecondary.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                    if ((row['created_at']?.toString() ?? '').length >= 10) ...[
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        row['created_at'].toString().substring(0, 10),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ],
                             ),

@@ -23,6 +23,7 @@ from .serializers import (
     BuyerPaymentMethodSerializer,
 )
 from .otp_utils import assert_phone_otp_valid
+from .throttles import LoginRateThrottle
 from .sms_service import (
     send_otp_sms,
     send_password_reset_sms,
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
-    
+    throttle_classes = [LoginRateThrottle]
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -289,6 +291,10 @@ class PasswordResetConfirmView(APIView):
         user.set_password(new_password)
         user.save()
 
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+        for token in OutstandingToken.objects.filter(user=user):
+            BlacklistedToken.objects.get_or_create(token=token)
+
         return Response({
             'success': True,
             'message': 'Password updated. You can sign in with your new password.',
@@ -321,9 +327,13 @@ class ChangePasswordView(APIView):
         request.user.set_password(serializer.validated_data['new_password'])
         request.user.save()
 
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+        for token in OutstandingToken.objects.filter(user=request.user):
+            BlacklistedToken.objects.get_or_create(token=token)
+
         return Response({
             'success': True,
-            'message': 'Password changed successfully.',
+            'message': 'Password changed. Please sign in again.',
         }, status=status.HTTP_200_OK)
 
 

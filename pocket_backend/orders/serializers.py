@@ -75,16 +75,25 @@ class OrderSerializer(serializers.ModelSerializer):
     seller_shop_location = serializers.SerializerMethodField()
     seller_shop_lat = serializers.SerializerMethodField()
     seller_shop_lng = serializers.SerializerMethodField()
+    # Expose delivery_fee as quoted_delivery_fee — the fee quoted at order creation time.
+    quoted_delivery_fee = serializers.DecimalField(
+        source='delivery_fee', max_digits=10, decimal_places=2, read_only=True
+    )
+    refund_request_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = ['id', 'order_number', 'buyer', 'buyer_name', 'seller', 'seller_name',
-                 'total_price', 'status', 'delivery_address', 'delivery_lat', 'delivery_lng',
+                 'total_price', 'fulfillment_type', 'status',
+                 'delivery_address', 'delivery_lat', 'delivery_lng',
+                 'quoted_delivery_fee',
+                 'pickup_time_slot', 'quoted_distance_km', 'quoted_eta_minutes',
                  'special_instructions', 'payment_method_id',
                  'delivery_assignment_id',
                  'payment_provider_snapshot', 'payment_account_snapshot',
                  'seller_phone', 'buyer_phone',
                  'seller_shop_name', 'seller_shop_location', 'seller_shop_lat', 'seller_shop_lng',
+                 'refund_request_status',
                  'items', 'ratings', 'created_at', 'updated_at']
         read_only_fields = ['order_number', 'buyer', 'seller', 'total_price', 'delivery_lat', 'delivery_lng']
 
@@ -143,6 +152,12 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_seller_shop_lng(self, obj):
         try:
             return obj.seller.sellerprofile.shop_lng
+        except Exception:
+            return None
+
+    def get_refund_request_status(self, obj):
+        try:
+            return obj.refund_request.status
         except Exception:
             return None
 
@@ -258,5 +273,4 @@ class SellerRespondCancellationSerializer(serializers.Serializer):
 
 class AdminRespondCancellationSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=['approve', 'reject'])
-    note = serializers.CharField(max_length=500, required=False, allow_blank=True)
     note = serializers.CharField(max_length=500, required=False, allow_blank=True)

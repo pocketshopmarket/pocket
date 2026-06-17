@@ -57,11 +57,14 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
   bool _saving = false;
   String? _error;
 
-  List<String> _existingImageUrls = [];
+  // Existing images still kept by the seller (their full URLs from server).
+  List<String> _keptImageUrls = [];
+  // New images picked by the seller this session.
   final List<_PendingImage> _newImages = [];
   final List<_VariantRow> _variants = [];
   String _quality = 'new';
   int? _categoryId;
+  bool _isAvailable = true;
 
   static const _qualityChoices = [
     ('new', 'New'), ('like_new', 'Like new'), ('good', 'Good'),
@@ -86,24 +89,24 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _priceCtrl.dispose();
     _stockCtrl.dispose();
     _descCtrl.dispose();
-    for (final v in _variants) {
-      v.dispose();
-    }
+    for (final v in _variants) v.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final svc = ProductService();
-      final product = await svc.getProduct(widget.productId);
+      final product = await ProductService().getProduct(widget.productId);
       if (!mounted) return;
+
       _nameCtrl.text = product.name;
       _priceCtrl.text = product.price.toStringAsFixed(2);
       _stockCtrl.text = product.stockQuantity.toString();
       _descCtrl.text = product.description;
       _quality = product.quality;
-      _existingImageUrls = List.from(product.imageUrls);
+      _isAvailable = product.isAvailable;
+      _keptImageUrls = List.from(product.imageUrls);
+
       for (final v in product.variants) {
         _variants.add(_VariantRow(
           name: v.name,
@@ -112,11 +115,18 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
           stock: v.stockQuantity,
         ));
       }
-      // Match category by name against loaded categories.
-      final cats = ref.read(allCategoriesProvider).valueOrNull;
-      if (cats != null) {
-        final match = cats.where((c) => c.name == product.category).firstOrNull;
-        _categoryId = match?.id;
+
+      // Match category by ID — product.category is the integer ID as a string.
+      final catIdFromServer = int.tryParse(product.category);
+      if (catIdFromServer != null) {
+        _categoryId = catIdFromServer;
+      } else {
+        // Fallback: match by name for legacy data.
+        final cats = ref.read(allCategoriesProvider).valueOrNull;
+        if (cats != null) {
+          final match = cats.where((c) => c.name == product.category).firstOrNull;
+          _categoryId = match?.id;
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -126,15 +136,20 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
   }
 
   Future<void> _pickImages() async {
-    final room = _kMaxImages - _existingImageUrls.length - _newImages.length;
-    if (room <= 0) return;
+    final totalNow = _keptImageUrls.length + _newImages.length;
+    if (totalNow >= _kMaxImages) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Maximum $_kMaxImages photos reached.')),
+      );
+      return;
+    }
     if (_useDesktop) {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image, allowMultiple: true, withData: true,
       );
       if (!mounted || result == null) return;
       for (final f in result.files) {
-        if (_existingImageUrls.length + _newImages.length >= _kMaxImages) break;
+        if (_keptImageUrls.length + _newImages.length >= _kMaxImages) break;
         final bytes = f.bytes;
         if (bytes == null || bytes.isEmpty) continue;
         setState(() => _newImages.add(
@@ -186,7 +201,6 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     }
     setState(() => _saving = true);
     try {
-      final svc = ProductService();
       final data = {
         'name': _nameCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
@@ -194,6 +208,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
         'stock_quantity': _stockCtrl.text.trim(),
         'category': _categoryId.toString(),
         'quality': _quality,
+        'is_available': _isAvailable.toString(),
       };
       final variants = _variants
           .map((v) => {
@@ -209,10 +224,11 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
           ? _newImages.map((i) => ProductImageUpload(path: i.filePath, bytes: i.bytes, filename: i.filename)).toList()
           : null;
 
-      await svc.updateProduct(
+      await ProductService().updateProduct(
         productId: widget.productId,
         data: data,
-        replacementImages: uploads,
+        newImages: uploads,
+        keptImageUrls: _keptImageUrls,
         variants: variants,
       );
       if (!mounted) return;
@@ -254,7 +270,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
       );
     }
 
-    final totalImages = _existingImageUrls.length + _newImages.length;
+    final totalImages = _keptImageUrls.length + _newImages.length;
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
@@ -271,7 +287,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Images
+          // Photos
           _card(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,19 +298,23 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    for (var i = 0; i < _existingImageUrls.length; i++)
+                    // Existing kept images
+                    for (var i = 0; i < _keptImageUrls.length; i++)
                       Stack(children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network(_existingImageUrls[i], width: 100, height: 100, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _imgPlaceholder()),
+                          child: Image.network(
+                            _keptImageUrls[i], width: 100, height: 100, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _imgPlaceholder(),
+                          ),
                         ),
                         Positioned(right: 2, top: 2, child: IconButton.filled(
                           style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: EdgeInsets.zero, minimumSize: const Size(28, 28)),
-                          onPressed: () => setState(() => _existingImageUrls.removeAt(i)),
+                          onPressed: () => setState(() => _keptImageUrls.removeAt(i)),
                           icon: const Icon(Icons.close, color: Colors.white, size: 16),
                         )),
                       ]),
+                    // Newly picked images
                     for (var i = 0; i < _newImages.length; i++)
                       Stack(children: [
                         ClipRRect(
@@ -315,8 +335,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                         child: InkWell(
                           onTap: _pickImages,
                           child: const SizedBox(
-                            width: 100,
-                            height: 100,
+                            width: 100, height: 100,
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -363,11 +382,23 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                   onChanged: (v) { if (v != null) setState(() => _quality = v); },
                 ),
                 const SizedBox(height: 12),
-                TextField(controller: _priceCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                TextField(controller: _priceCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: const InputDecoration(labelText: 'Price (ZMW)', hintText: '0.00')),
                 const SizedBox(height: 12),
                 TextField(controller: _stockCtrl, keyboardType: TextInputType.number,
                   decoration: const InputDecoration(labelText: 'Stock quantity')),
+                const SizedBox(height: 4),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Listed (visible to buyers)', style: TextStyle(fontSize: 14)),
+                  subtitle: Text(
+                    _isAvailable ? 'Buyers can find and order this product' : 'Product is hidden from buyers',
+                    style: TextStyle(fontSize: 12, color: _isAvailable ? Colors.green : AppTheme.textSecondary),
+                  ),
+                  value: _isAvailable,
+                  onChanged: (v) => setState(() => _isAvailable = v),
+                ),
               ],
             ),
           ),

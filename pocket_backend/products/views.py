@@ -175,6 +175,7 @@ class ProductFilterSet(django_filters.FilterSet):
     in_stock = django_filters.BooleanFilter(method='filter_in_stock')
     # Accept either category ID (integer) or slug (string)
     category = django_filters.CharFilter(method='filter_category')
+    quality = django_filters.CharFilter(field_name='quality', lookup_expr='iexact')
 
     class Meta:
         model = Product
@@ -326,11 +327,31 @@ class ProductViewSet(viewsets.ModelViewSet):
 
         product = serializer.save()
         files = request.FILES.getlist('images')
+
+        # kept_image_urls: list of existing gallery URLs the seller wants to keep.
+        # Any gallery image whose URL is NOT in this list gets deleted.
+        # If the field is absent, all existing images are left untouched.
+        kept_raw = request.data.getlist('kept_image_urls') if hasattr(request.data, 'getlist') else request.data.get('kept_image_urls', None)
+        if kept_raw is not None:
+            # Normalise to a set of path suffixes so we can match against image.url
+            kept_set = {u.strip() for u in kept_raw if u and u.strip()}
+            for pi in list(product.gallery_images.all()):
+                url = pi.image.url if pi.image else (pi.image_url or '')
+                if not any(url.endswith(k) or k.endswith(url) or url == k for k in kept_set):
+                    pi.delete()
+
         if files:
-            try:
-                self._replace_gallery(product, files)
-            except ValidationError as e:
-                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            existing_count = product.gallery_images.count()
+            total = existing_count + len(files)
+            if total > MAX_PRODUCT_IMAGES:
+                return Response(
+                    {'images': [f'Too many images. You have {existing_count} kept; adding {len(files)} would exceed the {MAX_PRODUCT_IMAGES} limit.']},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            next_order = existing_count
+            for uploaded in files:
+                ProductImage.objects.create(product=product, image=uploaded, sort_order=next_order)
+                next_order += 1
 
         product = Product.objects.prefetch_related('gallery_images').get(pk=product.pk)
         return Response(self.get_serializer(product).data)
@@ -397,6 +418,6 @@ class PromoBannerListView(APIView):
             Q(ends_at__isnull=True) | Q(ends_at__gte=now),
         )
         serializer = PromoBannerSerializer(
-            qs, many=True, context={'request': request},
+            qs.order_by('priority')[:10], many=True, context={'request': request},
         )
         return Response(serializer.data)

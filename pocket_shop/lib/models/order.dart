@@ -111,6 +111,8 @@ class Order {
   final String? sellerShopLocation;
   final double? sellerShopLat;
   final double? sellerShopLng;
+  /// null = no refund request yet. Non-null = status of the existing request.
+  final String? refundRequestStatus;
 
   Order({
     required this.id,
@@ -144,6 +146,7 @@ class Order {
     this.sellerShopLocation,
     this.sellerShopLat,
     this.sellerShopLng,
+    this.refundRequestStatus,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -206,6 +209,7 @@ class Order {
       sellerShopLocation: json['seller_shop_location']?.toString(),
       sellerShopLat: double.tryParse((json['seller_shop_lat'] ?? '').toString()),
       sellerShopLng: double.tryParse((json['seller_shop_lng'] ?? '').toString()),
+      refundRequestStatus: json['refund_request_status']?.toString(),
     );
   }
 

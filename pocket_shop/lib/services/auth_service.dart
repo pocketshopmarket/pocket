@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/phone_format.dart';
 import 'api_service.dart';
@@ -11,21 +11,15 @@ class AuthService {
   AuthService._internal();
 
   final ApiService _apiService = ApiService();
-  SharedPreferences? _storage;
-  bool _initialized = false;
 
-  // Initialize storage
-  Future<void> initialize() async {
-    if (_initialized) return;
-    _storage = await SharedPreferences.getInstance();
-    _initialized = true;
-  }
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
-  Future<void> _ensureInitialized() async {
-    if (!_initialized || _storage == null) {
-      await initialize();
-    }
-  }
+  // No-op: kept so main.dart call site doesn't need to change.
+  Future<void> initialize() async {}
+
+  Future<void> _ensureInitialized() async {}
   String? _formatPhoneOrNull(String phone) => PhoneFormat.toE164(phone);
 
   /// Fallback when [PhoneFormat.toE164] fails (should be rare if UI validates).
@@ -190,11 +184,11 @@ class AuthService {
         );
         
         // Save user data
-        await _storage?.setString(
-          AppConstants.userKey,
-          jsonEncode(responseData['data']['user']),
+        await _storage.write(
+          key: AppConstants.userKey,
+          value: jsonEncode(responseData['data']['user']),
         );
-        
+
         return {
           'success': true,
           'message': responseData['message'] ?? 'Account created successfully',
@@ -253,11 +247,11 @@ class AuthService {
         );
         
         // Save user data
-        await _storage?.setString(
-          AppConstants.userKey,
-          jsonEncode(data['data']['user']),
+        await _storage.write(
+          key: AppConstants.userKey,
+          value: jsonEncode(data['data']['user']),
         );
-        
+
         return {
           'success': true,
           'message': data['message'] ?? 'Login successful',
@@ -517,8 +511,7 @@ class AuthService {
 
   // Logout
   Future<void> logout() async {
-    await _ensureInitialized();
-    final refresh = _storage?.getString(AppConstants.refreshTokenKey);
+    final refresh = await _storage.read(key: AppConstants.refreshTokenKey);
     if (refresh != null && refresh.isNotEmpty) {
       try {
         await _apiService.post(
@@ -529,16 +522,15 @@ class AuthService {
         // Access token may be expired; still clear local session.
       }
     }
-    await _storage?.remove(AppConstants.accessTokenKey);
-    await _storage?.remove(AppConstants.refreshTokenKey);
-    await _storage?.remove(AppConstants.userKey);
+    await _storage.delete(key: AppConstants.accessTokenKey);
+    await _storage.delete(key: AppConstants.refreshTokenKey);
+    await _storage.delete(key: AppConstants.userKey);
   }
 
   // Get stored user data
   Future<Map<String, dynamic>?> getStoredUser() async {
-    await _ensureInitialized();
     try {
-      final userData = _storage?.getString(AppConstants.userKey);
+      final userData = await _storage.read(key: AppConstants.userKey);
       if (userData != null) {
         return jsonDecode(userData) as Map<String, dynamic>;
       }
@@ -582,7 +574,7 @@ class AuthService {
 
   /// Persist merged user map (including `seller_profile` / role profiles from GET profile).
   Future<void> saveStoredUserMap(Map<String, dynamic> userMap) async {
-    await _ensureInitialized();
-    await _storage?.setString(AppConstants.userKey, jsonEncode(userMap));
+    await _storage.write(
+        key: AppConstants.userKey, value: jsonEncode(userMap));
   }
 }

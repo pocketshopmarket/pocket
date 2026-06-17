@@ -16,6 +16,9 @@ class ProductQuery {
     this.sortBy = 'default',
     this.page = 1,
     this.pageSize = 12,
+    this.minPrice,
+    this.maxPrice,
+    this.quality,
   });
 
   final String? search;
@@ -24,6 +27,9 @@ class ProductQuery {
   final String sortBy;
   final int page;
   final int pageSize;
+  final double? minPrice;
+  final double? maxPrice;
+  final String? quality;
 }
 
 class ProductPage {
@@ -60,6 +66,7 @@ class ProductService {
       'price_high' => '-price',
       'name_az' => 'name',
       'latest' => '-created_at',
+      'popular' => '-purchases_count',
       _ => '-created_at',
     };
     final params = <String, dynamic>{
@@ -73,6 +80,9 @@ class ProductService {
           query.category != 'all')
         'category': query.category,
       if (query.inStockOnly) 'in_stock': true,
+      if (query.minPrice != null) 'min_price': query.minPrice,
+      if (query.maxPrice != null) 'max_price': query.maxPrice,
+      if (query.quality != null && query.quality!.isNotEmpty) 'quality': query.quality,
     };
     try {
       final response = await _apiService.get(
@@ -299,19 +309,27 @@ class ProductService {
   Future<Product> updateProduct({
     required int productId,
     required Map<String, dynamic> data,
-    List<ProductImageUpload>? replacementImages,
+    List<ProductImageUpload>? newImages,
+    List<String>? keptImageUrls,
     List<Map<String, dynamic>>? variants,
   }) async {
     try {
-      if (replacementImages != null && replacementImages.isNotEmpty) {
-        final form = FormData();
-        for (final e in data.entries) {
-          form.fields.add(MapEntry(e.key, e.value.toString()));
+      // Always use multipart so we can send kept_image_urls alongside any new files.
+      final form = FormData();
+      for (final e in data.entries) {
+        form.fields.add(MapEntry(e.key, e.value.toString()));
+      }
+      if (variants != null) {
+        form.fields.add(MapEntry('variant_payload', jsonEncode(variants)));
+      }
+      // Tell the backend which existing images to keep.
+      if (keptImageUrls != null) {
+        for (final url in keptImageUrls) {
+          form.fields.add(MapEntry('kept_image_urls', url));
         }
-        if (variants != null) {
-          form.fields.add(MapEntry('variant_payload', jsonEncode(variants)));
-        }
-        for (final img in replacementImages) {
+      }
+      if (newImages != null) {
+        for (final img in newImages) {
           if (img.path != null && img.path!.isNotEmpty) {
             final p = img.path!;
             final nameFile = p.contains(Platform.pathSeparator)
@@ -341,19 +359,10 @@ class ProductService {
             );
           }
         }
-        final response = await _apiService.put(
-          '${AppConstants.productsEndpoint}$productId/',
-          data: form,
-        );
-        return Product.fromJson(response.data as Map<String, dynamic>);
       }
-
       final response = await _apiService.put(
         '${AppConstants.productsEndpoint}$productId/',
-        data: {
-          ...data,
-          if (variants != null) 'variant_payload': variants,
-        },
+        data: form,
       );
       return Product.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

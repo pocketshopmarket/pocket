@@ -16,6 +16,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
   Map<String, dynamic>? _stats;
   bool _loading = true;
   String? _error;
+  bool _historyExpanded = false;
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _historyExpanded = false;
     });
     try {
       final svc = ref.read(deliveryServiceProvider);
@@ -233,7 +235,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ...payouts.take(5).map((row) {
+                  ...(_historyExpanded ? payouts : payouts.take(5).toList()).map((row) {
                     final amountColor = row['amount_color'] == 'green'
                         ? AppTheme.success
                         : AppTheme.warning;
@@ -253,6 +255,16 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
+                          if ((row['created_at']?.toString() ?? '').length >= 10) ...[
+                            Text(
+                              row['created_at'].toString().substring(0, 10),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           Text(
                             'ZMW ${row['amount'] ?? '0'}',
                             style: TextStyle(
@@ -264,6 +276,13 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                       ),
                     );
                   }),
+                  if (payouts.length > 5)
+                    TextButton(
+                      onPressed: () => setState(() => _historyExpanded = !_historyExpanded),
+                      child: Text(_historyExpanded
+                          ? 'Show less'
+                          : 'Show all ${payouts.length} entries'),
+                    ),
                 ] else
                   Text(
                     'Earnings from completed deliveries will appear here.',

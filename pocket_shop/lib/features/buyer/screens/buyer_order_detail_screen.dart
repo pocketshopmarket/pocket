@@ -330,6 +330,43 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  Color _refundStatusColor(String status) {
+    switch (status) {
+      case 'approved_by_seller':
+      case 'approved_by_admin':
+      case 'refunded':
+        return AppTheme.success;
+      case 'rejected_by_seller':
+      case 'rejected_by_admin':
+        return AppTheme.error;
+      case 'escalated':
+        return AppTheme.accentBlue;
+      default:
+        return AppTheme.warning;
+    }
+  }
+
+  String _refundStatusLabel(String status) {
+    switch (status) {
+      case 'pending_seller':
+        return 'Awaiting seller review';
+      case 'approved_by_seller':
+        return 'Approved by seller';
+      case 'rejected_by_seller':
+        return 'Rejected by seller';
+      case 'escalated':
+        return 'Escalated to admin';
+      case 'approved_by_admin':
+        return 'Approved by admin';
+      case 'rejected_by_admin':
+        return 'Rejected by admin';
+      case 'refunded':
+        return 'Refunded';
+      default:
+        return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(orderDetailProvider(orderId));
@@ -582,15 +619,50 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
               ],
               if (order.status == 'delivered') ...[
                 const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _requestRefund(context, ref, order.id),
-                    icon: const Icon(Icons.assignment_return_outlined),
-                    label: const Text('Request refund'),
-                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.warning),
+                if (order.refundRequestStatus == null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _requestRefund(context, ref, order.id),
+                      icon: const Icon(Icons.assignment_return_outlined),
+                      label: const Text('Request refund'),
+                      style: OutlinedButton.styleFrom(foregroundColor: AppTheme.warning),
+                    ),
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _refundStatusColor(order.refundRequestStatus!)
+                          .withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _refundStatusColor(order.refundRequestStatus!)
+                            .withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.assignment_return_outlined,
+                          size: 16,
+                          color: _refundStatusColor(order.refundRequestStatus!),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Refund: ${_refundStatusLabel(order.refundRequestStatus!)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _refundStatusColor(order.refundRequestStatus!),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
               ],
               if (order.sellerPhone?.isNotEmpty ?? false) ...[
                 const SizedBox(height: 10),

@@ -86,7 +86,7 @@ jobs:
         run: |
           API_URL="${{ vars.POCKET_API_BASE_URL }}"
           if [ -z "$API_URL" ]; then
-            API_URL="https://pocket-production-ffd6.up.railway.app/api/"
+            API_URL="https://mypocketshop.store/api/"
           fi
           echo "Building with API_BASE_URL=$API_URL"
           flutter build apk --release --dart-define=API_BASE_URL="$API_URL"

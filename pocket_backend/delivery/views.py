@@ -964,9 +964,9 @@ def _advance_payout_for_step(assignment, step, deposit_tx):
     Advance payout rows after a QR handoff is verified.
     Called by both VerifyHandoffTokenView and VerifyIdentityQRView.
     """
-    from django.conf import settings as _s
     from payments.views import _resolve_payout_provider
-    payout_method = getattr(_s, 'PAYOUT_METHOD', 'manual')
+    from portal.models import PlatformSettings
+    payout_method = PlatformSettings.get().payout_method
     delivery_fee = _delivery_fee_for_order(assignment.order)
     order_total = Decimal(str(assignment.order.total_price))
     seller_share = max(order_total - delivery_fee, Decimal('0'))

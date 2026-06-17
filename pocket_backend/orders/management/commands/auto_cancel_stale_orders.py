@@ -56,9 +56,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        from portal.models import PlatformSettings
         timeout_minutes = (
             options['timeout_minutes']
-            or getattr(settings, 'ORDER_ACCEPTANCE_TIMEOUT_MINUTES', 30)
+            or PlatformSettings.get().order_acceptance_timeout_minutes
         )
         daemon = options['daemon']
         interval = options['interval']

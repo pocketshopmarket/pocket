@@ -354,9 +354,9 @@ class PawaPayWebhookView(APIView):
         Platform commission is kept by the platform (no payout row needed).
         """
         order = deposit_tx.order
-        commission_rate = Decimal(str(
-            getattr(django_settings, 'PLATFORM_COMMISSION_RATE', 0.05)
-        ))
+        from portal.models import PlatformSettings
+        _ps = PlatformSettings.get()
+        commission_rate = Decimal(str(_ps.commission_rate))
 
         # Use the server-validated delivery fee from the Order model.
         delivery_fee = Decimal(str(order.delivery_fee or 0))
@@ -369,7 +369,7 @@ class PawaPayWebhookView(APIView):
         # ── FIX #6: Use seller's OWN registered payment method ──
         seller_provider, seller_phone = _resolve_payout_provider(order.seller)
 
-        payout_method = getattr(django_settings, 'PAYOUT_METHOD', 'manual')
+        payout_method = _ps.payout_method
 
         # Seller payout — triggered when rider scans seller QR (pickup).
         if seller_share > 0 and not Transaction.objects.filter(
@@ -729,7 +729,8 @@ class RequestPayoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        payout_method = getattr(django_settings, 'PAYOUT_METHOD', 'manual')
+        from portal.models import PlatformSettings
+        payout_method = PlatformSettings.get().payout_method
 
         tx = Transaction.objects.create(
             order=latest_order,

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem, RefundRequest
+from .models import Cart, CartItem, Order, OrderItem, RefundRequest, CancellationRequest
 from .models import OrderRating
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -222,4 +222,41 @@ class SellerRespondRefundSerializer(serializers.Serializer):
 
 class AdminRespondRefundSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=['approve', 'reject'])
+
+
+class CancellationRequestSerializer(serializers.ModelSerializer):
+    buyer_name = serializers.CharField(source='requested_by.full_name', read_only=True)
+    order_number = serializers.CharField(source='order.order_number', read_only=True)
+    order_total = serializers.DecimalField(
+        source='order.total_price', max_digits=10, decimal_places=2, read_only=True
+    )
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = CancellationRequest
+        fields = [
+            'id', 'order', 'order_number', 'order_total',
+            'requested_by', 'buyer_name',
+            'reason', 'status', 'status_display',
+            'seller_note', 'admin_note',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'order', 'requested_by', 'status',
+            'seller_note', 'admin_note', 'created_at', 'updated_at',
+        ]
+
+
+class CreateCancellationRequestSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=1000)
+
+
+class SellerRespondCancellationSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['approve', 'reject', 'escalate'])
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class AdminRespondCancellationSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=['approve', 'reject'])
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True)
     note = serializers.CharField(max_length=500, required=False, allow_blank=True)

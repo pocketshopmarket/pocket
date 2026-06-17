@@ -8,7 +8,7 @@ from django.db.models.functions import TruncDate
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
-from .models import Cart, CartItem, Order, OrderItem, RefundRequest
+from .models import Cart, CartItem, Order, OrderItem, RefundRequest, CancellationRequest
 from .serializers import (
     CartSerializer,
     OrderSerializer,
@@ -19,6 +19,10 @@ from .serializers import (
     CreateRefundRequestSerializer,
     SellerRespondRefundSerializer,
     AdminRespondRefundSerializer,
+    CancellationRequestSerializer,
+    CreateCancellationRequestSerializer,
+    SellerRespondCancellationSerializer,
+    AdminRespondCancellationSerializer,
 )
 from products.models import Product, ProductImage, ProductVariant
 from delivery.coordinates import resolve_delivery_coordinates
@@ -749,3 +753,108 @@ class RefundRequestRespondView(APIView):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         return Response(RefundRequestSerializer(refund).data)
+
+
+class CancellationRequestCreateView(APIView):
+    """Buyer requests cancellation of an accepted order — seller must review."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id, buyer=request.user)
+        if order.status != 'accepted':
+            return Response(
+                {'error': 'Cancellation requests can only be made for accepted orders.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if hasattr(order, 'cancellation_request'):
+            return Response(
+                {'error': 'A cancellation request already exists for this order.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = CreateCancellationRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        req = CancellationRequest.objects.create(
+            order=order,
+            requested_by=request.user,
+            reason=serializer.validated_data['reason'],
+        )
+        return Response(CancellationRequestSerializer(req).data, status=status.HTTP_201_CREATED)
+
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        user = request.user
+        if user != order.buyer and user != order.seller and user.role != 'admin':
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        try:
+            req = order.cancellation_request
+        except CancellationRequest.DoesNotExist:
+            return Response({'detail': 'No cancellation request.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(CancellationRequestSerializer(req).data)
+
+
+class CancellationRequestListView(APIView):
+    """List cancellation requests filtered by the caller's role."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role == 'buyer':
+            qs = CancellationRequest.objects.filter(requested_by=user)
+        elif user.role == 'seller':
+            qs = CancellationRequest.objects.filter(order__seller=user)
+        elif user.role == 'admin' or user.is_staff:
+            qs = CancellationRequest.objects.all()
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        return Response(CancellationRequestSerializer(qs, many=True).data)
+
+
+class CancellationRequestRespondView(APIView):
+    """Seller approves / rejects / escalates. Admin approves / rejects."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        req = get_object_or_404(CancellationRequest, pk=pk)
+        user = request.user
+
+        if user.role == 'seller' and req.order.seller == user:
+            if req.status != 'pending_seller':
+                return Response(
+                    {'error': 'Already responded.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            serializer = SellerRespondCancellationSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            action = serializer.validated_data['action']
+            note = serializer.validated_data.get('note', '')
+            mapping = {
+                'approve': 'approved_by_seller',
+                'reject': 'rejected_by_seller',
+                'escalate': 'escalated',
+            }
+            req.status = mapping[action]
+            req.seller_note = note
+            req.save(update_fields=['status', 'seller_note', 'updated_at'])
+            if action == 'approve':
+                cancel_order_with_refund(req.order, reason='Seller approved cancellation request')
+
+        elif user.role == 'admin' or user.is_staff:
+            if req.status not in ('escalated', 'rejected_by_seller'):
+                return Response(
+                    {'error': 'Not available for admin action at this stage.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            serializer = AdminRespondCancellationSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            action = serializer.validated_data['action']
+            note = serializer.validated_data.get('note', '')
+            mapping = {'approve': 'approved_by_admin', 'reject': 'rejected_by_admin'}
+            req.status = mapping[action]
+            req.admin_note = note
+            req.save(update_fields=['status', 'admin_note', 'updated_at'])
+            if action == 'approve':
+                cancel_order_with_refund(req.order, reason='Admin approved cancellation request')
+        else:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        return Response(CancellationRequestSerializer(req).data)

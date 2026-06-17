@@ -59,6 +59,75 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _requestCancellation(BuildContext context, WidgetRef ref, int orderId) async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Request cancellation', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            const Text(
+              'The seller has already accepted your order. Tell them why you want to cancel — they will review and approve or reject your request.',
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Reason',
+                hintText: 'Why do you want to cancel?',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.warning),
+                child: const Text('Send request to seller'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    if (reasonCtrl.text.trim().isEmpty) return;
+    try {
+      final api = ApiService();
+      await api.post(
+        'orders/orders/$orderId/cancellation-request/',
+        data: {'reason': reasonCtrl.text.trim()},
+      );
+      ref.invalidate(orderDetailProvider(orderId));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Request sent — the seller will review it'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
   Future<void> _requestRefund(BuildContext context, WidgetRef ref, int orderId) async {
     final reasonCtrl = TextEditingController();
     final confirmed = await showModalBottomSheet<bool>(
@@ -464,7 +533,7 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              if (['pending', 'payment_pending', 'accepted'].contains(order.status)) ...[
+              if (['pending', 'payment_pending'].contains(order.status)) ...[
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -473,6 +542,18 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                     icon: const Icon(Icons.cancel_outlined),
                     label: const Text('Cancel order'),
                     style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                  ),
+                ),
+              ],
+              if (order.status == 'accepted') ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _requestCancellation(context, ref, order.id),
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('Request cancellation'),
+                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.warning),
                   ),
                 ),
               ],

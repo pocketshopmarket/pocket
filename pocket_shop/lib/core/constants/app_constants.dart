@@ -51,6 +51,7 @@ class AppConstants {
   static const String myQREndpoint = 'auth/my-qr/';
   static const String verifyIdentityQRPrefix = 'delivery/assignment/';
   static const String refundRequestsEndpoint = 'orders/refund-requests/';
+  static const String cancellationRequestsEndpoint = 'orders/cancellation-requests/';
   static const String sellerProductReviewsPrefix = 'reviews/products/';
 
   // Storage Keys

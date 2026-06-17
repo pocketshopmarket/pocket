@@ -12,6 +12,9 @@ from .views import (
     RefundRequestCreateView,
     RefundRequestListView,
     RefundRequestRespondView,
+    CancellationRequestCreateView,
+    CancellationRequestListView,
+    CancellationRequestRespondView,
 )
 
 urlpatterns = [
@@ -31,6 +34,11 @@ urlpatterns = [
     # Refund request list + respond
     path('refund-requests/', RefundRequestListView.as_view(), name='refund-request-list'),
     path('refund-requests/<int:pk>/respond/', RefundRequestRespondView.as_view(), name='refund-request-respond'),
+
+    # Cancellation request (accepted orders — goes to seller for approval)
+    path('orders/<int:order_id>/cancellation-request/', CancellationRequestCreateView.as_view(), name='order-cancellation-request'),
+    path('cancellation-requests/', CancellationRequestListView.as_view(), name='cancellation-request-list'),
+    path('cancellation-requests/<int:pk>/respond/', CancellationRequestRespondView.as_view(), name='cancellation-request-respond'),
 
     path(
         'seller/dashboard-stats/',

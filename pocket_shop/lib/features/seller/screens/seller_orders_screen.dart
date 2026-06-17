@@ -10,6 +10,7 @@ import '../../../models/order.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/cart_provider.dart';
 import '../../shared/screens/refund_requests_screen.dart';
+import '../../shared/screens/cancellation_requests_screen.dart';
 
 class SellerOrdersScreen extends ConsumerStatefulWidget {
   const SellerOrdersScreen({super.key});
@@ -148,6 +149,26 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
                     foregroundColor: AppTheme.warning,
                     side: BorderSide(
                         color: AppTheme.warning.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CancellationRequestsScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text('Cancellation requests'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.error,
+                    side: BorderSide(
+                        color: AppTheme.error.withValues(alpha: 0.5)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),

@@ -222,43 +222,52 @@ nav {
         0 0 100px rgba(0,188,212,0.10);
 }
 
-/* Power button — right */
+/* Power/sleep button — right side (single tall button like iPhone) */
 .phone-mockup::before {
     content: '';
     position: absolute;
-    right: -2px;
-    top: 90px;
-    width: 2px;
-    height: 42px;
+    right: -2.5px;
+    top: 92px;
+    width: 2.5px;
+    height: 52px;
     background: linear-gradient(to bottom,
-        rgba(255,255,255,0.18),
-        rgba(255,255,255,0.06));
+        rgba(160,160,165,0.5),
+        rgba(120,120,125,0.3));
     border-radius: 0 2px 2px 0;
 }
 
-/* Volume buttons — left */
+/* Left side: action button + vol up + vol down (gradient segments trick) */
 .phone-mockup::after {
     content: '';
     position: absolute;
-    left: -2px;
-    top: 78px;
-    width: 2px;
-    height: 26px;
-    background: linear-gradient(to bottom,
-        rgba(255,255,255,0.18),
-        rgba(255,255,255,0.06));
+    left: -2.5px;
+    top: 62px;
+    width: 2.5px;
+    height: 100px;
     border-radius: 2px 0 0 2px;
-    box-shadow: 0 36px 0 rgba(255,255,255,0.12);
+    background: linear-gradient(
+        to bottom,
+        rgba(160,160,165,0.5)  0px,
+        rgba(160,160,165,0.5)  18px,  /* action button */
+        transparent            18px,
+        transparent            28px,  /* gap */
+        rgba(160,160,165,0.5)  28px,
+        rgba(160,160,165,0.5)  58px,  /* vol up */
+        transparent            58px,
+        transparent            66px,  /* gap */
+        rgba(160,160,165,0.5)  66px,
+        rgba(160,160,165,0.5)  96px   /* vol down */
+    );
 }
 
-/* Punch-hole camera */
+/* Dynamic Island — the iPhone pill */
 .phone-notch {
-    width: 10px;
-    height: 10px;
-    background: #030306;
-    border-radius: 50%;
-    margin: 5px auto 9px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
+    width: 88px;
+    height: 24px;
+    background: #000;
+    border-radius: 20px;
+    margin: 4px auto 8px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
 }
 
 /* Screen */

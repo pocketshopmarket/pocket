@@ -17,6 +17,7 @@ class TransactionAdmin(admin.ModelAdmin):
         'payout_stage',
         'recipient_role',
         'trigger_event',
+        'failure_message',
         'created_at',
     ]
     list_filter = [
@@ -35,7 +36,54 @@ class TransactionAdmin(admin.ModelAdmin):
     readonly_fields = ['transaction_id', 'created_at', 'updated_at']
     raw_id_fields = ['order', 'recipient']
     ordering = ['-created_at']
-    actions = ['mark_as_manually_paid']
+    actions = ['mark_as_manually_paid', 'retry_refund']
+
+    @admin.action(description='Retry refund via PawaPay (failed/pending refunds only)')
+    def retry_refund(self, request, queryset):
+        from .services.pawapay import PawaPayService
+
+        eligible = queryset.filter(
+            transaction_type='refund',
+            status__in=['pending', 'failed'],
+        )
+        if not eligible.exists():
+            self.message_user(
+                request,
+                'No eligible refund rows selected (must be type=refund and status=pending or failed).',
+                messages.WARNING,
+            )
+            return
+
+        succeeded, failed = 0, 0
+        for tx in eligible.select_related('order', 'recipient'):
+            tx.status = 'pending'
+            tx.failure_message = ''
+            tx.save(update_fields=['status', 'failure_message', 'updated_at'])
+            try:
+                result = PawaPayService.initiate_refund(tx)
+                if result:
+                    succeeded += 1
+                else:
+                    failed += 1
+            except Exception as exc:
+                tx.status = 'failed'
+                tx.failure_message = str(exc)[:200]
+                tx.save(update_fields=['status', 'failure_message', 'updated_at'])
+                failed += 1
+
+        if succeeded:
+            self.message_user(
+                request,
+                f'{succeeded} refund(s) submitted to PawaPay. '
+                f'Status will update when PawaPay webhooks back.',
+                messages.SUCCESS,
+            )
+        if failed:
+            self.message_user(
+                request,
+                f'{failed} refund(s) failed — check failure_message on the transaction.',
+                messages.ERROR,
+            )
 
     @admin.action(description='Mark selected as manually paid (manual payouts only)')
     def mark_as_manually_paid(self, request, queryset):

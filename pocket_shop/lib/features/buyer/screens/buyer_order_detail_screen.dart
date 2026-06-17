@@ -16,6 +16,49 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
 
   const BuyerOrderDetailScreen({super.key, required this.orderId});
 
+  Future<void> _cancelOrder(BuildContext context, WidgetRef ref, int orderId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel this order?'),
+        content: const Text(
+          'Your order will be cancelled. If you already paid, a full refund will be sent back to your mobile money account automatically.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Cancel order'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      final api = ApiService();
+      await api.post('orders/orders/$orderId/cancel/');
+      ref.invalidate(orderDetailProvider(orderId));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order cancelled. Refund will be sent to your mobile money account.'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
   Future<void> _requestRefund(BuildContext context, WidgetRef ref, int orderId) async {
     final reasonCtrl = TextEditingController();
     final confirmed = await showModalBottomSheet<bool>(
@@ -421,6 +464,18 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              if (['pending', 'payment_pending', 'accepted'].contains(order.status)) ...[
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _cancelOrder(context, ref, order.id),
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('Cancel order'),
+                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                  ),
+                ),
+              ],
               if (order.isDelivery &&
                   order.status == 'out_for_delivery')
                 SizedBox(

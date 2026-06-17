@@ -260,13 +260,17 @@ nav {
     );
 }
 
-/* Dynamic Island — the iPhone pill */
+/* Dynamic Island — floats over the screen image */
 .phone-notch {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
     width: 88px;
     height: 24px;
     background: #000;
     border-radius: 20px;
-    margin: 4px auto 8px;
+    z-index: 15;
     box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
 }
 
@@ -310,11 +314,12 @@ nav {
     z-index: 11;
 }
 
-/* Slideshow */
+/* Slideshow — fills the full screen behind the Dynamic Island */
 .slideshow {
     width: 100%;
     height: 100%;
-    position: relative;
+    position: absolute;
+    inset: 0;
 }
 
 .slide {

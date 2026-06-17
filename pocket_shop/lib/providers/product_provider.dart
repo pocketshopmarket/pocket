@@ -245,7 +245,8 @@ class ProductNotifier extends StateNotifier<ProductState> {
   Future<Map<String, dynamic>> updateProduct({
     required int productId,
     required Map<String, dynamic> data,
-    List<ProductImageUpload>? replacementImages,
+    List<ProductImageUpload>? newImages,
+    List<String>? keptImageUrls,
     List<Map<String, dynamic>>? variants,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
@@ -253,7 +254,8 @@ class ProductNotifier extends StateNotifier<ProductState> {
       final updated = await _productService.updateProduct(
         productId: productId,
         data: data,
-        replacementImages: replacementImages,
+        newImages: newImages,
+        keptImageUrls: keptImageUrls,
         variants: variants,
       );
       state = state.copyWith(

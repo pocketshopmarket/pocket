@@ -174,105 +174,131 @@ nav {
     align-items: center;
 }
 
-/* Glow behind phone */
+/* Ambient glow behind phone */
 .hero-visual::before {
     content: '';
     position: absolute;
-    width: 320px;
-    height: 320px;
-    background: radial-gradient(circle, rgba(0,188,212,0.18) 0%, transparent 70%);
-    border-radius: 50%;
-    filter: blur(40px);
+    width: 400px;
+    height: 500px;
+    background: radial-gradient(ellipse at center, rgba(0,188,212,0.12) 0%, transparent 65%);
+    filter: blur(60px);
     z-index: 0;
     pointer-events: none;
+    border-radius: 50%;
 }
 
-/* Phone Mockup — Modern 2026 */
+/* Phone Mockup — Premium Thin Frame */
 .phone-mockup {
     position: relative;
-    width: 230px;
-    background: linear-gradient(160deg, #1e1e32, #0d0d1a);
-    border-radius: 2.75rem;
-    padding: 12px;
-    border: 1.5px solid rgba(255,255,255,0.08);
+    width: 235px;
+    border-radius: 3rem;
+    padding: 6px;
+    /* Gradient metallic border trick */
+    background:
+        linear-gradient(#0c0c16, #0c0c16) padding-box,
+        linear-gradient(160deg,
+            rgba(255,255,255,0.28) 0%,
+            rgba(255,255,255,0.04) 35%,
+            rgba(255,255,255,0.02) 60%,
+            rgba(255,255,255,0.18) 100%
+        ) border-box;
+    border: 1.5px solid transparent;
     box-shadow:
-        0 0 0 1px rgba(0,0,0,0.6),
-        0 40px 80px rgba(0,0,0,0.5),
-        0 0 50px rgba(0,188,212,0.12),
-        inset 0 1px 0 rgba(255,255,255,0.06);
+        0 0 0 0.5px rgba(0,0,0,0.9),
+        0 20px 40px rgba(0,0,0,0.6),
+        0 50px 120px rgba(0,0,0,0.4),
+        0 0 80px rgba(0,188,212,0.06);
     z-index: 1;
-    transform: perspective(900px) rotateY(-6deg) rotateX(2deg);
-    transition: transform 0.5s ease, box-shadow 0.5s ease;
+    transform: perspective(1000px) rotateY(-4deg) rotateX(1deg);
+    transition: transform 0.6s cubic-bezier(0.23,1,0.32,1), box-shadow 0.6s ease;
 }
 
 .phone-mockup:hover {
-    transform: perspective(900px) rotateY(0deg) rotateX(0deg);
+    transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
     box-shadow:
-        0 0 0 1px rgba(0,0,0,0.6),
-        0 50px 100px rgba(0,0,0,0.4),
-        0 0 70px rgba(0,188,212,0.2),
-        inset 0 1px 0 rgba(255,255,255,0.06);
+        0 0 0 0.5px rgba(0,0,0,0.9),
+        0 30px 60px rgba(0,0,0,0.5),
+        0 70px 140px rgba(0,0,0,0.3),
+        0 0 100px rgba(0,188,212,0.10);
 }
 
-/* Power button (right side) */
+/* Power button — right */
 .phone-mockup::before {
     content: '';
     position: absolute;
-    right: -3px;
+    right: -2px;
     top: 90px;
-    width: 3px;
-    height: 44px;
-    background: linear-gradient(to bottom, #2a2a44, #1a1a2e);
-    border-radius: 0 3px 3px 0;
+    width: 2px;
+    height: 42px;
+    background: linear-gradient(to bottom,
+        rgba(255,255,255,0.18),
+        rgba(255,255,255,0.06));
+    border-radius: 0 2px 2px 0;
 }
 
-/* Volume buttons (left side) */
+/* Volume buttons — left */
 .phone-mockup::after {
     content: '';
     position: absolute;
-    left: -3px;
-    top: 80px;
-    width: 3px;
-    height: 30px;
-    background: linear-gradient(to bottom, #2a2a44, #1a1a2e);
-    border-radius: 3px 0 0 3px;
-    box-shadow: 0 40px 0 #2a2a44;
+    left: -2px;
+    top: 78px;
+    width: 2px;
+    height: 26px;
+    background: linear-gradient(to bottom,
+        rgba(255,255,255,0.18),
+        rgba(255,255,255,0.06));
+    border-radius: 2px 0 0 2px;
+    box-shadow: 0 36px 0 rgba(255,255,255,0.12);
 }
 
 /* Punch-hole camera */
 .phone-notch {
     width: 10px;
     height: 10px;
-    background: #050508;
+    background: #030306;
     border-radius: 50%;
-    margin: 4px auto 10px;
-    box-shadow:
-        0 0 0 1.5px rgba(255,255,255,0.04),
-        inset 0 0 4px rgba(0,188,212,0.3);
+    margin: 5px auto 9px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
 }
 
 /* Screen */
 .phone-screen {
     width: 100%;
-    aspect-ratio: 9 / 16;
-    border-radius: 2.25rem;
+    aspect-ratio: 9 / 19.5;
+    border-radius: 2.6rem;
     overflow: hidden;
     background: #000;
     position: relative;
 }
 
-/* Screen shine overlay */
+/* Screen glass reflection */
 .phone-screen::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%);
+    inset: 0;
+    background: linear-gradient(
+        135deg,
+        rgba(255,255,255,0.07) 0%,
+        rgba(255,255,255,0.02) 30%,
+        transparent 60%
+    );
     pointer-events: none;
-    z-index: 2;
-    border-radius: 2.25rem;
+    z-index: 10;
+    border-radius: 2.6rem;
+}
+
+/* Home indicator bar */
+.phone-screen::before {
+    content: '';
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 4px;
+    background: rgba(255,255,255,0.35);
+    border-radius: 2px;
+    z-index: 11;
 }
 
 /* Slideshow */
@@ -284,8 +310,7 @@ nav {
 
 .slide {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -302,22 +327,22 @@ nav {
 .slide-dots {
     display: flex;
     justify-content: center;
-    gap: 6px;
-    padding: 12px 0 4px;
+    gap: 5px;
+    padding: 10px 0 4px;
 }
 
 .dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.15);
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .dot.active {
     background: var(--primary);
-    width: 20px;
+    width: 18px;
     border-radius: 3px;
 }
 

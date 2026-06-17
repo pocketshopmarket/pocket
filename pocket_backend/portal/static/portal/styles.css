@@ -171,33 +171,108 @@ nav {
     position: relative;
     display: flex;
     justify-content: center;
+    align-items: center;
 }
 
-/* Phone Mockup */
+/* Glow behind phone */
+.hero-visual::before {
+    content: '';
+    position: absolute;
+    width: 320px;
+    height: 320px;
+    background: radial-gradient(circle, rgba(0,188,212,0.18) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(40px);
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* Phone Mockup — Modern 2026 */
 .phone-mockup {
     position: relative;
-    width: 220px;
-    background: #1a1a2e;
-    border-radius: 2.25rem;
-    padding: 10px;
-    border: 3px solid #2d2d44;
+    width: 230px;
+    background: linear-gradient(160deg, #1e1e32, #0d0d1a);
+    border-radius: 2.75rem;
+    padding: 12px;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    box-shadow:
+        0 0 0 1px rgba(0,0,0,0.6),
+        0 40px 80px rgba(0,0,0,0.5),
+        0 0 50px rgba(0,188,212,0.12),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+    z-index: 1;
+    transform: perspective(900px) rotateY(-6deg) rotateX(2deg);
+    transition: transform 0.5s ease, box-shadow 0.5s ease;
 }
 
+.phone-mockup:hover {
+    transform: perspective(900px) rotateY(0deg) rotateX(0deg);
+    box-shadow:
+        0 0 0 1px rgba(0,0,0,0.6),
+        0 50px 100px rgba(0,0,0,0.4),
+        0 0 70px rgba(0,188,212,0.2),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* Power button (right side) */
+.phone-mockup::before {
+    content: '';
+    position: absolute;
+    right: -3px;
+    top: 90px;
+    width: 3px;
+    height: 44px;
+    background: linear-gradient(to bottom, #2a2a44, #1a1a2e);
+    border-radius: 0 3px 3px 0;
+}
+
+/* Volume buttons (left side) */
+.phone-mockup::after {
+    content: '';
+    position: absolute;
+    left: -3px;
+    top: 80px;
+    width: 3px;
+    height: 30px;
+    background: linear-gradient(to bottom, #2a2a44, #1a1a2e);
+    border-radius: 3px 0 0 3px;
+    box-shadow: 0 40px 0 #2a2a44;
+}
+
+/* Punch-hole camera */
 .phone-notch {
-    width: 120px;
-    height: 6px;
-    background: #2d2d44;
-    border-radius: 10px;
-    margin: 0 auto 8px;
+    width: 10px;
+    height: 10px;
+    background: #050508;
+    border-radius: 50%;
+    margin: 4px auto 10px;
+    box-shadow:
+        0 0 0 1.5px rgba(255,255,255,0.04),
+        inset 0 0 4px rgba(0,188,212,0.3);
 }
 
+/* Screen */
 .phone-screen {
     width: 100%;
-    aspect-ratio: 9 / 15;
-    border-radius: 1.75rem;
+    aspect-ratio: 9 / 16;
+    border-radius: 2.25rem;
     overflow: hidden;
-    background: #fff;
+    background: #000;
     position: relative;
+}
+
+/* Screen shine overlay */
+.phone-screen::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 2;
+    border-radius: 2.25rem;
 }
 
 /* Slideshow */
@@ -216,7 +291,7 @@ nav {
     object-fit: cover;
     object-position: top;
     opacity: 0;
-    transition: opacity 0.6s ease;
+    transition: opacity 0.7s ease;
 }
 
 .slide.active {
@@ -227,23 +302,23 @@ nav {
 .slide-dots {
     display: flex;
     justify-content: center;
-    gap: 8px;
-    padding: 14px 0 6px;
+    gap: 6px;
+    padding: 12px 0 4px;
 }
 
 .dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: #4a4a6a;
+    background: rgba(255,255,255,0.2);
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .dot.active {
     background: var(--primary);
-    width: 24px;
-    border-radius: 4px;
+    width: 20px;
+    border-radius: 3px;
 }
 
 /* Trust Bar */

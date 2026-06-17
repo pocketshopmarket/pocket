@@ -1,0 +1,331 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy | Pocket Shop</title>
+    <meta name="description" content="Pocket Shop Privacy Policy — how we collect, use, and protect your personal data.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'portal/styles.css' %}">
+
+    <style>
+        .legal-hero {
+            background: linear-gradient(135deg, var(--surface) 0%, rgba(0,188,212,0.06) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 80px 0 48px;
+            text-align: center;
+        }
+        .legal-hero h1 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .legal-hero p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+        .legal-wrap {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 64px 24px 96px;
+        }
+        .legal-wrap h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 48px 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .legal-wrap h2:first-child { margin-top: 0; }
+        .legal-wrap h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 24px 0 8px;
+        }
+        .legal-wrap p, .legal-wrap li {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            font-size: 0.97rem;
+        }
+        .legal-wrap ul {
+            margin: 12px 0 12px 24px;
+        }
+        .legal-wrap ul li {
+            margin-bottom: 6px;
+        }
+        .legal-wrap a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .legal-wrap a:hover { text-decoration: underline; }
+        .legal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.92rem;
+        }
+        .legal-table th {
+            background: var(--surface);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+        }
+        .legal-table td {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            line-height: 1.6;
+            vertical-align: top;
+        }
+        .highlight-box {
+            background: rgba(0,188,212,0.06);
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+            padding: 14px 18px;
+            margin: 16px 0;
+        }
+        .highlight-box p { margin: 0; }
+    </style>
+</head>
+<body>
+
+    <header id="site-header">
+        <nav>
+            <a href="{% url 'portal:index' %}" class="logo">
+                <img src="{% static 'portal/images/logo.jpg' %}" alt="Pocket Shop Logo">
+                <span>Pocket Shop</span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="{% url 'portal:index' %}#features">Features</a>
+                <a href="{% url 'portal:index' %}#sellers">For Sellers</a>
+                <a href="{% url 'portal:index' %}#riders">For Riders</a>
+                <a href="{% url 'portal:index' %}#how-it-works">How It Works</a>
+            </div>
+            <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle navigation">
+                <i class="fas fa-bars"></i>
+            </button>
+        </nav>
+    </header>
+
+    <div class="legal-hero">
+        <h1>Privacy <span class="text-cyan">Policy</span></h1>
+        <p>Last updated: June 2026</p>
+    </div>
+
+    <div class="legal-wrap">
+
+        <p>This Privacy Policy explains what personal information Pocket Shop collects, why we collect it, and how we use and protect it. It applies to the Pocket Shop website (<a href="https://mypocketshop.store">mypocketshop.store</a>) and the Pocket Shop mobile application.</p>
+
+        <div class="highlight-box">
+            <p><strong>Short version:</strong> We collect only what is needed to run the marketplace. We do not sell your data. Identity documents submitted for verification are seen only by our admin team. You can contact us at any time to access, correct, or delete your data.</p>
+        </div>
+
+        <h2>1. What Information We Collect</h2>
+
+        <h3>Information you give us</h3>
+        <table class="legal-table">
+            <thead>
+                <tr>
+                    <th>Who</th>
+                    <th>Data collected</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>All users</td>
+                    <td>Phone number, full name, gender, email address (optional), date of birth, profile photo</td>
+                </tr>
+                <tr>
+                    <td>Buyers</td>
+                    <td>Delivery addresses, saved mobile money wallet numbers (MTN / Airtel / Zamtel)</td>
+                </tr>
+                <tr>
+                    <td>Sellers</td>
+                    <td>Shop name &amp; GPS location, NRC number, NRC front &amp; back photos, live verification selfie, business license image, business name &amp; registration number</td>
+                </tr>
+                <tr>
+                    <td>Delivery agents</td>
+                    <td>Driver's license number, license front &amp; back photos, live verification selfie, vehicle type, province / town / area</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Information collected automatically</h3>
+        <ul>
+            <li><strong>Device push token (FCM):</strong> A Firebase token so we can send you order notifications. You can disable notifications in your phone settings at any time.</li>
+            <li><strong>Real-time location:</strong> If you are a delivery agent on an active delivery, your GPS coordinates are shared with the buyer and the seller for that delivery only. Location sharing stops when the delivery is completed.</li>
+            <li><strong>Transaction records:</strong> Every payment, payout, and refund processed through the platform is recorded — including amount, currency, provider, and timestamps.</li>
+            <li><strong>Order history:</strong> Items ordered, order status changes, delivery addresses used per order.</li>
+            <li><strong>Reviews:</strong> Star ratings and text comments you submit on products.</li>
+        </ul>
+
+        <h3>Information from third parties</h3>
+        <ul>
+            <li>PawaPay confirms to us whether your mobile money payment succeeded or failed. We do not receive your mobile money PIN.</li>
+            <li>Africa's Talking delivers OTP codes to your phone number on our behalf.</li>
+        </ul>
+
+        <h2>2. Why We Collect This Information</h2>
+
+        <table class="legal-table">
+            <thead>
+                <tr>
+                    <th>Purpose</th>
+                    <th>Legal basis</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Verify your phone number via OTP when you register or log in</td>
+                    <td>Necessary to provide the service</td>
+                </tr>
+                <tr>
+                    <td>Process mobile money payments for orders</td>
+                    <td>Necessary to provide the service</td>
+                </tr>
+                <tr>
+                    <td>Verify sellers and delivery agents before approving their accounts</td>
+                    <td>Legal obligation — fraud prevention and marketplace safety</td>
+                </tr>
+                <tr>
+                    <td>Share delivery agent location during active deliveries</td>
+                    <td>Necessary to provide the service (you consent by accepting a delivery assignment)</td>
+                </tr>
+                <tr>
+                    <td>Send push notifications about your orders</td>
+                    <td>Consent — disable notifications in your phone settings at any time</td>
+                </tr>
+                <tr>
+                    <td>Investigate disputes and prevent fraud</td>
+                    <td>Legitimate interest</td>
+                </tr>
+                <tr>
+                    <td>Improve the platform and fix issues</td>
+                    <td>Legitimate interest</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>3. Who We Share Your Information With</h2>
+
+        <p>We do not sell your personal data to anyone. We share data only as described below:</p>
+
+        <ul>
+            <li><strong>PawaPay</strong> — receives your mobile money number and the transaction amount to process payments and payouts. PawaPay is a regulated payment service provider.</li>
+            <li><strong>Africa's Talking</strong> — receives your phone number to deliver OTP SMS messages on our behalf.</li>
+            <li><strong>Firebase (Google)</strong> — receives your device token to deliver push notifications about your orders.</li>
+            <li><strong>OpenStreetMap / OSRM</strong> — delivery routing is computed using open map data. No personal data is transmitted to these services.</li>
+            <li><strong>DigitalOcean</strong> — our servers and database are hosted on DigitalOcean infrastructure in London, UK. Your data is stored there under DigitalOcean's data processing agreement.</li>
+            <li><strong>Other users (limited):</strong> When you place an order, your first name and delivery address are shared with the assigned seller and delivery agent for fulfilment purposes only. Sellers can see product reviews left by buyers.</li>
+            <li><strong>Law enforcement / regulators:</strong> We may disclose data to Zambian authorities if required by law.</li>
+        </ul>
+
+        <h2>4. Identity Documents</h2>
+        <p>Sellers and delivery agents submit identity documents (NRC, driver's license, live verification photos) during the verification process. These documents are:</p>
+        <ul>
+            <li>Stored securely on our servers with access restricted to Pocket Shop administrators only</li>
+            <li>Never shared with other users, sellers, or third-party advertisers</li>
+            <li>Used solely to verify your identity before approving your account</li>
+            <li>Retained for the duration of your account and for a period afterward as required by Zambian law</li>
+        </ul>
+
+        <h2>5. Your Rights</h2>
+        <p>Under Zambia's Data Protection Act No. 3 of 2021, you have the right to:</p>
+        <ul>
+            <li><strong>Access</strong> the personal data we hold about you</li>
+            <li><strong>Correct</strong> inaccurate or out-of-date information on your account</li>
+            <li><strong>Delete</strong> your account and associated personal data (financial records may be retained as required by law)</li>
+            <li><strong>Withdraw consent</strong> for push notifications at any time via your phone's notification settings</li>
+            <li><strong>Complain</strong> to Zambia's Data Protection Commissioner if you believe your rights have been violated</li>
+        </ul>
+        <p>To exercise any of these rights, email us at <a href="mailto:pocketstore@gmail.com">pocketstore@gmail.com</a>. We will respond within 14 days.</p>
+
+        <h2>6. Data Retention</h2>
+        <table class="legal-table">
+            <thead>
+                <tr><th>Data type</th><th>How long we keep it</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Account and profile data</td><td>As long as your account is active; deleted within 30 days of account deletion request</td></tr>
+                <tr><td>Transaction and order records</td><td>7 years — required for financial and tax compliance</td></tr>
+                <tr><td>OTP codes</td><td>Deleted immediately after use, or automatically after 10 minutes if unused</td></tr>
+                <tr><td>Verification documents (NRC, license, selfie)</td><td>For the life of your seller or delivery account, plus 3 years after closure</td></tr>
+                <tr><td>Push notification tokens</td><td>Until you log out or uninstall the app</td></tr>
+                <tr><td>Error logs</td><td>90 days</td></tr>
+            </tbody>
+        </table>
+
+        <h2>7. Security</h2>
+        <ul>
+            <li>All data is transmitted over HTTPS (TLS encryption).</li>
+            <li>Your password and mobile money PIN are never stored by Pocket Shop.</li>
+            <li>Payments are processed entirely through PawaPay's secure payment infrastructure — we never handle raw card or wallet credentials.</li>
+            <li>We use short-lived JWT tokens for authentication. Tokens expire regularly and are refreshed securely.</li>
+            <li>Our database is a managed PostgreSQL instance on DigitalOcean with SSL-only connections and no public internet access.</li>
+        </ul>
+
+        <h2>8. Children</h2>
+        <p>Pocket Shop is not intended for anyone under the age of 18. We do not knowingly collect personal data from children. If you believe a child has registered on our platform, please contact us immediately at <a href="mailto:pocketstore@gmail.com">pocketstore@gmail.com</a> and we will delete the account.</p>
+
+        <h2>9. Changes to This Policy</h2>
+        <p>We will notify you of material changes to this Privacy Policy via push notification or SMS at least 7 days before they take effect. The updated policy will always be available at <a href="https://mypocketshop.store/privacy">mypocketshop.store/privacy</a>.</p>
+
+        <h2>10. Contact Us</h2>
+        <p>For any questions, data access requests, or privacy concerns:</p>
+        <ul>
+            <li>Email: <a href="mailto:pocketstore@gmail.com">pocketstore@gmail.com</a></li>
+            <li>Website: <a href="https://mypocketshop.store">mypocketshop.store</a></li>
+        </ul>
+
+    </div>
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <h3>Pocket Shop</h3>
+                <p>Zambia's mobile-first marketplace. Connecting buyers, sellers, and delivery agents with transparent mobile money payouts.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Platform</h4>
+                <a href="{% url 'portal:index' %}#features">Features</a>
+                <a href="{% url 'portal:index' %}#how-it-works">How It Works</a>
+                <a href="{% url 'portal:index' %}#sellers">For Sellers</a>
+                <a href="{% url 'portal:index' %}#riders">For Riders</a>
+            </div>
+            <div class="footer-col">
+                <h4>Company</h4>
+                <a href="#">About Us</a>
+                <a href="#">Contact</a>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <a href="{% url 'portal:privacy' %}">Privacy Policy</a>
+                <a href="{% url 'portal:terms' %}">Terms of Service</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>&copy; 2026 Pocket Shop. All rights reserved.</span>
+            <div class="social-links">
+                <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+                <a href="#" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
+                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const toggle = document.getElementById('mobile-toggle');
+        const navLinks = document.getElementById('nav-links');
+        if (toggle) toggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+    </script>
+</body>
+</html>

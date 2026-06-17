@@ -1,0 +1,248 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service | Pocket Shop</title>
+    <meta name="description" content="Pocket Shop Terms of Service — the rules that govern use of Zambia's mobile marketplace.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'portal/styles.css' %}">
+
+    <style>
+        .legal-hero {
+            background: linear-gradient(135deg, var(--surface) 0%, rgba(0,188,212,0.06) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 80px 0 48px;
+            text-align: center;
+        }
+        .legal-hero h1 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .legal-hero p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+        .legal-wrap {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 64px 24px 96px;
+        }
+        .legal-wrap h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 48px 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .legal-wrap h2:first-child { margin-top: 0; }
+        .legal-wrap p, .legal-wrap li {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            font-size: 0.97rem;
+        }
+        .legal-wrap ul {
+            margin: 12px 0 12px 24px;
+        }
+        .legal-wrap ul li {
+            margin-bottom: 6px;
+        }
+        .legal-wrap a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .legal-wrap a:hover { text-decoration: underline; }
+        .legal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 0.92rem;
+        }
+        .legal-table th {
+            background: var(--surface);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+        }
+        .legal-table td {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .highlight-box {
+            background: rgba(0,188,212,0.06);
+            border-left: 3px solid var(--primary);
+            border-radius: 6px;
+            padding: 14px 18px;
+            margin: 16px 0;
+        }
+        .highlight-box p { margin: 0; }
+    </style>
+</head>
+<body>
+
+    <header id="site-header">
+        <nav>
+            <a href="{% url 'portal:index' %}" class="logo">
+                <img src="{% static 'portal/images/logo.jpg' %}" alt="Pocket Shop Logo">
+                <span>Pocket Shop</span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="{% url 'portal:index' %}#features">Features</a>
+                <a href="{% url 'portal:index' %}#sellers">For Sellers</a>
+                <a href="{% url 'portal:index' %}#riders">For Riders</a>
+                <a href="{% url 'portal:index' %}#how-it-works">How It Works</a>
+            </div>
+            <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle navigation">
+                <i class="fas fa-bars"></i>
+            </button>
+        </nav>
+    </header>
+
+    <div class="legal-hero">
+        <h1>Terms of <span class="text-cyan">Service</span></h1>
+        <p>Last updated: June 2026</p>
+    </div>
+
+    <div class="legal-wrap">
+
+        <h2>1. About Pocket Shop</h2>
+        <p>Pocket Shop ("we", "us", "our") is an online marketplace that connects buyers, sellers, and delivery agents across Zambia. By creating an account or using our platform at <a href="https://mypocketshop.store">mypocketshop.store</a> or the Pocket Shop mobile application, you agree to these Terms of Service.</p>
+
+        <h2>2. Who Can Use Pocket Shop</h2>
+        <p>You must be at least 18 years old to create an account. By registering, you confirm that all information you provide — including your phone number, full name, and identity documents — is accurate and belongs to you. Creating fake accounts or impersonating another person is a serious violation and will result in immediate suspension.</p>
+
+        <h2>3. Your Account</h2>
+        <ul>
+            <li>You register using your Zambian mobile phone number. A one-time PIN (OTP) is sent by SMS to verify that the number belongs to you.</li>
+            <li>You are responsible for keeping your account secure. Never share your OTP or session with anyone.</li>
+            <li>We may suspend or terminate your account if we detect fraudulent activity, false identity information, or violations of these Terms.</li>
+        </ul>
+
+        <h2>4. Buyers</h2>
+        <ul>
+            <li>You may browse and purchase products from verified sellers on the platform.</li>
+            <li>Payment is collected at checkout through mobile money (MTN MoMo, Airtel Money, or Zamtel Kwacha).</li>
+            <li>Orders can be fulfilled by delivery to your address or by pickup directly from the seller's shop.</li>
+            <li>If a seller does not accept your order within the configured time window, your order is automatically cancelled and a full refund is initiated.</li>
+            <li>If you cancel an order before the seller begins preparing it, you are entitled to a full refund.</li>
+        </ul>
+
+        <h2>5. Sellers</h2>
+        <ul>
+            <li>To list products, you must complete seller verification. Tier 1 requires your NRC (National Registration Card) and a live verification selfie. Tier 2 requires your business registration documents.</li>
+            <li>You are responsible for the accuracy of your listings — including price, product description, stock availability, and images.</li>
+            <li>When a buyer places an order, you must accept or reject it within the time shown in the app. Failure to act will trigger automatic cancellation and refund to the buyer.</li>
+            <li>Pocket Shop charges a platform commission on each completed order. The current rate is displayed in your seller dashboard. We may adjust the rate with advance notice.</li>
+            <li>You must not list counterfeit, stolen, illegal, or prohibited goods.</li>
+        </ul>
+
+        <div class="highlight-box">
+            <p><strong>Seller Payouts:</strong> Your payout (product total minus platform commission) is sent to your registered mobile money wallet when the delivery agent scans the pickup QR code at your shop — confirming they have collected the order. Payouts are processed manually by our team within 24 hours of pickup confirmation.</p>
+        </div>
+
+        <h2>6. Delivery Agents</h2>
+        <ul>
+            <li>To deliver orders, you must complete delivery agent verification, including your driver's license and a live selfie.</li>
+            <li>You are responsible for safe, prompt delivery. You must scan the QR code at the seller's location (pickup) and at the buyer's location (drop-off) to confirm each handoff.</li>
+            <li>During an active delivery, your real-time GPS location is shared with the buyer and seller for tracking purposes.</li>
+        </ul>
+
+        <div class="highlight-box">
+            <p><strong>Rider Payouts:</strong> Your delivery fee is sent to your registered mobile money wallet when you scan the drop-off QR code at the buyer's location, confirming successful delivery. Payouts are processed manually by our team within 24 hours of drop-off confirmation.</p>
+        </div>
+
+        <h2>7. Payments and Refunds</h2>
+        <ul>
+            <li>All transactions are processed in Zambian Kwacha (ZMW) through PawaPay, a licensed mobile money payment gateway.</li>
+            <li>Pocket Shop does not store your mobile money PIN or password at any point.</li>
+            <li>Refunds are initiated within 24 hours of a qualifying cancellation. The time for funds to appear in your wallet depends on your mobile money provider (typically within a few minutes to a few hours).</li>
+            <li>In the event of a payment dispute, contact us at <a href="mailto:pocketstore@gmail.com">pocketstore@gmail.com</a>. We aim to investigate and respond within 5 business days.</li>
+        </ul>
+
+        <h2>8. Prohibited Conduct</h2>
+        <p>You must not:</p>
+        <ul>
+            <li>Create fake accounts or impersonate another person</li>
+            <li>Submit false or misleading identity documents during verification</li>
+            <li>Manipulate reviews or ratings</li>
+            <li>Use the platform to sell illegal, counterfeit, or prohibited goods or services</li>
+            <li>Attempt to arrange payment with a buyer or seller outside the platform in order to avoid commission</li>
+            <li>Interfere with, attack, or attempt to gain unauthorised access to our systems</li>
+        </ul>
+
+        <h2>9. Reviews</h2>
+        <p>Buyers may leave a review on a product only after purchasing it. Reviews must be honest and based on your actual experience. We reserve the right to remove reviews that are fraudulent, abusive, or in violation of these Terms.</p>
+
+        <h2>10. Platform Availability</h2>
+        <p>We aim for high availability but do not guarantee uninterrupted service. We may carry out maintenance periods during which the platform is temporarily unavailable. We will endeavour to notify users in advance of planned downtime.</p>
+
+        <h2>11. Limitation of Liability</h2>
+        <p>Pocket Shop is a marketplace platform — we are not the buyer, seller, or delivery agent in any transaction. We are not liable for the quality of goods sold, a seller's failure to fulfil an order, damage during delivery, or disputes between parties beyond our refund process. Our total liability to any user is limited to the value of the transaction in dispute.</p>
+
+        <h2>12. Changes to These Terms</h2>
+        <p>We may update these Terms from time to time. We will notify you via push notification or SMS at least 7 days before material changes take effect. Continued use of the platform after the effective date constitutes acceptance of the updated Terms.</p>
+
+        <h2>13. Governing Law</h2>
+        <p>These Terms are governed by and interpreted in accordance with the laws of the Republic of Zambia. Any disputes shall be subject to the jurisdiction of the Zambian courts.</p>
+
+        <h2>14. Contact Us</h2>
+        <p>For questions or concerns about these Terms, please contact us:</p>
+        <ul>
+            <li>Email: <a href="mailto:pocketstore@gmail.com">pocketstore@gmail.com</a></li>
+            <li>Website: <a href="https://mypocketshop.store">mypocketshop.store</a></li>
+        </ul>
+
+    </div>
+
+    <footer>
+        <div class="footer-grid">
+            <div class="footer-brand">
+                <h3>Pocket Shop</h3>
+                <p>Zambia's mobile-first marketplace. Connecting buyers, sellers, and delivery agents with transparent mobile money payouts.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Platform</h4>
+                <a href="{% url 'portal:index' %}#features">Features</a>
+                <a href="{% url 'portal:index' %}#how-it-works">How It Works</a>
+                <a href="{% url 'portal:index' %}#sellers">For Sellers</a>
+                <a href="{% url 'portal:index' %}#riders">For Riders</a>
+            </div>
+            <div class="footer-col">
+                <h4>Company</h4>
+                <a href="#">About Us</a>
+                <a href="#">Contact</a>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <a href="{% url 'portal:privacy' %}">Privacy Policy</a>
+                <a href="{% url 'portal:terms' %}">Terms of Service</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>&copy; 2026 Pocket Shop. All rights reserved.</span>
+            <div class="social-links">
+                <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+                <a href="#" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
+                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const toggle = document.getElementById('mobile-toggle');
+        const navLinks = document.getElementById('nav-links');
+        if (toggle) toggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+    </script>
+</body>
+</html>

@@ -464,6 +464,28 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
       const SizedBox(height: 10),
       _textField(_licenseController, 'Driver license number'),
       const SizedBox(height: 10),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.amber.shade300),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.photo_camera_outlined, size: 18, color: Colors.amber.shade800),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Take clear, well-lit photos of your license. All text must be readable. Blurry or dark photos will be rejected.',
+                style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
       Row(
         children: [
           Expanded(

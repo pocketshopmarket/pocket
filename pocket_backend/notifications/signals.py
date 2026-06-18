@@ -34,14 +34,14 @@ def _get_firebase_app():
         from django.conf import settings as django_settings
         cred_json = getattr(django_settings, 'FIREBASE_CREDENTIALS_JSON', '').strip()
 
-        if not cred_json:
-            cred_file = os.environ.get(
-                'FIREBASE_CREDENTIALS_FILE',
-                os.path.join(os.path.dirname(os.path.dirname(__file__)), 'firebase_creds.json'),
-            )
-            if os.path.exists(cred_file):
-                with open(cred_file) as f:
-                    cred_json = f.read().strip()
+        cred_file = os.environ.get(
+            'FIREBASE_CREDENTIALS_FILE',
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), 'firebase_creds.json'),
+        )
+
+        if not cred_json and os.path.exists(cred_file):
+            cred = credentials.Certificate(cred_file)
+            return firebase_admin.initialize_app(cred)
 
         if not cred_json:
             return None

@@ -20,9 +20,11 @@ logger = logging.getLogger(__name__)
 def _get_firebase_app():
     """
     Return the initialized Firebase app, or None if credentials are not configured.
+    Tries FIREBASE_CREDENTIALS_JSON env var first, then firebase_creds.json in project root.
     Safe to call on any platform — returns None silently when Firebase is not set up.
     """
     try:
+        import os
         import firebase_admin
         from firebase_admin import credentials
 
@@ -30,14 +32,25 @@ def _get_firebase_app():
             return firebase_admin.get_app()
 
         from django.conf import settings as django_settings
-        cred_json = getattr(django_settings, 'FIREBASE_CREDENTIALS_JSON', '')
+        cred_json = getattr(django_settings, 'FIREBASE_CREDENTIALS_JSON', '').strip()
+
+        if not cred_json:
+            cred_file = os.environ.get(
+                'FIREBASE_CREDENTIALS_FILE',
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), 'firebase_creds.json'),
+            )
+            if os.path.exists(cred_file):
+                with open(cred_file) as f:
+                    cred_json = f.read().strip()
+
         if not cred_json:
             return None
 
         cred_dict = json.loads(cred_json)
         cred = credentials.Certificate(cred_dict)
         return firebase_admin.initialize_app(cred)
-    except Exception:
+    except Exception as exc:
+        logger.warning('Firebase init failed: %s', exc)
         return None
 
 

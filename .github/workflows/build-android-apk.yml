@@ -15,6 +15,7 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 # ── Backend CI ────────────────────────────────────────────────────────────────
 jobs:
@@ -57,8 +58,8 @@ jobs:
     name: Flutter — Android release APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Only build the full APK on pushes to main, not on PRs
-    if: github.event_name == 'push'
+    # Only build when manually triggered
+    if: github.event_name == 'workflow_dispatch'
     defaults:
       run:
         working-directory: pocket_shop

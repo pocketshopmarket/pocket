@@ -275,10 +275,25 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Use Cloudinary for media in production (Railway filesystem is ephemeral).
-# Set CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name in Railway env vars.
+# Media storage: DigitalOcean Spaces (S3-compatible) when AWS keys are set,
+# Cloudinary as fallback, local filesystem otherwise.
+_spaces_key = os.environ.get('AWS_ACCESS_KEY_ID', '')
 _cloudinary_url = os.environ.get('CLOUDINARY_URL', '')
-if _cloudinary_url:
+
+if _spaces_key:
+    INSTALLED_APPS += ['storages']
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    AWS_ACCESS_KEY_ID = _spaces_key
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'pocketbucket1')
+    AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', 'https://lon1.digitaloceanspaces.com')
+    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'lon1')
+    AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', 'pocketbucket1.lon1.digitaloceanspaces.com')
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_QUERYSTRING_AUTH = False
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+elif _cloudinary_url:
     INSTALLED_APPS += ['cloudinary', 'cloudinary_storage']
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
     CLOUDINARY_STORAGE = {'CLOUDINARY_URL': _cloudinary_url}

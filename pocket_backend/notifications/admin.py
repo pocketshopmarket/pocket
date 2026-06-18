@@ -16,7 +16,7 @@ class AnnouncementAdmin(admin.ModelAdmin):
     list_display = ['title', 'target_audience', 'is_sent', 'sent_count', 'created_by', 'created_at']
     list_filter = ['target_audience', 'is_sent', 'created_at']
     search_fields = ['title', 'message']
-    readonly_fields = ['is_sent', 'sent_count', 'created_at']
+    readonly_fields = ['is_sent', 'sent_count', 'created_by', 'created_at']
 
     fieldsets = (
         (None, {

@@ -87,8 +87,9 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
 
   Future<String?> _pickImage() async {
     final image = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
+      source: ImageSource.camera,
+      imageQuality: 90,
+      preferredCameraDevice: CameraDevice.rear,
     );
     return image?.path;
   }
@@ -478,7 +479,7 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Take clear, well-lit photos of your license. All text must be readable. Blurry or dark photos will be rejected.',
+                'Place your license on a flat surface in good light and take a clear photo. All text must be readable — blurry or dark photos will be rejected.',
                 style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
               ),
             ),

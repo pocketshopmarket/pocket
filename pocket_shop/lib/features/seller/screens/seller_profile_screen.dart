@@ -142,8 +142,9 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
 
   Future<String?> _pickImage() async {
     final image = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
+      source: ImageSource.camera,
+      imageQuality: 90,
+      preferredCameraDevice: CameraDevice.rear,
     );
     return image?.path;
   }
@@ -582,7 +583,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Take clear, well-lit photos of your NRC. All text must be readable. Blurry or dark photos will be rejected.',
+                          'Place your NRC on a flat surface in good light and take a clear photo. All text must be readable — blurry or dark photos will be rejected.',
                           style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
                         ),
                       ),

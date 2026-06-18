@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -143,21 +141,11 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
   }
 
   Future<String?> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: false,
-      withData: true,
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
     );
-    if (result == null) return null;
-    final file = result.files.single;
-    if (file.path != null) return file.path;
-    if (file.bytes != null) {
-      final tmp = await File(
-        '${Directory.systemTemp.path}/${file.name}',
-      ).writeAsBytes(file.bytes!);
-      return tmp.path;
-    }
-    return null;
+    return image?.path;
   }
 
   Future<String?> _captureLivePhoto() async {

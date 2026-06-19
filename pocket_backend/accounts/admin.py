@@ -273,8 +273,21 @@ class VerificationRequestAdmin(admin.ModelAdmin):
     ]
     list_filter = ['verification_type', 'status', 'submitted_at', 'reviewed_at']
     search_fields = ['user__phone_number', 'user__full_name']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['created_at', 'updated_at', 'reviewed_at', 'reviewed_by', 'submitted_at']
     actions = ['approve_requests', 'reject_requests']
+
+    fieldsets = (
+        (None, {
+            'fields': ('user', 'verification_type', 'status', 'seller_profile', 'delivery_profile'),
+        }),
+        ('Review', {
+            'fields': ('rejection_reason',),
+            'description': 'Fill in a rejection reason BEFORE using the Reject action so the user receives a clear explanation.',
+        }),
+        ('Timestamps', {
+            'fields': ('submitted_at', 'reviewed_at', 'reviewed_by', 'created_at', 'updated_at'),
+        }),
+    )
 
     def approve_requests(self, request, queryset):
         approved = 0
@@ -287,7 +300,9 @@ class VerificationRequestAdmin(admin.ModelAdmin):
     def reject_requests(self, request, queryset):
         rejected = 0
         for verification in queryset:
-            verification.reject(reviewer=request.user)
+            # Use the reason already typed on the record, or fall back to default
+            reason = verification.rejection_reason.strip() or 'Please review your submitted details and resubmit.'
+            verification.reject(reviewer=request.user, reason=reason)
             rejected += 1
         self.message_user(request, f"Rejected {rejected} verification request(s).")
     reject_requests.short_description = "Reject selected verification requests"

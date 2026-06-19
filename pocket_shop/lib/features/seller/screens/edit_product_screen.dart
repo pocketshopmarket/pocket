@@ -55,6 +55,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
 
   bool _loading = true;
   bool _saving = false;
+  bool _isDirty = false;
   String? _error;
 
   // Existing images still kept by the seller (their full URLs from server).
@@ -77,6 +78,10 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
           defaultTargetPlatform == TargetPlatform.linux ||
           defaultTargetPlatform == TargetPlatform.macOS);
 
+  void _markDirty() {
+    if (!_isDirty && mounted) setState(() => _isDirty = true);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +96,29 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _descCtrl.dispose();
     for (final v in _variants) v.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleBack() async {
+    if (!_isDirty) { context.go('/seller/products'); return; }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('You have unsaved changes. Leave without saving?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) context.go('/seller/products');
   }
 
   Future<void> _load() async {
@@ -128,6 +156,11 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
           _categoryId = match?.id;
         }
       }
+      // After all values are set, start tracking changes.
+      _nameCtrl.addListener(_markDirty);
+      _priceCtrl.addListener(_markDirty);
+      _stockCtrl.addListener(_markDirty);
+      _descCtrl.addListener(_markDirty);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -152,9 +185,9 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
         if (_keptImageUrls.length + _newImages.length >= _kMaxImages) break;
         final bytes = f.bytes;
         if (bytes == null || bytes.isEmpty) continue;
-        setState(() => _newImages.add(
+        setState(() { _newImages.add(
           _PendingImage(bytes: bytes, filename: f.name.isNotEmpty ? f.name : 'img.jpg'),
-        ));
+        ); _isDirty = true; });
       }
       return;
     }
@@ -185,11 +218,11 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     if (!mounted || x == null) return;
     final bytes = await x.readAsBytes();
     final path = kIsWeb ? null : x.path;
-    setState(() => _newImages.add(_PendingImage(
+    setState(() { _newImages.add(_PendingImage(
       bytes: bytes,
       filePath: (path != null && path.isNotEmpty) ? path : null,
       filename: x.name.isNotEmpty ? x.name : 'img.jpg',
-    )));
+    )); _isDirty = true; });
   }
 
   Future<void> _save() async {
@@ -232,6 +265,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
         variants: variants,
       );
       if (!mounted) return;
+      _isDirty = false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Product updated'), backgroundColor: AppTheme.success),
       );
@@ -271,18 +305,20 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     }
 
     final totalImages = _keptImageUrls.length + _newImages.length;
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, _) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Edit product'),
-        actions: [
-          TextButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryCyan))
-                : const Text('Save', style: TextStyle(color: AppTheme.primaryCyan, fontWeight: FontWeight.w700)),
-          ),
-        ],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _handleBack,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -310,7 +346,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                         ),
                         Positioned(right: 2, top: 2, child: IconButton.filled(
                           style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: EdgeInsets.zero, minimumSize: const Size(28, 28)),
-                          onPressed: () => setState(() => _keptImageUrls.removeAt(i)),
+                          onPressed: () => setState(() { _keptImageUrls.removeAt(i); _isDirty = true; }),
                           icon: const Icon(Icons.close, color: Colors.white, size: 16),
                         )),
                       ]),
@@ -323,7 +359,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                         ),
                         Positioned(right: 2, top: 2, child: IconButton.filled(
                           style: IconButton.styleFrom(backgroundColor: Colors.black54, padding: EdgeInsets.zero, minimumSize: const Size(28, 28)),
-                          onPressed: () => setState(() => _newImages.removeAt(i)),
+                          onPressed: () => setState(() { _newImages.removeAt(i); _isDirty = true; }),
                           icon: const Icon(Icons.close, color: Colors.white, size: 16),
                         )),
                       ]),
@@ -371,7 +407,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: cats.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
-                    onChanged: (v) { if (v != null) setState(() => _categoryId = v); },
+                    onChanged: (v) { if (v != null) setState(() { _categoryId = v; _isDirty = true; }); },
                   );
                 }),
                 const SizedBox(height: 12),
@@ -379,7 +415,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                   value: _quality,
                   decoration: const InputDecoration(labelText: 'Quality / condition'),
                   items: _qualityChoices.map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
-                  onChanged: (v) { if (v != null) setState(() => _quality = v); },
+                  onChanged: (v) { if (v != null) setState(() { _quality = v; _isDirty = true; }); },
                 ),
                 const SizedBox(height: 12),
                 TextField(controller: _priceCtrl,
@@ -397,7 +433,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                     style: TextStyle(fontSize: 12, color: _isAvailable ? Colors.green : AppTheme.textSecondary),
                   ),
                   value: _isAvailable,
-                  onChanged: (v) => setState(() => _isAvailable = v),
+                  onChanged: (v) => setState(() { _isAvailable = v; _isDirty = true; }),
                 ),
               ],
             ),
@@ -413,7 +449,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                     const Expanded(child: Text('Variants (optional)',
                       style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary))),
                     TextButton.icon(
-                      onPressed: () => setState(() => _variants.add(_VariantRow())),
+                      onPressed: () => setState(() { _variants.add(_VariantRow()); _isDirty = true; }),
                       icon: const Icon(Icons.add, size: 16),
                       label: const Text('Add'),
                     ),
@@ -448,7 +484,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.remove_circle_outline, color: AppTheme.error),
-                        onPressed: () => setState(() { _variants[i].dispose(); _variants.removeAt(i); }),
+                        onPressed: () => setState(() { _variants[i].dispose(); _variants.removeAt(i); _isDirty = true; }),
                       ),
                     ],
                   ),
@@ -473,6 +509,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 

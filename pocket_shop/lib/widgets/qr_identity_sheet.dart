@@ -88,7 +88,7 @@ class _QrIdentitySheetState extends State<QrIdentitySheet> {
   String _roleInstruction(String? role) {
     switch (role) {
       case 'seller':
-        return 'Show this to your rider at pickup';
+        return 'Show this to the rider when they arrive to collect your order';
       case 'buyer':
         return 'Show this to your rider at drop-off';
       case 'delivery':

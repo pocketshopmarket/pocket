@@ -47,8 +47,23 @@ class _TrackingPayload {
 
 class OrderTrackingScreen extends ConsumerStatefulWidget {
   final String? orderNumber;
+  final double? deliveryLat;
+  final double? deliveryLng;
+  final double? sellerLat;
+  final double? sellerLng;
+  final String? sellerPhone;
+  final List<String>? orderItems;
 
-  const OrderTrackingScreen({super.key, this.orderNumber});
+  const OrderTrackingScreen({
+    super.key,
+    this.orderNumber,
+    this.deliveryLat,
+    this.deliveryLng,
+    this.sellerLat,
+    this.sellerLng,
+    this.sellerPhone,
+    this.orderItems,
+  });
 
   @override
   ConsumerState<OrderTrackingScreen> createState() =>
@@ -198,23 +213,39 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       );
     }
     if (_error == 'not_started') {
-      return SafeArea(
-        child: RefreshIndicator(
-          color: AppTheme.primaryCyan,
-          onRefresh: _load,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(24),
-            children: [
-              _emptyState(
-                icon: Icons.schedule_outlined,
-                title: 'Delivery not started',
-                subtitle:
-                    'Your order is being prepared. Tracking will appear when a rider is assigned.',
-              ),
-            ],
-          ),
-        ),
+      final sellerPin = widget.sellerLat != null && widget.sellerLng != null
+          ? LatLng(widget.sellerLat!, widget.sellerLng!)
+          : null;
+      final dropPin = widget.deliveryLat != null && widget.deliveryLng != null
+          ? LatLng(widget.deliveryLat!, widget.deliveryLng!)
+          : null;
+      final hasCoords = sellerPin != null || dropPin != null;
+
+      return _mapAndSheet(
+        mapLayer: hasCoords
+            ? OsmRouteMap(
+                expandVertically: true,
+                clipBorderRadius: BorderRadius.zero,
+                routePoints: const [],
+                trailPoints: const [],
+                markers: [
+                  if (sellerPin != null)
+                    MapMarker(
+                      point: sellerPin,
+                      icon: Icons.store,
+                      color: AppTheme.darkCyan,
+                    ),
+                  if (dropPin != null)
+                    MapMarker(
+                      point: dropPin,
+                      icon: Icons.home,
+                      color: AppTheme.success,
+                    ),
+                ],
+                showZoomControls: true,
+              )
+            : _mapPlaceholder(loading: false),
+        sheetBody: (c) => _sheetNotStarted(c),
       );
     }
     if (_error != null) {
@@ -331,6 +362,68 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               child: const Icon(Icons.keyboard_arrow_up_rounded),
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _sheetNotStarted(ScrollController scrollController) {
+    return CustomScrollView(
+      controller: scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(child: _sheetDragHandle()),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Waiting for rider',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Your order is being prepared. Live tracking will appear here automatically once a rider is assigned.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary.withValues(alpha: 0.9),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _pill(
+                  icon: Icons.refresh_rounded,
+                  text: 'Checking every 15s',
+                  color: AppTheme.primaryCyan,
+                ),
+                if (widget.orderItems != null && widget.orderItems!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _buildItemsSummary(widget.orderItems!),
+                ],
+                if ((widget.sellerPhone ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final uri = Uri(scheme: 'tel', path: widget.sellerPhone);
+                        if (await canLaunchUrl(uri)) await launchUrl(uri);
+                      },
+                      icon: const Icon(Icons.call_outlined),
+                      label: const Text('Call seller'),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -577,6 +670,24 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                           label: const Text('Call rider'),
                         ),
                       ),
+                    ],
+                    if ((widget.sellerPhone ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final uri = Uri(scheme: 'tel', path: widget.sellerPhone);
+                            if (await canLaunchUrl(uri)) await launchUrl(uri);
+                          },
+                          icon: const Icon(Icons.storefront_outlined),
+                          label: const Text('Call seller'),
+                        ),
+                      ),
+                    ],
+                    if (widget.orderItems != null && widget.orderItems!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _buildItemsSummary(widget.orderItems!),
                     ],
                   ],
                 ],
@@ -829,6 +940,49 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       etaMinutes: etaMinutes,
       routeSource: routeSource,
       routeConfidence: routeConfidence,
+    );
+  }
+
+  Widget _buildItemsSummary(List<String> items) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.softSurface,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Items',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textSecondary,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  children: [
+                    const Icon(Icons.circle, size: 5, color: AppTheme.textSecondary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
     );
   }
 

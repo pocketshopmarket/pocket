@@ -91,7 +91,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     if (userRole == AppConstants.sellerRole) {
-      router.go(type == 'payout_completed' ? '/seller/payout' : '/seller/orders');
+      if (type == 'payout_completed') {
+        router.go('/seller/payout-history');
+      } else if (orderId.isNotEmpty) {
+        router.go(
+          '/seller/orders',
+          extra: {'order_id': int.tryParse(orderId)},
+        );
+      } else {
+        router.go('/seller/orders');
+      }
       return;
     }
 
@@ -99,11 +108,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     switch (type) {
       case 'order_out_for_delivery':
       case 'delivery_assigned':
-        router.go(
-          orderNumber.isNotEmpty
-              ? '/buyer/track-order?order=${Uri.encodeComponent(orderNumber)}'
-              : '/buyer/orders',
-        );
+        if (orderNumber.isNotEmpty) {
+          router.go(
+            '/buyer/track-order',
+            extra: {'order_number': orderNumber},
+          );
+        } else {
+          router.go('/buyer/orders');
+        }
       case 'payment_pending':
         router.go(
           orderNumber.isNotEmpty

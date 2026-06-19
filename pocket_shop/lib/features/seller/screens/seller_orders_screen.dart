@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -10,11 +10,13 @@ import '../../../models/order.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/cart_provider.dart';
 import '../../../providers/platform_settings_provider.dart';
+import '../../../widgets/qr_identity_sheet.dart';
 import '../../shared/screens/refund_requests_screen.dart';
 import '../../shared/screens/cancellation_requests_screen.dart';
 
 class SellerOrdersScreen extends ConsumerStatefulWidget {
-  const SellerOrdersScreen({super.key});
+  final int? initialOrderId;
+  const SellerOrdersScreen({super.key, this.initialOrderId});
 
   @override
   ConsumerState<SellerOrdersScreen> createState() => _SellerOrdersScreenState();
@@ -24,6 +26,7 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
   List<Order> _orders = [];
   bool _loading = true;
   String? _error;
+  bool _autoOpenDone = false;
 
   @override
   void initState() {
@@ -47,6 +50,7 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
         _orders = list;
         _loading = false;
       });
+      _maybeAutoOpen();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -54,6 +58,21 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
         _error = e is DioException ? svc.extractErrorMessage(e) : e.toString();
       });
     }
+  }
+
+  void _maybeAutoOpen() {
+    final targetId = widget.initialOrderId;
+    if (targetId == null || _autoOpenDone) return;
+    final match = _orders.cast<Order?>().firstWhere(
+      (o) => o?.id == targetId,
+      orElse: () => null,
+    );
+    if (match == null || !mounted) return;
+    _autoOpenDone = true;
+    final timeoutMinutes = ref.read(orderTimeoutMinutesProvider);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _openOrderSheet(match, timeoutMinutes),
+    );
   }
 
   bool get _sellerApproved =>
@@ -324,6 +343,37 @@ class _OrderCard extends StatelessWidget {
                       ),
                     ),
                     Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: order.isPickup
+                            ? AppTheme.warning.withValues(alpha: 0.12)
+                            : AppTheme.accentBlue.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            order.isPickup
+                                ? Icons.storefront_outlined
+                                : Icons.local_shipping_outlined,
+                            size: 11,
+                            color: order.isPickup ? AppTheme.warning : AppTheme.accentBlue,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            order.isPickup ? 'Pickup' : 'Delivery',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: order.isPickup ? AppTheme.warning : AppTheme.accentBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 4,
@@ -469,7 +519,6 @@ class _SellerOrderSheet extends ConsumerStatefulWidget {
 class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
   late Order _order;
   bool _busy = false;
-  bool _tokenBusy = false;
 
   bool get _sellerVerified => ref.watch(userProvider)?.isVerified == true;
 
@@ -512,6 +561,50 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
     }
   }
 
+  Future<void> _confirmCancel() async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel this order?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This cannot be undone. The buyer will be notified.',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Reason (optional)',
+                border: OutlineInputBorder(),
+                hintText: 'e.g. Item out of stock',
+              ),
+              maxLines: 2,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Cancel order'),
+          ),
+        ],
+      ),
+    );
+    reasonCtrl.dispose();
+    if (confirmed == true) _setStatus('cancelled');
+  }
+
   List<({String label, String value})> _actionsFor(String status) {
     if (_order.isPickup) {
       switch (status) {
@@ -549,137 +642,6 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
         default:
           return [];
       }
-    }
-  }
-
-  Future<void> _generatePickupToken() async {
-    final assignmentId = _order.deliveryAssignmentId;
-    if (assignmentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delivery rider has not been assigned yet')),
-      );
-      return;
-    }
-    setState(() => _tokenBusy = true);
-    final svc = ref.read(orderServiceProvider);
-    try {
-      final payload = await svc.generateSellerPickupToken(assignmentId);
-      if (!mounted) return;
-      setState(() => _tokenBusy = false);
-      final token = (payload['token'] ?? '').toString();
-      showDialog<void>(
-        context: context,
-        builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          backgroundColor: AppTheme.surfaceWhite,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.qr_code_scanner_rounded,
-                  size: 48,
-                  color: AppTheme.primaryCyan,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Seller pickup QR code',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Show this to the rider so they can scan it to confirm pickup.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                if (token.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-                    ),
-                    child: QrImageView(
-                      data: token,
-                      version: QrVersions.auto,
-                      size: 180.0,
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Or type token manually:',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightCyan.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: SelectableText(
-                    token.isEmpty ? 'No token returned' : token,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 20,
-                      letterSpacing: 2.0,
-                      color: AppTheme.darkCyan,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      'Done',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _tokenBusy = false);
-      final msg = e is DioException ? svc.extractErrorMessage(e) : e.toString();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg ?? 'Could not generate pickup token')),
-      );
     }
   }
 
@@ -744,6 +706,59 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
               ),
             ],
             const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceWhite,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.divider),
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 18,
+                    backgroundColor: AppTheme.lightCyan,
+                    child: Icon(Icons.person_outline_rounded, size: 18, color: AppTheme.darkCyan),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (_order.buyerName?.isNotEmpty ?? false)
+                              ? _order.buyerName!
+                              : 'Buyer #${_order.buyerId}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        if (_order.buyerPhone?.isNotEmpty ?? false)
+                          Text(
+                            _order.buyerPhone!,
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (_order.status == 'delivered')
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Received',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.success),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             const Text(
               'Deliver to',
               style: TextStyle(
@@ -836,25 +851,32 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                   ),
                 )
               else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.warning.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.warning),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Verify your account to call buyers directly.',
-                          style: TextStyle(fontSize: 12, color: AppTheme.warning),
+                GestureDetector(
+                  onTap: () {
+                    final router = GoRouter.of(context);
+                    Navigator.pop(context);
+                    router.go('/seller/profile');
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock_outline_rounded, size: 16, color: AppTheme.warning),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Verify your account to call buyers. Tap to go to verification →',
+                            style: TextStyle(fontSize: 12, color: AppTheme.warning),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -879,7 +901,7 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                     width: double.infinity,
                     child: cancel
                         ? OutlinedButton(
-                            onPressed: _busy ? null : () => _setStatus(a.value),
+                            onPressed: _busy ? null : _confirmCancel,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.error,
                               side: const BorderSide(color: AppTheme.error),
@@ -896,43 +918,20 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
             ],
             if (widget.canUpdateStatus && _order.isDelivery && _order.status == 'out_for_delivery') ...[
               const SizedBox(height: 14),
-              if (_order.deliveryAssignmentId != null)
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _tokenBusy ? null : _generatePickupToken,
-                    icon: const Icon(Icons.qr_code_2_rounded),
-                    label: Text(
-                      _tokenBusy ? 'Generating token...' : 'Generate pickup QR token',
-                    ),
-                  ),
-                )
-              else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryCyan.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.primaryCyan.withValues(alpha: 0.3)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.pedal_bike_rounded, color: AppTheme.primaryCyan, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Waiting for a rider to accept the delivery. The QR button will appear here once a rider is assigned.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => QrIdentitySheet.show(context),
+                  icon: const Icon(Icons.qr_code_rounded),
+                  label: const Text('Show my QR code'),
                 ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Show this to the rider when they arrive to collect the order.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                textAlign: TextAlign.center,
+              ),
             ],
             if (!widget.canUpdateStatus)
               const Padding(

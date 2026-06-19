@@ -1,11 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/delivery_provider.dart';
 import '../../../../providers/payment_methods_provider.dart';
 import 'add_payment_method_screen.dart';
 
@@ -18,6 +20,7 @@ class BuyerProfileScreen extends ConsumerStatefulWidget {
 
 class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
   bool _isUploadingPhoto = false;
+  bool _isSavingProfile = false;
 
   Future<void> _pickAndUploadPhoto() async {
     final picker = ImagePicker();
@@ -153,6 +156,201 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
     if (mounted) ref.read(paymentMethodsProvider.notifier).load();
   }
 
+  Future<void> _editField({
+    required String title,
+    required String current,
+    required String hint,
+    required Future<Map<String, dynamic>> Function(String value) onSave,
+    int maxLines = 1,
+    bool showLocationButton = false,
+  }) async {
+    final controller = TextEditingController(text: current);
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        bool locating = false;
+        bool locationDetected = false;
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+          Future<void> useCurrentLocation() async {
+            setModalState(() {
+              locating = true;
+              locationDetected = false;
+            });
+            try {
+              final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+              if (!serviceEnabled) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Location services are off. Enter your address manually.'),
+                  ));
+                }
+                return;
+              }
+              var permission = await Geolocator.checkPermission();
+              if (permission == LocationPermission.denied) {
+                permission = await Geolocator.requestPermission();
+              }
+              if (permission == LocationPermission.denied ||
+                  permission == LocationPermission.deniedForever) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Location permission denied. Enter your address manually.'),
+                  ));
+                }
+                return;
+              }
+              final pos = await Geolocator.getCurrentPosition();
+              String resolved =
+                  '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+              try {
+                final reverse = await ref
+                    .read(deliveryServiceProvider)
+                    .reverseGeocode(lat: pos.latitude, lng: pos.longitude);
+                final display = reverse?['display_name']?.toString().trim();
+                if (display != null && display.isNotEmpty) resolved = display;
+              } catch (_) {}
+              controller.text = resolved;
+              setModalState(() => locationDetected = true);
+            } catch (_) {
+            } finally {
+              setModalState(() => locating = false);
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20, right: 20, top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: controller,
+                    maxLines: maxLines,
+                    autofocus: !showLocationButton,
+                    onChanged: (_) {
+                      if (locationDetected) {
+                        setModalState(() => locationDetected = false);
+                      }
+                    },
+                    decoration: InputDecoration(hintText: hint),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  if (showLocationButton) ...[
+                    const SizedBox(height: 10),
+                    if (locating)
+                      Row(
+                        children: const [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppTheme.primaryCyan),
+                          ),
+                          SizedBox(width: 8),
+                          Text('Finding your location…',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.primaryCyan)),
+                        ],
+                      )
+                    else if (locationDetected)
+                      Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded,
+                              size: 16, color: AppTheme.success),
+                          const SizedBox(width: 6),
+                          const Expanded(
+                            child: Text('Location found',
+                                style: TextStyle(
+                                    fontSize: 13, color: AppTheme.success)),
+                          ),
+                          TextButton(
+                            onPressed: useCurrentLocation,
+                            style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                            child: const Text('Not accurate? Re-detect',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondary)),
+                          ),
+                        ],
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: useCurrentLocation,
+                          icon: const Icon(Icons.my_location_rounded,
+                              size: 18, color: AppTheme.primaryCyan),
+                          label: const Text('Use current location',
+                              style: TextStyle(color: AppTheme.primaryCyan)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppTheme.primaryCyan),
+                          ),
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: FilledButton(
+                      onPressed: () {
+                        if (formKey.currentState!.validate()) {
+                          Navigator.of(ctx).pop(true);
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.primaryCyan),
+                      child: const Text('Save'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+    setState(() => _isSavingProfile = true);
+    try {
+      final result = await onSave(controller.text.trim());
+      if (!mounted) return;
+      if (result['success'] == true) {
+        await ref.read(authProvider.notifier).refreshUser();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Could not save')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingProfile = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
@@ -275,6 +473,64 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.divider),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0D000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: _isSavingProfile
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(
+                            color: AppTheme.primaryCyan, strokeWidth: 2),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        _EditableTile(
+                          icon: Icons.person_outline_rounded,
+                          label: 'Name',
+                          value: user.displayName,
+                          onTap: () => _editField(
+                            title: 'Edit name',
+                            current: user.displayName,
+                            hint: 'Your full name',
+                            onSave: (v) => ref
+                                .read(authServiceProvider)
+                                .updateProfile(fullName: v),
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        _EditableTile(
+                          icon: Icons.location_on_outlined,
+                          label: 'Default delivery address',
+                          value: user.buyerProfile?.defaultAddress?.isNotEmpty == true
+                              ? user.buyerProfile!.defaultAddress!
+                              : 'Not set',
+                          onTap: () => _editField(
+                            title: 'Default delivery address',
+                            current: user.buyerProfile?.defaultAddress ?? '',
+                            hint: 'e.g. Plot 12, Cairo Road, Lusaka',
+                            maxLines: 2,
+                            showLocationButton: true,
+                            onSave: (v) => ref
+                                .read(authServiceProvider)
+                                .updateProfile(defaultAddress: v),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
             const SizedBox(height: 16),
             const Text(
               'Payments',
@@ -558,56 +814,6 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.divider),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ActionTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -645,6 +851,56 @@ class _ActionTile extends StatelessWidget {
               ),
             ),
             const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditableTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _EditableTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: AppTheme.textSecondary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(value,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+            const Icon(Icons.edit_outlined, size: 16, color: AppTheme.textSecondary),
           ],
         ),
       ),

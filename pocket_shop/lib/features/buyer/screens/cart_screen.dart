@@ -23,18 +23,23 @@ class CartScreen extends ConsumerWidget {
     final defaultStore = cartItems.isNotEmpty
         ? (cartItems.first.product.sellerName ?? 'Seller store')
         : 'Seller store';
+    final savedDefault = (user?.buyerProfile?.defaultAddress ?? '').trim();
+    final hasDefault = savedDefault.isNotEmpty;
     final addressController = TextEditingController(
-      text: user?.buyerProfile?.defaultAddress ?? '',
+      text: savedDefault,
     );
     final notesController = TextEditingController();
     String fulfillmentType = 'delivery';
     bool useManualAddress = false;
     bool locating = false;
+    bool usingDefault = false;
     bool quoteLoading = false;
-    bool autoLocateTriggered = false;
+    // Skip GPS auto-locate when a default address is already saved.
+    bool autoLocateTriggered = hasDefault;
     double? selectedLat;
     double? selectedLng;
-    String? locationLabel;
+    // Pre-show the saved default address in the grey box as a hint.
+    String? locationLabel = hasDefault ? savedDefault : null;
     String? quoteError;
     double? quoteFee;
     double? quoteDistanceKm;
@@ -270,14 +275,42 @@ class CartScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              locationLabel ??
-                                  'We will detect your location automatically.',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textPrimary,
+                            if (locating || usingDefault)
+                              Row(
+                                children: [
+                                  const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryCyan,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    usingDefault
+                                        ? 'Looking up your default address…'
+                                        : 'Finding your location…',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Text(
+                                locationLabel ??
+                                    (hasDefault
+                                        ? savedDefault
+                                        : 'We will detect your location automatically.'),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: selectedLat != null
+                                      ? AppTheme.textPrimary
+                                      : AppTheme.textSecondary,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -395,6 +428,88 @@ class CartScreen extends ConsumerWidget {
                                     : 'Enter manually',
                               ),
                             ),
+                            if (hasDefault)
+                              TextButton.icon(
+                                onPressed: (locating || usingDefault)
+                                    ? null
+                                    : () async {
+                                        setModalState(() {
+                                          usingDefault = true;
+                                          useManualAddress = false;
+                                          addressSuggestions = [];
+                                          searchingAddress = false;
+                                          selectedLat = null;
+                                          selectedLng = null;
+                                          locationLabel = savedDefault;
+                                          addressController.text = savedDefault;
+                                        });
+                                        try {
+                                          final results = await ref
+                                              .read(deliveryServiceProvider)
+                                              .searchAddressSuggestions(
+                                                savedDefault,
+                                                limit: 5,
+                                              );
+                                          if (!context.mounted) return;
+                                          if (results.isNotEmpty) {
+                                            final first = results.first;
+                                            final la = (first['lat'] as num?)
+                                                ?.toDouble();
+                                            final ln = (first['lng'] as num?)
+                                                ?.toDouble();
+                                            final name = first['display_name']
+                                                    ?.toString() ??
+                                                savedDefault;
+                                            setModalState(() {
+                                              selectedLat = la;
+                                              selectedLng = ln;
+                                              locationLabel = name;
+                                              // Show remaining suggestions so
+                                              // the buyer can switch if needed.
+                                              addressSuggestions =
+                                                  results.length > 1
+                                                      ? results.sublist(1)
+                                                      : [];
+                                              useManualAddress = false;
+                                              usingDefault = false;
+                                            });
+                                          } else {
+                                            // Geocode returned nothing —
+                                            // fall back to manual entry.
+                                            setModalState(() {
+                                              useManualAddress = true;
+                                              usingDefault = false;
+                                            });
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                    'Could not locate your default address. Please enter it manually.'),
+                                              ));
+                                            }
+                                          }
+                                        } catch (_) {
+                                          if (!context.mounted) return;
+                                          setModalState(() {
+                                            useManualAddress = true;
+                                            usingDefault = false;
+                                          });
+                                        }
+                                      },
+                                icon: usingDefault
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppTheme.primaryCyan),
+                                      )
+                                    : const Icon(
+                                        Icons.bookmark_outline_rounded,
+                                        size: 16,
+                                      ),
+                                label: const Text('Use default'),
+                              ),
                           ],
                         ),
                       ),

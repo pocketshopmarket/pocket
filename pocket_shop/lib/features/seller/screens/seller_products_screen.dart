@@ -259,7 +259,9 @@ class _ProductTile extends StatelessWidget {
                           child: Text(
                             product.stockQuantity <= 0
                                 ? 'Out of stock'
-                                : 'Stock: ${product.stockQuantity}',
+                                : product.stockQuantity <= 5
+                                    ? 'Low stock · ${product.stockQuantity}'
+                                    : 'Stock: ${product.stockQuantity}',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

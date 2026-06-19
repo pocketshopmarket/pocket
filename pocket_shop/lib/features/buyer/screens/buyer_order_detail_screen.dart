@@ -655,7 +655,18 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () => context.go(
-                      '/buyer/track-order?order=${Uri.encodeComponent(order.orderNumber)}',
+                      '/buyer/track-order',
+                      extra: {
+                        'order_number': order.orderNumber,
+                        'delivery_lat': order.deliveryLat,
+                        'delivery_lng': order.deliveryLng,
+                        'seller_lat': order.sellerShopLat,
+                        'seller_lng': order.sellerShopLng,
+                        'seller_phone': order.sellerPhone,
+                        'items': order.items
+                            .map((i) => '${i.quantity}× ${i.productName}')
+                            .toList(),
+                      },
                     ),
                     icon: const Icon(Icons.local_shipping_outlined),
                     label: const Text('Track delivery'),

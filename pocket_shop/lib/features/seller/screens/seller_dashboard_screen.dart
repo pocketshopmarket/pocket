@@ -162,7 +162,6 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    // Date range filter
                     Row(
                       children: [7, 30, 90].map((d) {
                         final selected = _days == d;
@@ -193,26 +192,6 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                           ),
                         );
                       }).toList(),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _heroChip(
-                          label: 'Orders',
-                          value: _metrics['orders_count']?.toString() ?? '0',
-                        ),
-                        const SizedBox(width: 8),
-                        _heroChip(
-                          label: 'Pending',
-                          value: _metrics['pending_count']?.toString() ?? '0',
-                        ),
-                        const SizedBox(width: 8),
-                        _heroChip(
-                          label: 'Low stock',
-                          value:
-                              _metrics['low_stock_products']?.toString() ?? '0',
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -268,7 +247,15 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                   child: FilledButton.icon(
                     onPressed: () => context.push('/seller/payout'),
                     icon: const Icon(Icons.payments_outlined),
-                    label: const Text('Claim earnings'),
+                    label: Text(
+                      () {
+                        final pending = _metrics['seller_pending_payouts']?.toString() ?? '0';
+                        final amt = double.tryParse(pending) ?? 0;
+                        return amt > 0
+                            ? 'Claim earnings · ZMW ${amt.toStringAsFixed(2)}'
+                            : 'Claim earnings';
+                      }(),
+                    ),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.success,
                     ),
@@ -431,13 +418,26 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                   ),
                   const SizedBox(height: 8),
                   ..._payouts.take(5).map((row) {
-                    final amountColor = row['amount_color'] == 'green'
-                        ? AppTheme.success
-                        : AppTheme.warning;
+                    final isPaid = row['amount_color'] == 'green';
+                    final amountColor = isPaid ? AppTheme.success : AppTheme.warning;
+                    final status = row['status']?.toString() ?? '';
+                    final stage = row['payout_stage']?.toString() ?? '';
+                    final statusLabel = isPaid
+                        ? 'Paid'
+                        : (status == 'pending' ? 'Pending' : _capitalize(status));
+                    final rawDate = row['created_at'];
+                    String dateStr = '';
+                    if (rawDate != null) {
+                      try {
+                        final dt = DateTime.parse(rawDate.toString()).toLocal();
+                        dateStr = '${dt.day}/${dt.month}/${dt.year}';
+                      } catch (_) {}
+                    }
+                    final _ = stage; // payout_stage available if needed
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           color: AppTheme.surfaceWhite,
                           borderRadius: BorderRadius.circular(12),
@@ -446,19 +446,55 @@ class _SellerDashboardScreenState extends ConsumerState<SellerDashboardScreen> {
                         child: Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                row['order_number']?.toString() ?? '-',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    row['order_number']?.toString() ?? '-',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if (dateStr.isNotEmpty)
+                                    Text(
+                                      dateStr,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                            Text(
-                              'ZMW ${row['amount'] ?? '0'}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: amountColor,
-                              ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'ZMW ${row['amount'] ?? '0'}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                    color: amountColor,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: amountColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    statusLabel,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: amountColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -643,87 +679,96 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _heroChip extends StatelessWidget {
-  const _heroChip({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10.5, color: Color(0xFFD1D5DB)),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+String _capitalize(String s) =>
+    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
 class _RecentOrderTile extends StatelessWidget {
   const _RecentOrderTile({required this.order});
 
   final Order order;
 
+  Color get _statusColor {
+    switch (order.status) {
+      case 'pending':
+      case 'payment_pending':
+        return AppTheme.warning;
+      case 'accepted':
+      case 'preparing':
+        return AppTheme.primaryCyan;
+      case 'out_for_delivery':
+        return AppTheme.accentBlue;
+      case 'delivered':
+        return AppTheme.success;
+      case 'cancelled':
+        return AppTheme.error;
+      default:
+        return AppTheme.textSecondary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final statusColor = _statusColor;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Card(
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
-          title: Text(
-            order.orderNumber,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              '${order.items.length} item(s) · ZMW ${order.totalPrice.toStringAsFixed(2)}',
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.lightCyan,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              order.statusLabel,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.darkCyan,
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () => context.go('/seller/orders'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.divider),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
               ),
-            ),
+            ],
           ),
-          onTap: () => context.go('/seller/orders'),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.orderNumber,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${order.buyerName ?? 'Buyer'} · ${order.items.length} item(s) · ZMW ${order.totalPrice.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  order.statusLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

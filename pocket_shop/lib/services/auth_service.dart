@@ -540,6 +540,41 @@ class AuthService {
     return null;
   }
 
+  Future<Map<String, dynamic>> updateProfile({
+    String? fullName,
+    String? defaultAddress,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final body = <String, dynamic>{
+        if (fullName != null) 'full_name': fullName.trim(),
+        if (defaultAddress != null) 'default_address': defaultAddress.trim(),
+      };
+      final response = await _apiService.put(
+        AppConstants.profileEndpoint,
+        data: body,
+      );
+      final respBody = response.data;
+      final rawData = respBody['data'];
+      final userMap = rawData is Map
+          ? Map<String, dynamic>.from(
+              (rawData['user'] is Map ? rawData['user'] : rawData) as Map)
+          : null;
+      return {
+        'success': respBody['success'] == true,
+        'message': respBody['message']?.toString() ?? 'Profile updated.',
+        if (userMap != null) 'user': userMap,
+      };
+    } on DioException catch (e) {
+      return {
+        'success': false,
+        'message': _extractErrorMessage(e, 'Could not update profile'),
+      };
+    } catch (_) {
+      return {'success': false, 'message': 'An unexpected error occurred'};
+    }
+  }
+
   Future<Map<String, dynamic>> uploadProfilePhoto(String imagePath) async {
     await _ensureInitialized();
     try {

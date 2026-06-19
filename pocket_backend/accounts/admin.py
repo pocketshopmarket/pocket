@@ -3,6 +3,7 @@ import string
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.db.models import Sum
 from django.utils.html import format_html
 from .models import (
     BuyerProfile,
@@ -22,7 +23,7 @@ def _generate_staff_password(length=6):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ['full_name', 'phone_number', 'email', 'role', 'gender', 'is_verified', 'is_phone_verified', 'date_joined', 'is_active']
+    list_display = ['full_name', 'phone_number', 'email', 'role', 'gender', 'is_verified', 'is_phone_verified', 'total_paid_out', 'date_joined', 'is_active']
     list_filter = ['role', 'gender', 'is_verified', 'is_phone_verified', 'is_active', 'date_joined']
     search_fields = ['full_name', 'phone_number', 'email']
     ordering = ['-date_joined']
@@ -39,6 +40,11 @@ class UserAdmin(BaseUserAdmin):
         (None, {
             'classes': ('wide',),
             'fields': ('phone_number', 'full_name', 'gender', 'role'),
+        }),
+        ('Admin access', {
+            'classes': ('wide',),
+            'description': 'Grant Django admin access for staff/superuser accounts.',
+            'fields': ('is_staff', 'is_superuser'),
         }),
     )
 
@@ -59,6 +65,18 @@ class UserAdmin(BaseUserAdmin):
                 level='warning',
             )
         return response
+
+    @admin.display(description='Total paid out (ZMW)', ordering='_total_paid_out')
+    def total_paid_out(self, obj):
+        from payments.models import Transaction
+        total = Transaction.objects.filter(
+            recipient=obj,
+            transaction_type='payout',
+            status='completed',
+        ).aggregate(s=Sum('amount'))['s'] or 0
+        if total == 0:
+            return '—'
+        return f'ZMW {total:,.2f}'
 
 
 @admin.register(BuyerProfile)

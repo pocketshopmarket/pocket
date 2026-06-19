@@ -672,7 +672,48 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
         ),
 
         // ── Tier 2 (only unlocked after Tier 1 approved) ────────────
-        if (tier1Approved) ...[
+        if (!tier1Approved) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceWhite,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.divider),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.lock_outline_rounded, color: AppTheme.textSecondary, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Business verification — Tier 2',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Complete Tier 1 verification first to unlock. Adds a business badge and increases buyer trust.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (tier1Approved) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),

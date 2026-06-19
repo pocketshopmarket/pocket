@@ -311,12 +311,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/buyer/track-order',
                 builder: (context, state) {
-                  final orderNumber =
-                      state.uri.queryParameters['order'] ??
-                      (state.extra
-                              as Map<String, dynamic>?)?['order_number']
-                          as String?;
-                  return OrderTrackingScreen(orderNumber: orderNumber);
+                  final extra = state.extra as Map<String, dynamic>?;
+                  final orderNumber = state.uri.queryParameters['order'] ??
+                      extra?['order_number'] as String?;
+                  return OrderTrackingScreen(
+                    orderNumber: orderNumber,
+                    deliveryLat: extra?['delivery_lat'] as double?,
+                    deliveryLng: extra?['delivery_lng'] as double?,
+                    sellerLat: extra?['seller_lat'] as double?,
+                    sellerLng: extra?['seller_lng'] as double?,
+                    sellerPhone: extra?['seller_phone'] as String?,
+                    orderItems: (extra?['items'] as List?)?.cast<String>(),
+                  );
                 },
               ),
               GoRoute(
@@ -445,7 +451,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/seller/orders',
-                builder: (context, state) => const SellerOrdersScreen(),
+                builder: (context, state) {
+                  final extra = state.extra as Map<String, dynamic>?;
+                  final orderId = extra?['order_id'] as int?;
+                  return SellerOrdersScreen(initialOrderId: orderId);
+                },
               ),
             ],
           ),

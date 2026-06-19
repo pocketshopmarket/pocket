@@ -4,6 +4,8 @@ from .models import MAX_PRODUCT_IMAGES, Category, Product, ProductVariant, Promo
 
 
 def _absolute_media_url(request, relative_url):
+    if relative_url.startswith(('http://', 'https://')):
+        return relative_url
     from django.conf import settings as _s
     base = getattr(_s, 'PUBLIC_BACKEND_URL', '').rstrip('/')
     if base:

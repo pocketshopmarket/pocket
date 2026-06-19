@@ -22,4 +22,11 @@ class PublicSettingsView(APIView):
         s = PlatformSettings.get()
         return Response({
             'order_acceptance_timeout_minutes': s.order_acceptance_timeout_minutes,
+            'commission_rate': float(s.commission_rate),
+            'delivery_per_km_rate': float(s.delivery_per_km_rate),
+            'delivery_short_distance_threshold_km': float(s.delivery_short_distance_threshold_km),
+            'delivery_short_distance_flat_rate': float(s.delivery_short_distance_flat_rate),
+            'payout_method': s.payout_method,
+            'maintenance_mode': s.maintenance_mode,
+            'maintenance_message': s.maintenance_message,
         })

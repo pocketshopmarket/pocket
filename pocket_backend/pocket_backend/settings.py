@@ -282,7 +282,6 @@ _cloudinary_url = os.environ.get('CLOUDINARY_URL', '')
 
 if _spaces_key:
     INSTALLED_APPS += ['storages']
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     AWS_ACCESS_KEY_ID = _spaces_key
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
     AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', 'pocketbucket1')
@@ -294,9 +293,16 @@ if _spaces_key:
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_FILE_OVERWRITE = False
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+    STORAGES = {
+        'default': {'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
 elif _cloudinary_url:
     INSTALLED_APPS += ['cloudinary', 'cloudinary_storage']
-    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    STORAGES = {
+        'default': {'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
     CLOUDINARY_STORAGE = {'CLOUDINARY_URL': _cloudinary_url}
     MEDIA_URL = '/media/'
 else:

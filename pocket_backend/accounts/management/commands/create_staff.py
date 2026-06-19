@@ -4,6 +4,7 @@ import string
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import User
+from accounts.phone_utils import normalize_zambia_phone_to_e164
 
 
 def _gen_password(length=8):
@@ -21,7 +22,7 @@ class Command(BaseCommand):
         parser.add_argument('--password', help='Set a specific password (optional — auto-generated if omitted)')
 
     def handle(self, *args, **options):
-        phone = options['phone'].strip()
+        phone = normalize_zambia_phone_to_e164(options['phone'].strip())
         name = options['name'].strip()
         gender = options['gender']
         password = options['password'] or _gen_password()

@@ -290,8 +290,9 @@ if _spaces_key:
     AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'lon1')
     AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', 'pocketbucket1.lon1.digitaloceanspaces.com')
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-    AWS_DEFAULT_ACL = 'public-read'
+    AWS_DEFAULT_ACL = None          # bucket is set to public in DO dashboard
     AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
 elif _cloudinary_url:
     INSTALLED_APPS += ['cloudinary', 'cloudinary_storage']

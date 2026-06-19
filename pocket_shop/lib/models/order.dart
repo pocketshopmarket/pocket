@@ -113,6 +113,8 @@ class Order {
   final double? sellerShopLng;
   /// null = no refund request yet. Non-null = status of the existing request.
   final String? refundRequestStatus;
+  /// Non-null when the order was cancelled and a refund transaction was created.
+  final CancellationRefund? cancellationRefund;
 
   Order({
     required this.id,
@@ -147,6 +149,7 @@ class Order {
     this.sellerShopLat,
     this.sellerShopLng,
     this.refundRequestStatus,
+    this.cancellationRefund,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -205,6 +208,10 @@ class Order {
       sellerShopLat: double.tryParse((json['seller_shop_lat'] ?? '').toString()),
       sellerShopLng: double.tryParse((json['seller_shop_lng'] ?? '').toString()),
       refundRequestStatus: json['refund_request_status']?.toString(),
+      cancellationRefund: json['cancellation_refund'] != null
+          ? CancellationRefund.fromJson(
+              Map<String, dynamic>.from(json['cancellation_refund'] as Map))
+          : null,
     );
   }
 
@@ -223,6 +230,29 @@ class Order {
 
   bool get isPickup => fulfillmentType == 'pickup';
   bool get isDelivery => !isPickup;
+}
+
+class CancellationRefund {
+  final String status;
+  final double amount;
+
+  const CancellationRefund({required this.status, required this.amount});
+
+  factory CancellationRefund.fromJson(Map<String, dynamic> json) {
+    return CancellationRefund(
+      status: json['status']?.toString() ?? 'pending',
+      amount: double.tryParse(json['amount']?.toString() ?? '0') ?? 0,
+    );
+  }
+
+  String get label {
+    switch (status) {
+      case 'completed': return 'Refund sent';
+      case 'pending':   return 'Refund processing';
+      case 'failed':    return 'Refund failed';
+      default:          return 'Refund $status';
+    }
+  }
 }
 
 class OrderRating {

@@ -80,6 +80,7 @@ class OrderSerializer(serializers.ModelSerializer):
         source='delivery_fee', max_digits=10, decimal_places=2, read_only=True
     )
     refund_request_status = serializers.SerializerMethodField()
+    cancellation_refund = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -93,7 +94,7 @@ class OrderSerializer(serializers.ModelSerializer):
                  'payment_provider_snapshot', 'payment_account_snapshot',
                  'seller_phone', 'buyer_phone',
                  'seller_shop_name', 'seller_shop_location', 'seller_shop_lat', 'seller_shop_lng',
-                 'refund_request_status',
+                 'refund_request_status', 'cancellation_refund',
                  'items', 'ratings', 'created_at', 'updated_at']
         read_only_fields = ['order_number', 'buyer', 'seller', 'total_price', 'delivery_lat', 'delivery_lng']
 
@@ -158,6 +159,19 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_refund_request_status(self, obj):
         try:
             return obj.refund_request.status
+        except Exception:
+            return None
+
+    def get_cancellation_refund(self, obj):
+        """Return status + amount of the cancellation refund transaction, if one exists."""
+        try:
+            tx = obj.transactions.filter(
+                transaction_type='refund',
+                trigger_event='order_cancelled',
+            ).order_by('-created_at').first()
+            if tx is None:
+                return None
+            return {'status': tx.status, 'amount': str(tx.amount)}
         except Exception:
             return None
 

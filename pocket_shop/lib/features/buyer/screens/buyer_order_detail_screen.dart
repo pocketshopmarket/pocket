@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../models/order.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/orders_provider.dart';
 import '../../../../services/api_service.dart';
@@ -321,6 +322,45 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  Widget _buildRefundBanner(CancellationRefund refund) {
+    final isCompleted = refund.status == 'completed';
+    final isFailed = refund.status == 'failed';
+    final color = isCompleted
+        ? AppTheme.success
+        : isFailed
+            ? AppTheme.error
+            : const Color(0xFFF59E0B);
+    final icon = isCompleted
+        ? Icons.check_circle_outline_rounded
+        : isFailed
+            ? Icons.error_outline_rounded
+            : Icons.hourglass_top_rounded;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              '${refund.label} · ZMW ${refund.amount.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _statusColor(String status) {
     switch (status) {
       case 'cancelled':
@@ -431,6 +471,10 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                         color: _statusColor(order.status),
                       ),
                     ),
+                    if (order.cancellationRefund != null) ...[
+                      const SizedBox(height: 8),
+                      _buildRefundBanner(order.cancellationRefund!),
+                    ],
                     const SizedBox(height: 12),
                     Text(
                       'ZMW ${order.totalPrice.toStringAsFixed(2)}',

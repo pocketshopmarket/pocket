@@ -117,7 +117,10 @@ class StaffStatsView(APIView):
             created_at__date=today,
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
-        total_users = User.objects.filter(is_active=True).exclude(role__in=['admin', 'staff']).count()
+        failed_payouts_count = Transaction.objects.filter(
+            transaction_type='payout',
+            status='failed',
+        ).count()
 
         return Response({
             'payout_queue_count': payout_queue_count,
@@ -125,7 +128,7 @@ class StaffStatsView(APIView):
             'verification_count': verification_count,
             'refund_count': refund_count,
             'today_revenue': str(today_deposits),
-            'total_users': total_users,
+            'failed_payouts_count': failed_payouts_count,
         })
 
 

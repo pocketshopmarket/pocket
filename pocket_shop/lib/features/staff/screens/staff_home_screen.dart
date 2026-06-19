@@ -153,10 +153,10 @@ class _StatsGrid extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Total Users',
-                value: '${data['total_users'] ?? 0}',
-                icon: Icons.people_rounded,
-                color: Colors.teal,
+                label: 'Failed Payouts',
+                value: '${data['failed_payouts_count'] ?? 0}',
+                icon: Icons.error_outline_rounded,
+                color: Colors.red,
               ),
             ),
           ],

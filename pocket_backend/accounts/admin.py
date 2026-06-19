@@ -3,6 +3,7 @@ import string
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.utils.html import format_html
 from .models import (
     BuyerProfile,
     DeliveryProfile,
@@ -76,8 +77,28 @@ class SellerProfileAdmin(admin.ModelAdmin):
     ]
     list_filter = ['tier1_status', 'tier2_status', 'is_approved', 'created_at']
     search_fields = ['user__phone_number', 'shop_name', 'nrc_number']
-    readonly_fields = ['created_at', 'updated_at']
-    
+    readonly_fields = [
+        'created_at', 'updated_at',
+        'nrc_front_preview', 'nrc_back_preview', 'live_photo_preview',
+    ]
+
+    def _img(self, field):
+        if not field:
+            return 'No image'
+        return format_html('<img src="{}" style="max-height:300px;max-width:500px;border-radius:6px;" />', field.url)
+
+    def nrc_front_preview(self, obj):
+        return self._img(obj.nrc_front_image)
+    nrc_front_preview.short_description = 'NRC Front'
+
+    def nrc_back_preview(self, obj):
+        return self._img(obj.nrc_back_image)
+    nrc_back_preview.short_description = 'NRC Back'
+
+    def live_photo_preview(self, obj):
+        return self._img(obj.live_verification_photo)
+    live_photo_preview.short_description = 'Live Photo'
+
     actions = ['approve_tier1_sellers', 'approve_tier2_sellers', 'reject_sellers']
     
     def approve_tier1_sellers(self, request, queryset):
@@ -167,8 +188,28 @@ class DeliveryProfileAdmin(admin.ModelAdmin):
         'is_available', 'province', 'created_at',
     ]
     search_fields = ['user__phone_number', 'license_number', 'province', 'town', 'area']
-    readonly_fields = ['created_at', 'updated_at']
-    
+    readonly_fields = [
+        'created_at', 'updated_at',
+        'license_front_preview', 'license_back_preview', 'live_photo_preview',
+    ]
+
+    def _img(self, field):
+        if not field:
+            return 'No image'
+        return format_html('<img src="{}" style="max-height:300px;max-width:500px;border-radius:6px;" />', field.url)
+
+    def license_front_preview(self, obj):
+        return self._img(obj.license_front_image)
+    license_front_preview.short_description = 'License Front'
+
+    def license_back_preview(self, obj):
+        return self._img(obj.license_back_image)
+    license_back_preview.short_description = 'License Back'
+
+    def live_photo_preview(self, obj):
+        return self._img(obj.live_verification_photo)
+    live_photo_preview.short_description = 'Live Photo'
+
     actions = ['approve_delivery_personnel', 'reject_delivery_personnel']
     
     def approve_delivery_personnel(self, request, queryset):

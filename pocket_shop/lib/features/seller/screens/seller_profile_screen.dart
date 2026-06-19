@@ -28,6 +28,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
   Map<String, dynamic>? _payload;
   bool _loading = true;
   bool _submitting = false;
+  String _submitStatus = '';
   String? _error;
   String? _nrcFrontPath;
   String? _nrcBackPath;
@@ -183,7 +184,14 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
       return;
     }
 
-    setState(() => _submitting = true);
+    setState(() { _submitting = true; _submitStatus = 'Uploading documents...'; });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_submitting && mounted) setState(() => _submitStatus = 'Almost there...');
+    });
+    Future.delayed(const Duration(seconds: 6), () {
+      if (_submitting && mounted) setState(() => _submitStatus = 'Finalising submission...');
+    });
+
     final result = await ref.read(authServiceProvider).submitSellerVerification(
           tier: tier,
           shopName: _shopNameController.text.trim(),
@@ -197,11 +205,33 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
           businessRegistrationNumber: _businessRegController.text,
         );
     if (!mounted) return;
-    setState(() => _submitting = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(result['message']?.toString() ?? 'Submitted')),
+    setState(() { _submitting = false; _submitStatus = ''; });
+
+    final success = result['success'] == true;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        icon: Icon(
+          success ? Icons.check_circle_outline_rounded : Icons.error_outline_rounded,
+          color: success ? Colors.green : Colors.red,
+          size: 48,
+        ),
+        title: Text(success ? 'Submitted!' : 'Submission Failed'),
+        content: Text(
+          success
+              ? 'Your verification documents have been submitted. You will receive a notification once reviewed by our team.'
+              : result['message']?.toString() ?? 'Something went wrong. Please try again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
-    if (result['success'] == true) await _load();
+    if (success) await _load();
   }
 
   Widget _content(BuildContext context) {
@@ -625,7 +655,16 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: _submitting ? null : () => _submitVerification('tier1'),
-                  child: Text(_submitting ? 'Submitting...' : 'Submit Tier 1'),
+                  child: _submitting
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                            const SizedBox(width: 10),
+                            Text(_submitStatus),
+                          ],
+                        )
+                      : const Text('Submit Tier 1'),
                 ),
               ],
             ],

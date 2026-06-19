@@ -29,6 +29,7 @@ import '../features/delivery/screens/delivery_offers_screen.dart';
 import '../features/delivery/screens/delivery_profile_screen.dart';
 import '../features/delivery/screens/earnings_screen.dart';
 import '../features/admin/screens/admin_dashboard_screen.dart';
+import '../features/staff/screens/staff_account_screen.dart';
 import '../features/staff/screens/staff_home_screen.dart';
 import '../features/staff/screens/staff_main_screen.dart';
 import '../features/staff/screens/staff_payouts_screen.dart';
@@ -80,6 +81,7 @@ final _staffBranchHome = GlobalKey<NavigatorState>(debugLabel: 'staff/home');
 final _staffBranchPayouts = GlobalKey<NavigatorState>(debugLabel: 'staff/payouts');
 final _staffBranchVerify = GlobalKey<NavigatorState>(debugLabel: 'staff/verify');
 final _staffBranchRefunds = GlobalKey<NavigatorState>(debugLabel: 'staff/refunds');
+final _staffBranchAccount = GlobalKey<NavigatorState>(debugLabel: 'staff/account');
 
 final routerRefreshProvider = Provider<RouterRefresh>((ref) {
   final refresh = RouterRefresh();
@@ -579,6 +581,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/staff/refunds',
                 builder: (context, state) => const StaffRefundsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _staffBranchAccount,
+            routes: [
+              GoRoute(
+                path: '/staff/account',
+                builder: (context, state) => const StaffAccountScreen(),
               ),
             ],
           ),

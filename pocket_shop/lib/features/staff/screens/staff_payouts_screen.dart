@@ -12,7 +12,7 @@ final _riderQueueProvider = FutureProvider.autoDispose<List<Map<String, dynamic>
   return StaffService().getPayoutQueue(role: 'delivery');
 });
 
-final _withdrawalsProvider2 = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+final _withdrawalsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   return StaffService().getWithdrawals();
 });
 
@@ -59,7 +59,7 @@ class _StaffPayoutsScreenState extends ConsumerState<StaffPayoutsScreen>
             onPressed: () {
               ref.invalidate(_sellerQueueProvider);
               ref.invalidate(_riderQueueProvider);
-              ref.invalidate(_withdrawalsProvider2);
+              ref.invalidate(_withdrawalsProvider);
             },
           ),
         ],
@@ -75,7 +75,7 @@ class _StaffPayoutsScreenState extends ConsumerState<StaffPayoutsScreen>
             providerListen: _riderQueueProvider,
             roleLabel: 'Rider',
           ),
-          _WithdrawalList(providerListen: _withdrawalsProvider2),
+          _WithdrawalList(providerListen: _withdrawalsProvider),
         ],
       ),
     );

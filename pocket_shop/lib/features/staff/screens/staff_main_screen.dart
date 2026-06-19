@@ -42,6 +42,11 @@ class StaffMainScreen extends StatelessWidget {
             selectedIcon: Icon(Icons.assignment_return_rounded),
             label: 'Refunds',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
+            label: 'Account',
+          ),
         ],
       ),
     );

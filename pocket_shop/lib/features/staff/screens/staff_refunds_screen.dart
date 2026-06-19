@@ -130,7 +130,7 @@ class _RefundCard extends StatelessWidget {
             _InfoRow(label: 'Total', value: 'ZMW ${item['grand_total']}'),
             if (refundCount > 0)
               _InfoRow(label: 'Refunds', value: '$refundCount (${refundStatuses.join(", ")})'),
-            if (item['cancelled_at'] != null)
+            if ((item['cancelled_at'] as String? ?? '').isNotEmpty)
               _InfoRow(
                 label: 'Cancelled',
                 value: (item['cancelled_at'] as String).split('T').first,

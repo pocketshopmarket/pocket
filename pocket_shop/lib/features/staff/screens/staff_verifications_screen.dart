@@ -224,15 +224,15 @@ class _VerificationCardState extends State<_VerificationCard> {
             ),
             const SizedBox(height: 8),
             _InfoRow(label: 'Phone', value: item['user_phone'] as String? ?? ''),
-            if (!isDelivery && item['shop_name'] != null)
-              _InfoRow(label: 'Shop', value: item['shop_name'] as String),
+            if (!isDelivery && (item['shop_name'] as String? ?? '').isNotEmpty)
+              _InfoRow(label: 'Shop', value: item['shop_name'] as String? ?? ''),
             if (!isDelivery && (item['nrc_number'] as String? ?? '').isNotEmpty)
-              _InfoRow(label: 'NRC', value: item['nrc_number'] as String),
-            if (isDelivery && item['vehicle_type'] != null)
-              _InfoRow(label: 'Vehicle', value: item['vehicle_type'] as String),
+              _InfoRow(label: 'NRC', value: item['nrc_number'] as String? ?? ''),
+            if (isDelivery && (item['vehicle_type'] as String? ?? '').isNotEmpty)
+              _InfoRow(label: 'Vehicle', value: item['vehicle_type'] as String? ?? ''),
             if (isDelivery && (item['license_number'] as String? ?? '').isNotEmpty)
-              _InfoRow(label: 'License', value: item['license_number'] as String),
-            if (item['submitted_at'] != null)
+              _InfoRow(label: 'License', value: item['license_number'] as String? ?? ''),
+            if ((item['submitted_at'] as String? ?? '').isNotEmpty)
               _InfoRow(
                 label: 'Submitted',
                 value: (item['submitted_at'] as String).split('T').first,

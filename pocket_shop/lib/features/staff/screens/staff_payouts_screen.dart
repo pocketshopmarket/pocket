@@ -12,7 +12,7 @@ final _riderQueueProvider = FutureProvider.autoDispose<List<Map<String, dynamic>
   return StaffService().getPayoutQueue(role: 'delivery');
 });
 
-final _withdrawalsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+final _earningsClaimsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   return StaffService().getWithdrawals();
 });
 
@@ -50,7 +50,7 @@ class _StaffPayoutsScreenState extends ConsumerState<StaffPayoutsScreen>
           tabs: const [
             Tab(text: 'Sellers'),
             Tab(text: 'Riders'),
-            Tab(text: 'Withdrawals'),
+            Tab(text: 'Earnings Claims'),
           ],
         ),
         actions: [
@@ -59,7 +59,7 @@ class _StaffPayoutsScreenState extends ConsumerState<StaffPayoutsScreen>
             onPressed: () {
               ref.invalidate(_sellerQueueProvider);
               ref.invalidate(_riderQueueProvider);
-              ref.invalidate(_withdrawalsProvider);
+              ref.invalidate(_earningsClaimsProvider);
             },
           ),
         ],
@@ -75,7 +75,7 @@ class _StaffPayoutsScreenState extends ConsumerState<StaffPayoutsScreen>
             providerListen: _riderQueueProvider,
             roleLabel: 'Rider',
           ),
-          _WithdrawalList(providerListen: _withdrawalsProvider),
+          _EarningsClaimsList(providerListen: _earningsClaimsProvider),
         ],
       ),
     );
@@ -218,10 +218,10 @@ class _PayoutCardState extends State<_PayoutCard> {
 
 // ── Withdrawals tab ───────────────────────────────────────────────────────
 
-class _WithdrawalList extends ConsumerWidget {
+class _EarningsClaimsList extends ConsumerWidget {
   final AutoDisposeFutureProvider<List<Map<String, dynamic>>> providerListen;
 
-  const _WithdrawalList({required this.providerListen});
+  const _EarningsClaimsList({required this.providerListen});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -231,14 +231,14 @@ class _WithdrawalList extends ConsumerWidget {
       error: (e, _) => _RetryCenter(message: e.toString(), onRetry: () => ref.invalidate(providerListen)),
       data: (items) {
         if (items.isEmpty) {
-          return const _EmptyCenter(label: 'No pending withdrawal requests');
+          return const _EmptyCenter(label: 'No pending earnings claims');
         }
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(providerListen),
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: items.length,
-            itemBuilder: (context, i) => _WithdrawalCard(
+            itemBuilder: (context, i) => _EarningsClaimsCard(
               item: items[i],
               onPaid: () => ref.invalidate(providerListen),
             ),
@@ -249,17 +249,17 @@ class _WithdrawalList extends ConsumerWidget {
   }
 }
 
-class _WithdrawalCard extends StatefulWidget {
+class _EarningsClaimsCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final VoidCallback onPaid;
 
-  const _WithdrawalCard({required this.item, required this.onPaid});
+  const _EarningsClaimsCard({required this.item, required this.onPaid});
 
   @override
-  State<_WithdrawalCard> createState() => _WithdrawalCardState();
+  State<_EarningsClaimsCard> createState() => _EarningsClaimsCardState();
 }
 
-class _WithdrawalCardState extends State<_WithdrawalCard> {
+class _EarningsClaimsCardState extends State<_EarningsClaimsCard> {
   bool _loading = false;
 
   Future<void> _markPaid() async {
@@ -267,7 +267,7 @@ class _WithdrawalCardState extends State<_WithdrawalCard> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Mark Withdrawal Paid?'),
+        title: const Text('Confirm Earnings Paid?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

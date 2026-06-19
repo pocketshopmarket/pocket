@@ -108,7 +108,7 @@ class _StatsGrid extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Withdrawals',
+                label: 'Earnings Claims',
                 value: '${data['withdrawal_count'] ?? 0}',
                 icon: Icons.account_balance_wallet_rounded,
                 color: Colors.blue,

@@ -164,75 +164,7 @@ AUTH_USER_MODEL = 'accounts.User'
 
 # Application definition
 
-JAZZMIN_SETTINGS = {
-    'site_title': 'Pocket Admin',
-    'site_header': 'Pocket',
-    'site_brand': 'Pocket',
-    'site_logo': 'admin/img/pocket_logo.jpg',
-    'site_logo_classes': 'img-circle elevation-3',
-    'login_logo': 'admin/img/pocket_logo.jpg',
-    'login_logo_dark': 'admin/img/pocket_logo.jpg',
-    'site_icon': 'admin/img/pocket_logo.jpg',
-    'welcome_sign': 'Welcome to Pocket Admin',
-    'copyright': 'Pocket Shop',
-    'search_model': ['accounts.User'],
-    'topmenu_links': [
-        {'name': 'Dashboard', 'url': 'admin:index', 'permissions': ['auth.view_user']},
-    ],
-    'show_sidebar': True,
-    'navigation_expanded': True,
-    'hide_apps': [],
-    'icons': {
-        'accounts.user': 'fas fa-users',
-        'accounts.verificationrequest': 'fas fa-id-card',
-        'orders.order': 'fas fa-shopping-bag',
-        'payments.transaction': 'fas fa-money-bill-wave',
-        'portal.platformsettings': 'fas fa-cogs',
-        'delivery.deliverypricingconfig': 'fas fa-truck',
-        'delivery.deliveryzone': 'fas fa-map-marked-alt',
-        'notifications.notification': 'fas fa-bell',
-        'products.product': 'fas fa-box',
-    },
-    'default_icon_parents': 'fas fa-folder',
-    'default_icon_children': 'fas fa-circle',
-    'related_modal_active': True,
-    'show_ui_builder': False,
-}
-
-JAZZMIN_UI_TWEAKS = {
-    'navbar_small_text': False,
-    'footer_small_text': False,
-    'body_small_text': False,
-    'brand_small_text': False,
-    'brand_colour': 'navbar-cyan',
-    'accent': 'accent-teal',
-    'navbar': 'navbar-cyan navbar-dark',
-    'no_navbar_border': True,
-    'navbar_fixed': True,
-    'layout_boxed': False,
-    'footer_fixed': False,
-    'sidebar_fixed': True,
-    'sidebar': 'sidebar-dark-teal',
-    'sidebar_nav_small_text': False,
-    'sidebar_disable_expand': False,
-    'sidebar_nav_child_indent': True,
-    'sidebar_nav_compact_style': False,
-    'sidebar_nav_legacy_style': False,
-    'sidebar_nav_flat_style': False,
-    'theme': 'default',
-    'dark_mode_theme': None,
-    'button_classes': {
-        'primary': 'btn-primary',
-        'secondary': 'btn-secondary',
-        'info': 'btn-info',
-        'warning': 'btn-warning',
-        'danger': 'btn-danger',
-        'success': 'btn-success',
-    },
-}
-
 INSTALLED_APPS = [
-    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -271,7 +203,7 @@ ROOT_URLCONF = 'pocket_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

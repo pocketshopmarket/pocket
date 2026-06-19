@@ -1,0 +1,50 @@
+/* Pocket brand colors for Django admin */
+:root {
+  --primary: #00BCD4;
+  --secondary: #0097A7;
+  --accent: #00BCD4;
+  --primary-fg: #fff;
+  --header-color: #fff;
+  --header-bg: #00BCD4;
+  --header-link-color: #fff;
+  --breadcrumbs-fg: #fff;
+  --breadcrumbs-bg: #0097A7;
+  --breadcrumbs-link-fg: #e0f7fa;
+  --breadcrumbs-separator: #80DEEA;
+  --link-fg: #0097A7;
+  --link-hover-color: #00BCD4;
+  --button-bg: #00BCD4;
+  --button-fg: #fff;
+  --default-button-bg: #0097A7;
+  --default-button-fg: #fff;
+  --close-button-bg: #0097A7;
+  --selected-bg: #e0f7fa;
+  --selected-row: #e0f7fa;
+  --darkened-bg: #f0fafb;
+}
+
+/* Header logo area */
+#site-name a {
+  display: flex;
+  align-items: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 18px;
+  text-decoration: none;
+}
+
+/* Active sidebar link */
+.module h2, .module caption, .inline-group h2 {
+  background: #00BCD4;
+}
+
+/* Submit row buttons */
+.submit-row input[type=submit],
+.submit-row a.closelink {
+  background: #00BCD4;
+  border-color: #0097A7;
+}
+
+.submit-row a.deletelink {
+  background: #E53E3E;
+}

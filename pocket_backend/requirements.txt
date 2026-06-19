@@ -16,4 +16,3 @@ cloudinary
 django-cloudinary-storage
 boto3
 django-storages
-django-jazzmin==3.0.4

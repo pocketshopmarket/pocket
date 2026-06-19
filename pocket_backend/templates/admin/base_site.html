@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | Pocket Admin{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+  <a href="{% url 'admin:index' %}">
+    <img src="{% static 'admin/img/pocket_logo.jpg' %}" alt="Pocket" height="36" style="border-radius:6px;margin-right:10px;vertical-align:middle;">
+    Pocket Admin
+  </a>
+</h1>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/pocket_brand.css' %}">
+{% endblock %}

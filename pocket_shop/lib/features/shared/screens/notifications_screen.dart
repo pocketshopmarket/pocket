@@ -85,6 +85,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final router = GoRouter.of(context);
     if (context.canPop()) context.pop();
 
+    if (userRole == AppConstants.staffRole) {
+      final alertType = data?['type']?.toString() ?? '';
+      if (alertType == 'withdrawal_request') {
+        router.go('/staff/payouts');
+      } else if (alertType == 'new_verification') {
+        router.go('/staff/verifications');
+      } else {
+        router.go('/staff/home');
+      }
+      return;
+    }
+
     if (userRole == AppConstants.deliveryRole) {
       router.go('/delivery/active');
       return;
@@ -158,6 +170,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'delivery_assigned':       return Icons.local_shipping_rounded;
       case 'welcome':                 return Icons.waving_hand_rounded;
       case 'announcement':            return Icons.campaign_rounded;
+      case 'staff_alert':             return Icons.admin_panel_settings_rounded;
       default:                        return Icons.notifications_rounded;
     }
   }
@@ -178,6 +191,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'delivery_assigned':       return AppTheme.darkCyan;
       case 'welcome':                 return AppTheme.primaryCyan;
       case 'announcement':            return const Color(0xFF7C3AED);
+      case 'staff_alert':             return AppTheme.warning;
       default:                        return AppTheme.textSecondary;
     }
   }
@@ -213,6 +227,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         return _BadgeConfig('Welcome', Icons.waving_hand_rounded, AppTheme.primaryCyan);
       case 'announcement':
         return _BadgeConfig('Announcement', Icons.campaign_rounded, const Color(0xFF7C3AED));
+      case 'staff_alert':
+        return _BadgeConfig('Staff alert', Icons.admin_panel_settings_rounded, AppTheme.warning);
       default:
         return _BadgeConfig('Notification', Icons.notifications_rounded, AppTheme.textSecondary);
     }

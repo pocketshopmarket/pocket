@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../providers/auth_provider.dart';
+import '../../../providers/notification_provider.dart';
 import '../../../services/staff_service.dart';
 
 final _statsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
@@ -24,6 +26,33 @@ class StaffHomeScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.invalidate(_statsProvider),
+          ),
+          Consumer(
+            builder: (context, ref, _) {
+              final unread = ref.watch(notificationProvider).unreadCount;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    onPressed: () => context.push('/notifications'),
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),

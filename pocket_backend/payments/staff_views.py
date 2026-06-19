@@ -7,6 +7,7 @@ URL prefix: /api/staff/
 import logging
 from decimal import Decimal
 
+from django.db import transaction as db_transaction
 from django.db.models import Count, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -176,31 +177,35 @@ class StaffMarkPaidView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsStaff]
 
     def post(self, request, tx_id):
-        try:
-            tx = Transaction.objects.select_related('recipient', 'order').get(
-                transaction_id=tx_id,
-                transaction_type='payout',
-            )
-        except Transaction.DoesNotExist:
-            return Response({'error': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        if tx.payout_stage == 'payout_paid' and tx.status == 'completed':
-            return Response({'detail': 'Already marked as paid.'})
-
-        if tx.payout_method != 'manual':
-            return Response(
-                {'error': 'Only manual payouts can be marked paid from the app.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         notes = request.data.get('notes', '')
-        tx.payout_stage = 'payout_paid'
-        tx.status = 'completed'
-        tx.marked_paid_by = request.user
-        tx.marked_paid_at = timezone.now()
-        if notes:
-            tx.payout_notes = notes
-        tx.save()
+
+        with db_transaction.atomic():
+            try:
+                tx = (
+                    Transaction.objects
+                    .select_for_update()
+                    .select_related('recipient', 'order')
+                    .get(transaction_id=tx_id, transaction_type='payout')
+                )
+            except Transaction.DoesNotExist:
+                return Response({'error': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if tx.payout_stage == 'payout_paid' and tx.status == 'completed':
+                return Response({'detail': 'Already marked as paid.'})
+
+            if tx.payout_method != 'manual':
+                return Response(
+                    {'error': 'Only manual payouts can be marked paid from the app.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            tx.payout_stage = 'payout_paid'
+            tx.status = 'completed'
+            tx.marked_paid_by = request.user
+            tx.marked_paid_at = timezone.now()
+            if notes:
+                tx.payout_notes = notes
+            tx.save()
 
         # Notify recipient
         if tx.recipient:

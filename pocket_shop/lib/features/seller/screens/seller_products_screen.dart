@@ -99,7 +99,7 @@ class _SellerProductsScreenState extends ConsumerState<SellerProductsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/seller/products/add'),
+        onPressed: () => context.push('/seller/products/add').then((_) => _load()),
         icon: const Icon(Icons.add),
         label: const Text('Add product'),
         backgroundColor: AppTheme.primaryCyan,

@@ -143,7 +143,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
   Future<String?> _pickImage() async {
     final image = await ImagePicker().pickImage(
       source: ImageSource.camera,
-      imageQuality: 90,
+      imageQuality: 70,
       preferredCameraDevice: CameraDevice.rear,
     );
     return image?.path;

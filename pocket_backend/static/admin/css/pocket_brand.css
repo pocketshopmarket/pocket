@@ -1,29 +1,194 @@
-/* Pocket brand colors for Django admin */
+/* Pocket Admin — cyan header, dark content */
 :root {
+  /* Brand */
   --primary: #00BCD4;
   --secondary: #0097A7;
-  --accent: #00BCD4;
   --primary-fg: #fff;
+
+  /* Header */
   --header-color: #fff;
   --header-bg: #00BCD4;
   --header-link-color: #fff;
-  --breadcrumbs-fg: #fff;
+
+  /* Breadcrumbs */
+  --breadcrumbs-fg: #e0f7fa;
   --breadcrumbs-bg: #0097A7;
   --breadcrumbs-link-fg: #e0f7fa;
   --breadcrumbs-separator: #80DEEA;
-  --link-fg: #0097A7;
+
+  /* Dark content background */
+  --body-bg: #1a1f2e;
+  --body-fg: #e2e8f0;
+  --body-quiet-color: #94a3b8;
+  --body-loud-color: #f1f5f9;
+
+  --darkened-bg: #141824;
+  --selected-bg: #1e3a4a;
+  --selected-row: #1e3a4a;
+
+  /* Borders */
+  --border-color: #2d3748;
+  --hair-color: #2d3748;
+
+  /* Links */
+  --link-fg: #38d9e8;
   --link-hover-color: #00BCD4;
+  --link-selected-fg: #80DEEA;
+
+  /* Buttons */
   --button-bg: #00BCD4;
   --button-fg: #fff;
   --default-button-bg: #0097A7;
   --default-button-fg: #fff;
-  --close-button-bg: #0097A7;
-  --selected-bg: #e0f7fa;
-  --selected-row: #e0f7fa;
-  --darkened-bg: #f0fafb;
+  --close-button-bg: #374151;
+  --close-button-hover-bg: #4b5563;
+  --delete-button-bg: #c53030;
+  --delete-button-hover-bg: #9b2c2c;
+
+  /* Object tools (top-right action buttons) */
+  --object-tools-fg: #fff;
+  --object-tools-bg: #0097A7;
+  --object-tools-hover-bg: #00BCD4;
+
+  /* Messages */
+  --message-success-bg: #1c3a2a;
+  --message-warning-bg: #3a2e1c;
+  --message-error-bg: #3a1c1c;
+
+  /* Forms */
+  --input-bg: #243244;
+  --input-fg: #e2e8f0;
+  --input-border: #374151;
+  --input-focus-border: #00BCD4;
 }
 
-/* Header logo area */
+/* Main content area */
+#content, #content-main, .content-wrapper {
+  background: var(--body-bg);
+  color: var(--body-fg);
+}
+
+body {
+  background: #141824;
+  color: var(--body-fg);
+}
+
+/* Sidebar */
+#nav-sidebar, .toggle-nav-sidebar {
+  background: #0f1420;
+  border-right: 1px solid #2d3748;
+}
+
+#nav-sidebar a {
+  color: #94a3b8;
+}
+
+#nav-sidebar .current-app .section:link,
+#nav-sidebar .current-app .section:visited {
+  color: #00BCD4;
+}
+
+#nav-sidebar .current-model > a {
+  color: #00BCD4;
+  font-weight: 600;
+}
+
+/* Tables */
+#result_list, .results {
+  background: #1e2535;
+}
+
+#result_list thead th {
+  background: #141824;
+  color: #94a3b8;
+  border-bottom: 1px solid #2d3748;
+}
+
+#result_list tr.row1, tbody tr:nth-child(odd) {
+  background: #1e2535;
+}
+
+#result_list tr.row2, tbody tr:nth-child(even) {
+  background: #243244;
+}
+
+#result_list tbody tr:hover {
+  background: #1e3a4a;
+}
+
+/* Filter panel */
+#changelist-filter {
+  background: #1e2535;
+  border-left: 1px solid #2d3748;
+}
+
+#changelist-filter h2 {
+  background: #0097A7;
+  color: #fff;
+}
+
+#changelist-filter h3 {
+  color: #94a3b8;
+  border-bottom: 1px solid #2d3748;
+}
+
+#changelist-filter li a {
+  color: #38d9e8;
+}
+
+#changelist-filter li.selected a {
+  color: #fff;
+}
+
+/* Module headers (e.g. section titles in forms) */
+.module h2, .module caption, .inline-group h2 {
+  background: #0097A7;
+  color: #fff;
+}
+
+.module {
+  background: #1e2535;
+  border: 1px solid #2d3748;
+}
+
+/* Form inputs */
+input, select, textarea {
+  background: #243244 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #374151 !important;
+  border-radius: 4px;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #00BCD4 !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0,188,212,0.2);
+}
+
+/* Breadcrumbs */
+div.breadcrumbs {
+  background: #0097A7;
+  color: #e0f7fa;
+}
+
+div.breadcrumbs a {
+  color: #e0f7fa;
+}
+
+/* Paginator */
+.paginator {
+  background: #1e2535;
+  color: #94a3b8;
+  border-top: 1px solid #2d3748;
+}
+
+/* Action bar */
+.actions {
+  background: #1e2535;
+  border-bottom: 1px solid #2d3748;
+}
+
+/* Logo in header */
 #site-name a {
   display: flex;
   align-items: center;
@@ -33,18 +198,36 @@
   text-decoration: none;
 }
 
-/* Active sidebar link */
-.module h2, .module caption, .inline-group h2 {
+/* Search bar */
+#toolbar {
+  background: #141824;
+  border-bottom: 1px solid #2d3748;
+}
+
+#searchbar {
+  background: #243244;
+  color: #e2e8f0;
+  border: 1px solid #374151;
+}
+
+/* Object tools */
+ul.object-tools li a {
+  background: #0097A7;
+  color: #fff;
+}
+
+ul.object-tools li a:hover {
   background: #00BCD4;
 }
 
-/* Submit row buttons */
-.submit-row input[type=submit],
-.submit-row a.closelink {
-  background: #00BCD4;
-  border-color: #0097A7;
+/* Submit row */
+.submit-row {
+  background: #141824;
+  border-top: 1px solid #2d3748;
 }
 
-.submit-row a.deletelink {
-  background: #E53E3E;
+/* Dashboard app cards */
+.app-accounts .module, .app-orders .module,
+.app-payments .module, .app-portal .module {
+  background: #1e2535;
 }

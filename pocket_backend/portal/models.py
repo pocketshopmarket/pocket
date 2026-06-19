@@ -1,4 +1,6 @@
+from decimal import Decimal
 from django.db import models
+from django.db.models import Count, Sum, Q
 
 
 class PlatformSettings(models.Model):
@@ -69,3 +71,136 @@ class PlatformSettings(models.Model):
     def get(cls):
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class RevenueSnapshot(models.Model):
+    year = models.PositiveIntegerField()
+    month = models.PositiveIntegerField()  # 1–12
+
+    order_count = models.PositiveIntegerField(default=0)
+    gmv = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='GMV (order totals)')
+    delivery_collected = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    seller_commission = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    rider_commission = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    buyer_fees = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total_revenue = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total_payouts = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    total_refunds = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    net_revenue = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('year', 'month')
+        ordering = ['-year', '-month']
+        verbose_name = 'Revenue Snapshot'
+        verbose_name_plural = 'Revenue Snapshots'
+
+    def __str__(self):
+        import calendar
+        return f'{calendar.month_name[self.month]} {self.year}'
+
+    @classmethod
+    def refresh_all(cls):
+        from payments.models import Transaction
+        from orders.models import Order
+        from django.utils import timezone
+        import calendar
+
+        now = timezone.now()
+
+        # Find earliest transaction to know how far back to go
+        first_tx = Transaction.objects.order_by('created_at').first()
+        if not first_tx:
+            return
+
+        start = first_tx.created_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        year, month = start.year, start.month
+        while (year, month) <= (now.year, now.month):
+            # Date range for this month
+            last_day = calendar.monthrange(year, month)[1]
+            from django.utils.timezone import make_aware
+            import datetime
+            month_start = make_aware(datetime.datetime(year, month, 1))
+            month_end = make_aware(datetime.datetime(year, month, last_day, 23, 59, 59))
+
+            # Completed orders this month
+            orders = Order.objects.filter(
+                status='delivered',
+                updated_at__range=(month_start, month_end),
+            )
+            agg = orders.aggregate(
+                count=Count('id'),
+                gmv=Sum('total_price'),
+                delivery=Sum('delivery_fee'),
+            )
+            order_count = agg['count'] or 0
+            gmv = Decimal(str(agg['gmv'] or 0))
+            delivery_collected = Decimal(str(agg['delivery'] or 0))
+
+            # Deposits from buyers
+            buyer_deposits = Transaction.objects.filter(
+                transaction_type='deposit',
+                status='completed',
+                created_at__range=(month_start, month_end),
+            ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+            buyer_deposits = Decimal(str(buyer_deposits))
+
+            # Seller payouts
+            seller_payouts = Transaction.objects.filter(
+                transaction_type='payout',
+                recipient_role='seller',
+                status='completed',
+                created_at__range=(month_start, month_end),
+            ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+            seller_payouts = Decimal(str(seller_payouts))
+
+            # Rider payouts
+            rider_payouts = Transaction.objects.filter(
+                transaction_type='payout',
+                recipient_role='delivery',
+                status='completed',
+                created_at__range=(month_start, month_end),
+            ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+            rider_payouts = Decimal(str(rider_payouts))
+
+            # Refunds
+            refunds = Transaction.objects.filter(
+                transaction_type='refund',
+                status='completed',
+                created_at__range=(month_start, month_end),
+            ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+            refunds = Decimal(str(refunds))
+
+            # Platform kept = what came in minus what went out
+            seller_commission = buyer_deposits - seller_payouts
+            rider_commission = delivery_collected - rider_payouts
+            buyer_fees = Decimal('0')  # placeholder until buyer_service_fee_rate > 0
+
+            total_revenue = seller_commission + rider_commission + buyer_fees
+            total_payouts = seller_payouts + rider_payouts
+            net_revenue = total_revenue - refunds
+
+            cls.objects.update_or_create(
+                year=year,
+                month=month,
+                defaults=dict(
+                    order_count=order_count,
+                    gmv=gmv,
+                    delivery_collected=delivery_collected,
+                    seller_commission=max(seller_commission, Decimal('0')),
+                    rider_commission=max(rider_commission, Decimal('0')),
+                    buyer_fees=buyer_fees,
+                    total_revenue=max(total_revenue, Decimal('0')),
+                    total_payouts=total_payouts,
+                    total_refunds=refunds,
+                    net_revenue=net_revenue,
+                ),
+            )
+
+            # Advance to next month
+            if month == 12:
+                year += 1
+                month = 1
+            else:
+                month += 1

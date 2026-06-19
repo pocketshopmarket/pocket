@@ -67,7 +67,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     });
   }
 
-  void _onBannerTap(PromoBanner banner) {
+  Future<void> _onBannerTap(PromoBanner banner) async {
     switch (banner.actionType) {
       case 'category':
         final categoryId = int.tryParse(banner.actionValue);
@@ -85,13 +85,16 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
           final state = ref.read(productProvider);
           Product? product;
           for (final p in [...state.trendingProducts, ...state.products]) {
-            if (p.id == productId) {
-              product = p;
-              break;
-            }
+            if (p.id == productId) { product = p; break; }
           }
           if (product != null) {
             context.push('/buyer/product-details', extra: product);
+          } else {
+            // Product not in memory — fetch it then navigate
+            try {
+              final fetched = await ref.read(productServiceProvider).getProduct(productId);
+              if (mounted) context.push('/buyer/product-details', extra: fetched);
+            } catch (_) {}
           }
         }
         break;
@@ -359,7 +362,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     final cartNotifier = ref.read(cartProvider.notifier);
     final wishlistNotifier = ref.read(wishlistProvider.notifier);
     final firstName = user?.displayName.split(' ').first ?? 'Shopper';
-    final allCategories = ref.watch(categoryProvider).valueOrNull ?? [];
+    final allCategories = ref.watch(categoryProvider);
     final products = productState.products;
     final trendingProducts = productState.trendingProducts.isNotEmpty
         ? productState.trendingProducts
@@ -714,15 +717,19 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
               const SizedBox(height: 8),
               SizedBox(
                 height: 42,
-                child: ref.watch(categoryProvider).when(
-                  data: (categories) {
-                    final allCategories = [Category(id: 0, name: 'All', slug: 'all'), ...categories];
+                child: Builder(builder: (context) {
+                    final rawCategories = ref.watch(categoryProvider);
+                    final catState = ref.watch(categoriesProvider);
+                    if (rawCategories.isEmpty && catState.isLoading) {
+                      return const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)));
+                    }
+                    final categories = [Category(id: 0, name: 'All', slug: 'all'), ...rawCategories];
                     return ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: allCategories.length,
+                      itemCount: categories.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (_, i) {
-                        final category = allCategories[i];
+                        final category = categories[i];
                         final isSelected = ref.watch(selectedCategoryProvider) == category.id || (category.id == 0 && ref.watch(selectedCategoryProvider) == null);
                         return InkWell(
                           onTap: () {
@@ -769,10 +776,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         );
                       },
                     );
-                  },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => const Text('Failed to load categories'),
-                ),
+                  }),
               ),
               const SizedBox(height: 14),
               SizedBox(

@@ -207,15 +207,15 @@ class _OrderTile extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.lightCyan,
+                      color: _statusBadgeBg(order.status),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       order.statusLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.darkCyan,
+                        color: _statusBadgeFg(order.status),
                       ),
                     ),
                   ),
@@ -238,43 +238,77 @@ class _OrderTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              Row(
-                children: List.generate(stages.length, (index) {
-                  final active = index <= currentIndex;
-                  final isLast = index == stages.length - 1;
-                  return Expanded(
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: active
-                                ? AppTheme.primaryCyan
-                                : AppTheme.divider,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        if (!isLast)
-                          Expanded(
-                            child: Container(
-                              height: 2,
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              color: active
-                                  ? AppTheme.primaryCyan.withValues(alpha: 0.55)
-                                  : AppTheme.divider,
+              if (order.status == 'cancelled')
+                Row(
+                  children: [
+                    const Icon(Icons.cancel_outlined, size: 14, color: AppTheme.error),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Order cancelled',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.error.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Row(
+                  children: List.generate(stages.length, (index) {
+                    final active = index <= currentIndex;
+                    final isLast = index == stages.length - 1;
+                    return Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: active ? AppTheme.primaryCyan : AppTheme.divider,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(
+                                height: 2,
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                color: active
+                                    ? AppTheme.primaryCyan.withValues(alpha: 0.55)
+                                    : AppTheme.divider,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Color _statusBadgeBg(String status) {
+    switch (status) {
+      case 'cancelled':        return AppTheme.error.withValues(alpha: 0.10);
+      case 'delivered':        return AppTheme.success.withValues(alpha: 0.10);
+      case 'payment_pending':  return const Color(0xFFF59E0B).withValues(alpha: 0.12);
+      case 'out_for_delivery': return AppTheme.accentPurple.withValues(alpha: 0.10);
+      default:                 return AppTheme.lightCyan;
+    }
+  }
+
+  Color _statusBadgeFg(String status) {
+    switch (status) {
+      case 'cancelled':        return AppTheme.error;
+      case 'delivered':        return AppTheme.success;
+      case 'payment_pending':  return const Color(0xFFB45309);
+      case 'out_for_delivery': return AppTheme.accentPurple;
+      default:                 return AppTheme.darkCyan;
+    }
   }
 
   static const List<String> _stages = [

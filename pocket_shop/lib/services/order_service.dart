@@ -132,6 +132,10 @@ class OrderService {
     return {};
   }
 
+  Future<void> cancelOrder(int orderId) async {
+    await _api.post('orders/orders/$orderId/cancel/');
+  }
+
   Future<Map<String, dynamic>> checkPaymentStatus({
     required String orderNumber,
   }) async {

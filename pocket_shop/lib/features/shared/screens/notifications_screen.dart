@@ -25,6 +25,32 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
+  // ── Delete helpers ────────────────────────────────────────────────────────
+
+  Future<void> _confirmClearAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear all notifications?'),
+        content: const Text('This will permanently delete all your notifications.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Clear all'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      ref.read(notificationProvider.notifier).clearAll();
+    }
+  }
+
   // ── Back navigation ───────────────────────────────────────────────────────
 
   void _goBack() {
@@ -79,12 +105,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               : '/buyer/orders',
         );
       case 'payment_pending':
-      case 'payment_failed':
         router.go(
           orderNumber.isNotEmpty
               ? '/buyer/payment-pending?order=${Uri.encodeComponent(orderNumber)}'
               : '/buyer/orders',
         );
+      case 'payment_failed':
+        // Payment failed → order was cancelled; show order detail, not "pending"
+        router.go(
+          orderId.isNotEmpty ? '/buyer/orders/$orderId' : '/buyer/orders',
+        );
+      case 'verification_approved':
+      case 'verification_rejected':
+        router.go('/buyer/profile');
+      case 'welcome':
+      case 'announcement':
+        router.go('/buyer/home');
       default:
         router.go(
           orderId.isNotEmpty ? '/buyer/orders/$orderId' : '/buyer/orders',
@@ -214,22 +250,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
         actions: [
           if (state.unreadCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: TextButton.icon(
-                onPressed: () =>
-                    ref.read(notificationProvider.notifier).markAllAsRead(),
-                icon: const Icon(Icons.done_all_rounded, size: 16),
-                label: const Text('Mark all read'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.primaryCyan,
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+            TextButton.icon(
+              onPressed: () =>
+                  ref.read(notificationProvider.notifier).markAllAsRead(),
+              icon: const Icon(Icons.done_all_rounded, size: 16),
+              label: const Text('Mark all read'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryCyan,
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
+          if (notifications.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded),
+              tooltip: 'Clear all',
+              color: AppTheme.textSecondary,
+              onPressed: () => _confirmClearAll(),
+            ),
+          const SizedBox(width: 4),
         ],
       ),
       body: state.isLoading && notifications.isEmpty
@@ -249,8 +287,34 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       vertical: 8,
                     ),
                     itemCount: notifications.length,
-                    itemBuilder: (context, index) =>
-                        _buildNotificationCard(notifications[index]),
+                    itemBuilder: (context, index) {
+                      final n = notifications[index];
+                      final id = n['id'] as int;
+                      return Dismissible(
+                        key: ValueKey(id),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (_) {
+                          HapticFeedback.mediumImpact();
+                          ref
+                              .read(notificationProvider.notifier)
+                              .deleteNotification(id);
+                        },
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          margin: const EdgeInsets.only(bottom: 7),
+                          decoration: BoxDecoration(
+                            color: AppTheme.error.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: AppTheme.error,
+                          ),
+                        ),
+                        child: _buildNotificationCard(n),
+                      );
+                    },
                   ),
                 ),
     );
@@ -510,13 +574,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         label = 'View payment';
         icon = Icons.payment_rounded;
       case 'payment_failed':
-        label = 'Retry payment';
-        icon = Icons.refresh_rounded;
+        label = 'View order';
+        icon = Icons.receipt_long_outlined;
       case 'order_placed':
       case 'order_accepted':
       case 'order_preparing':
       case 'order_ready':
       case 'order_delivered':
+      case 'order_cancelled':
         label = 'View order';
         icon = Icons.receipt_long_outlined;
       default:

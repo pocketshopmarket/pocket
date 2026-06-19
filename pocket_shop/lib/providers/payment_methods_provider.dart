@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_constants.dart';
 import '../services/api_service.dart';
@@ -32,13 +35,51 @@ class BuyerPaymentMethod {
       isDefault: json['is_default'] == true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'provider': provider,
+    'provider_label': providerLabel,
+    'account_phone': phoneNumber,
+    'is_verified': isVerified,
+    'is_default': isDefault,
+  };
 }
 
 class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
-  PaymentMethodsNotifier(this._ref, this._api) : super(const []);
+  PaymentMethodsNotifier(this._ref, this._api) : super(const []) {
+    Future.microtask(_loadFromCache);
+  }
 
   final Ref _ref;
   final ApiService _api;
+  static const _cacheKey = 'cached_payment_methods';
+
+  Future<void> _loadFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_cacheKey);
+      if (raw == null || !mounted) return;
+      final List<dynamic> decoded = jsonDecode(raw);
+      state = decoded
+          .map((e) => BuyerPaymentMethod.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (_) {}
+  }
+
+  Future<void> _saveToCache(List<BuyerPaymentMethod> methods) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cacheKey, jsonEncode(methods.map((m) => m.toJson()).toList()));
+    } catch (_) {}
+  }
+
+  Future<void> _clearCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cacheKey);
+    } catch (_) {}
+  }
 
   String _providerKey(String label) {
     final v = label.trim().toLowerCase();
@@ -58,17 +99,16 @@ class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
       final response = await _api.get(AppConstants.buyerPaymentMethodsEndpoint);
       final data = response.data;
       if (data is List) {
-        state = data
-            .map(
-              (e) =>
-                  BuyerPaymentMethod.fromJson(Map<String, dynamic>.from(e as Map)),
-            )
+        final methods = data
+            .map((e) => BuyerPaymentMethod.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
+        state = methods;
+        _saveToCache(methods);
       } else {
         state = const [];
       }
     } catch (_) {
-      state = const [];
+      // Keep cached state on network error — don't wipe to empty
     }
   }
 
@@ -111,7 +151,10 @@ class PaymentMethodsNotifier extends StateNotifier<List<BuyerPaymentMethod>> {
     await load();
   }
 
-  void clear() => state = const [];
+  void clear() {
+    state = const [];
+    _clearCache();
+  }
 
   String? extractError(Object e) {
     if (e is DioException) {

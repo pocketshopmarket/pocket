@@ -183,16 +183,11 @@ class Order {
       deliveryAddress: json['delivery_address']?.toString() ?? '',
       specialInstructions: parsedInstructions.cleanedInstructions,
       fulfillmentType: fulfillmentType,
-      quotedDeliveryFee: (json['quoted_delivery_fee'] as num?)?.toDouble() ??
-          (meta?['quoted_delivery_fee'] as num?)?.toDouble(),
-      quotedDistanceKm: (json['quoted_distance_km'] as num?)?.toDouble() ??
-          (meta?['quoted_distance_km'] as num?)?.toDouble(),
-      quotedEtaMinutes: (json['quoted_eta_minutes'] as num?)?.toInt() ??
-          (meta?['quoted_eta_minutes'] as num?)?.toInt(),
-      deliveryLat: (json['delivery_lat'] as num?)?.toDouble() ??
-          (meta?['delivery_lat'] as num?)?.toDouble(),
-      deliveryLng: (json['delivery_lng'] as num?)?.toDouble() ??
-          (meta?['delivery_lng'] as num?)?.toDouble(),
+      quotedDeliveryFee: double.tryParse((json['quoted_delivery_fee'] ?? meta?['quoted_delivery_fee'] ?? '').toString()),
+      quotedDistanceKm: double.tryParse((json['quoted_distance_km'] ?? meta?['quoted_distance_km'] ?? '').toString()),
+      quotedEtaMinutes: int.tryParse((json['quoted_eta_minutes'] ?? meta?['quoted_eta_minutes'] ?? '').toString()),
+      deliveryLat: double.tryParse((json['delivery_lat'] ?? meta?['delivery_lat'] ?? '').toString()),
+      deliveryLng: double.tryParse((json['delivery_lng'] ?? meta?['delivery_lng'] ?? '').toString()),
       pickupTimeSlot: json['pickup_time_slot']?.toString() ??
           meta?['pickup_time_slot']?.toString(),
       paymentMethodId: json['payment_method_id'] as int?,

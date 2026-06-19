@@ -22,4 +22,12 @@ class Category {
       parentId: json['parent'],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'slug': slug,
+    'icon_name': iconName,
+    'parent': parentId,
+  };
 }

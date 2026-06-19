@@ -428,28 +428,23 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  ref.watch(allCategoriesProvider).when(
-                    data: (categories) {
-                      return DropdownButtonFormField<int>(
-                        value: _selectedCategoryId,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                        ),
-                        items: categories
-                            .map((c) => DropdownMenuItem(
-                                  value: c.id,
-                                  child: Text(c.name),
-                                ))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) setState(() => _selectedCategoryId = v);
-                        },
-                      );
-                    },
-                    loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (_, __) => const Text('Could not load categories'),
-                  ),
+                  Builder(builder: (context) {
+                    final categories = ref.watch(allCategoriesProvider);
+                    if (categories.isEmpty) {
+                      return const LinearProgressIndicator();
+                    }
+                    return DropdownButtonFormField<int>(
+                      value: _selectedCategoryId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                      items: categories
+                          .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _selectedCategoryId = v);
+                      },
+                    );
+                  }),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     value: _quality,

@@ -45,7 +45,12 @@ final orderServiceProvider = Provider<OrderService>((ref) {
 });
 
 class CartNotifier extends StateNotifier<CartState> {
-  CartNotifier(this._ref, this._orderService) : super(CartState());
+  CartNotifier(this._ref, this._orderService) : super(CartState()) {
+    // Sync immediately on startup — ref.listen only fires on *changes*,
+    // so a user who is already logged in at app launch would otherwise see
+    // an empty cart until they log out and back in.
+    Future.microtask(syncFromServer);
+  }
 
   final Ref _ref;
   final OrderService _orderService;
@@ -149,6 +154,14 @@ class CartNotifier extends StateNotifier<CartState> {
       state = state.copyWith(items: items, isLoading: false, error: null);
       return null;
     } catch (e) {
+      // 404 means the server item no longer exists — drop it from local state
+      final is404 = e is DioException && e.response?.statusCode == 404;
+      if (is404) {
+        final updated = state.items.where((i) => i.product.id != productId).toList();
+        state = state.copyWith(items: updated, isLoading: false, error: null);
+        _saveLocalCart(updated);
+        return null;
+      }
       final msg = e is DioException
           ? _orderService.extractErrorMessage(e)
           : e.toString();
@@ -171,6 +184,8 @@ class CartNotifier extends StateNotifier<CartState> {
       state = state.copyWith(items: items, isLoading: false, error: null);
       return null;
     } catch (e) {
+      final is404 = e is DioException && e.response?.statusCode == 404;
+      if (is404) { syncFromServer(); return null; }
       final msg = e is DioException
           ? _orderService.extractErrorMessage(e)
           : e.toString();
@@ -197,6 +212,8 @@ class CartNotifier extends StateNotifier<CartState> {
       state = state.copyWith(items: items, isLoading: false, error: null);
       return null;
     } catch (e) {
+      final is404 = e is DioException && e.response?.statusCode == 404;
+      if (is404) { syncFromServer(); return null; }
       final msg = e is DioException
           ? _orderService.extractErrorMessage(e)
           : e.toString();
@@ -234,6 +251,10 @@ class CartNotifier extends StateNotifier<CartState> {
       return {'success': false, 'message': 'Please sign in to checkout.'};
     }
 
+    // Save items now — the backend clears the cart on order creation, so we
+    // need these to restore the cart if payment fails immediately.
+    final savedItems = state.items.toList();
+
     state = state.copyWith(isCheckingOut: true, error: null);
     try {
       final order = await _orderService.createOrder(
@@ -247,7 +268,7 @@ class CartNotifier extends StateNotifier<CartState> {
         deliveryLng: deliveryLng,
         pickupTimeSlot: pickupTimeSlot,
       );
-      
+
       Map<String, dynamic>? paymentResult;
       if (paymentProvider != null && payerNumber != null && payerNumber.trim().isNotEmpty) {
         try {
@@ -257,34 +278,47 @@ class CartNotifier extends StateNotifier<CartState> {
             payerNumber: payerNumber.trim(),
           );
         } catch (e) {
-          // Order is created but payment failed — surface the error so UI can
-          // tell the buyer their order is placed but payment is pending.
-          paymentResult = {
-            'payment_error': e is DioException
-                ? (_orderService.extractErrorMessage(e) ?? 'Payment initiation failed')
-                : e.toString(),
-          };
+          // Payment initiation failed immediately — cancel the order and
+          // restore the cart so the user can fix details and retry.
+          final paymentError = e is DioException
+              ? (_orderService.extractErrorMessage(e) ?? 'Payment initiation failed')
+              : e.toString();
+          try { await _orderService.cancelOrder(order.id); } catch (_) {}
+          // Re-add saved items to server cart so checkout can be retried.
+          try {
+            List<CartItem> restored = [];
+            for (final item in savedItems) {
+              restored = await _orderService.addToCart(
+                productId: item.product.id,
+                quantity: item.quantity,
+              );
+            }
+            state = state.copyWith(items: restored, isCheckingOut: false, error: null);
+            _saveLocalCart(restored);
+          } catch (_) {
+            // Fallback: restore locally so user at least sees their items.
+            state = state.copyWith(items: savedItems, isCheckingOut: false, error: null);
+            _saveLocalCart(savedItems);
+          }
+          return {'success': false, 'message': paymentError};
         }
       }
 
-      // Re-sync cart from server (server clears cart items after order creation)
-      try {
-        final items = await _orderService.fetchCart();
-        state = state.copyWith(
-          items: items,
-          isCheckingOut: false,
-          error: null,
-        );
-        _saveLocalCart(items);
-      } catch (_) {
-        // If re-sync fails, clear locally since order was placed
-        state = state.copyWith(
-          items: [],
-          isCheckingOut: false,
-          error: null,
-        );
-        _saveLocalCart([]);
-      }
+      // Defer cart clear so the UI can navigate away before the empty-cart
+      // state is rendered (avoids a one-frame flash of "Your cart is empty").
+      Future.microtask(() async {
+        if (!mounted) return;
+        try {
+          final items = await _orderService.fetchCart();
+          if (!mounted) return;
+          state = state.copyWith(items: items, isCheckingOut: false, error: null);
+          _saveLocalCart(items);
+        } catch (_) {
+          if (!mounted) return;
+          state = state.copyWith(items: [], isCheckingOut: false, error: null);
+          _saveLocalCart([]);
+        }
+      });
 
       return {'success': true, 'order': order, 'payment': paymentResult};
     } catch (e) {
@@ -292,6 +326,10 @@ class CartNotifier extends StateNotifier<CartState> {
           ? _orderService.extractErrorMessage(e)
           : e.toString();
       state = state.copyWith(isCheckingOut: false, error: msg);
+      // If server says cart is empty but we think we have items, re-sync
+      if (msg != null && msg.toLowerCase().contains('cart is empty')) {
+        syncFromServer();
+      }
       return {'success': false, 'message': msg ?? 'Checkout failed'};
     }
   }

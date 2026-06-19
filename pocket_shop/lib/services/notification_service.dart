@@ -57,4 +57,26 @@ class NotificationService {
       return false;
     }
   }
+
+  /// Delete a single notification.
+  Future<bool> deleteNotification(int notificationId) async {
+    try {
+      await _api.delete('${AppConstants.notificationsEndpoint}$notificationId/');
+      return true;
+    } on DioException catch (e) {
+      if (kDebugMode) debugPrint('[NotificationService] deleteNotification error: $e');
+      return false;
+    }
+  }
+
+  /// Delete all notifications for the current user.
+  Future<bool> clearAllNotifications() async {
+    try {
+      await _api.delete('${AppConstants.notificationsEndpoint}clear/');
+      return true;
+    } on DioException catch (e) {
+      if (kDebugMode) debugPrint('[NotificationService] clearAllNotifications error: $e');
+      return false;
+    }
+  }
 }

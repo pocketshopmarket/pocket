@@ -217,6 +217,17 @@ def order_status_notification(sender, instance, created, **kwargs):
     if not created and getattr(instance, '_previous_status', None) == status:
         return
 
+    # Don't send "Order Cancelled" if the buyer never successfully paid.
+    # The payment-failure notification already covers this case and the
+    # seller should not be alarmed by a cancellation they never saw an order for.
+    if status == 'cancelled':
+        from payments.models import Transaction
+        paid = Transaction.objects.filter(
+            order=instance, transaction_type='deposit', status='completed',
+        ).exists()
+        if not paid:
+            return
+
     order_number = instance.order_number
     data_payload = {
         'order_id': instance.id,

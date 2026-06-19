@@ -105,6 +105,26 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
     }
   }
 
+  Future<bool> deleteNotification(int id) async {
+    // Optimistically remove from state first for instant UI feedback
+    final wasUnread = state.notifications
+        .any((n) => n['id'] == id && n['is_read'] != true);
+    final updated = state.notifications.where((n) => n['id'] != id).toList();
+    state = state.copyWith(
+      notifications: updated,
+      unreadCount: wasUnread
+          ? (state.unreadCount - 1).clamp(0, 999999)
+          : state.unreadCount,
+    );
+    return _service.deleteNotification(id);
+  }
+
+  Future<void> clearAll() async {
+    // Optimistically clear state
+    state = const NotificationState();
+    await _service.clearAllNotifications();
+  }
+
   void reset() {
     stopPolling();
     state = const NotificationState();

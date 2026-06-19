@@ -48,9 +48,37 @@ class ProductVariantAdmin(admin.ModelAdmin):
 class PromoBannerAdmin(admin.ModelAdmin):
     list_display = [
         'title', 'subtitle', 'cta_text', 'bg_color',
-        'action_type', 'is_active', 'priority',
-        'starts_at', 'ends_at', 'created_at',
+        'action_type', 'action_value', 'is_active', 'priority',
+        'starts_at', 'ends_at',
     ]
     list_filter = ['is_active', 'action_type']
     list_editable = ['is_active', 'priority']
     search_fields = ['title', 'subtitle']
+    readonly_fields = ['created_at']
+
+    fieldsets = (
+        ('Content', {
+            'fields': ('title', 'subtitle', 'cta_text'),
+        }),
+        ('Visuals', {
+            'fields': ('bg_color', 'icon_name', 'image'),
+            'description': 'Upload an image OR set an icon_name. Image takes priority when both are set.',
+        }),
+        ('Action (what happens when tapped)', {
+            'fields': ('action_type', 'action_value'),
+            'description': (
+                '<b>action_type = category</b> → enter the Category ID in action_value (find it in the Categories list).<br>'
+                '<b>action_type = product</b> → enter the Product ID in action_value (find it in the Products list).<br>'
+                '<b>action_type = url</b> → paste the full URL (https://...) in action_value.<br>'
+                '<b>action_type = none</b> → leave action_value empty.'
+            ),
+        }),
+        ('Scheduling', {
+            'fields': ('is_active', 'priority', 'starts_at', 'ends_at'),
+            'description': 'Leave starts_at / ends_at blank to show the banner indefinitely.',
+        }),
+        ('Meta', {
+            'fields': ('created_at',),
+            'classes': ('collapse',),
+        }),
+    )

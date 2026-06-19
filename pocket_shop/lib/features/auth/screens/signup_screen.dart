@@ -58,7 +58,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
-    final lastAllowed = DateTime(now.year - 13, now.month, now.day);
+    final lastAllowed = DateTime(now.year - 16, now.month, now.day);
     final initial = _dateOfBirth ?? DateTime(lastAllowed.year - 10);
     final picked = await showDatePicker(
       context: context,
@@ -310,7 +310,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         child: Text(
                           _dateOfBirth != null
                               ? _formatDateIso(_dateOfBirth!)
-                              : 'Tap to select (must be 13+)',
+                              : 'Tap to select (must be 16+)',
                           style: TextStyle(
                             fontSize: 16.sp,
                             color: _dateOfBirth != null

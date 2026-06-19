@@ -125,7 +125,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 360;
-    final allCategories = ref.watch(categoryProvider).valueOrNull ?? <Category>[];
+    final allCategories = ref.watch(categoryProvider);
     final wishlist = ref.watch(wishlistProvider);
     final wishlistNotifier = ref.read(wishlistProvider.notifier);
     final cartNotifier = ref.read(cartProvider.notifier);
@@ -532,7 +532,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
   }
 
   Future<void> _openFilters() async {
-    final categories = ref.read(categoryProvider).valueOrNull ?? <Category>[];
+    final categories = ref.read(categoryProvider);
     String tempCategory = _selectedCategory;
     bool tempInStock = _inStockOnly;
     String tempSort = _sortBy;

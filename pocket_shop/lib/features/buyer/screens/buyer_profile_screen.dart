@@ -275,10 +275,6 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            if (user.email != null) ...[
-              _InfoRow(label: 'Email', value: user.email!),
-              const SizedBox(height: 8),
-            ],
             const SizedBox(height: 16),
             const Text(
               'Payments',

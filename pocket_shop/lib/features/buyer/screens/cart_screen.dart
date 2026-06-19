@@ -48,6 +48,11 @@ class CartScreen extends ConsumerWidget {
     bool addressSearchFailed = false;
     List<Map<String, dynamic>> addressSuggestions = [];
 
+    // Always fetch fresh payment methods so the number pre-fill reflects
+    // any methods the user just registered before opening checkout.
+    await ref.read(paymentMethodsProvider.notifier).load();
+    if (!context.mounted) return;
+
     String methodKeyForProvider(String providerCode) {
       switch (providerCode) {
         case 'MTN_MOMO_ZMB':
@@ -1154,6 +1159,30 @@ class CartScreen extends ConsumerWidget {
 
     if (ok != true || !context.mounted) return;
 
+    // Show a full-screen overlay while the checkout API calls run so the user
+    // doesn't see the bare cart screen for 2-3 seconds.
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.white),
+              SizedBox(height: 16),
+              Text(
+                'Placing your order…',
+                style: TextStyle(color: Colors.white, fontSize: 15),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     final result = await ref
         .read(cartProvider.notifier)
         .checkout(
@@ -1174,6 +1203,8 @@ class CartScreen extends ConsumerWidget {
           payerNumber: payerNumberController.text,
         );
 
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
     if (!context.mounted) return;
 
     if (result['success'] == true) {
@@ -1320,7 +1351,7 @@ class CartScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (cartState.isLoading && cartState.items.isEmpty)
+              if ((cartState.isLoading || cartState.isCheckingOut) && cartState.items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: CircularProgressIndicator(

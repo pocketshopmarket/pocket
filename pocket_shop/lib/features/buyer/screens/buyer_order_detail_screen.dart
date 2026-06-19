@@ -22,7 +22,7 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Cancel this order?'),
         content: const Text(
-          'Your order will be cancelled. If you already paid, a full refund will be sent back to your mobile money account automatically.',
+          'Your order will be cancelled. If you already paid, a refund will be sent to your mobile money account automatically within a few minutes.',
         ),
         actions: [
           TextButton(
@@ -312,6 +312,15 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
     }
   }
 
+  String _friendlyProvider(String raw) {
+    switch (raw.toUpperCase()) {
+      case 'AIRTEL_OAPI_ZMB': return 'Airtel Money';
+      case 'MTN_MOMO_ZMB':    return 'MTN MoMo';
+      case 'ZAMTEL_ZMB':      return 'Zamtel Kwacha';
+      default:                return raw;
+    }
+  }
+
   Color _statusColor(String status) {
     switch (status) {
       case 'cancelled':
@@ -500,10 +509,12 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ],
-              if (order.paymentProviderSnapshot.isNotEmpty) ...[
+              if (order.paymentProviderSnapshot.isNotEmpty &&
+                  order.paymentProviderSnapshot != 'payment_disabled') ...[
                 const SizedBox(height: 10),
                 Text(
-                  'Payment: ${order.paymentProviderSnapshot} (${order.paymentAccountSnapshot})',
+                  'Payment: ${_friendlyProvider(order.paymentProviderSnapshot)}'
+                  '${order.paymentAccountSnapshot.isNotEmpty && order.paymentAccountSnapshot != 'payment_disabled' ? ' · ${order.paymentAccountSnapshot}' : ''}',
                   style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 ),
               ],
@@ -570,7 +581,7 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              if (['pending', 'payment_pending'].contains(order.status)) ...[
+              if (['pending', 'payment_pending', 'accepted'].contains(order.status)) ...[
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
@@ -582,7 +593,7 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ],
-              if (order.status == 'accepted') ...[
+              if (order.status == 'preparing') ...[
                 const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,

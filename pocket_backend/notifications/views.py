@@ -52,3 +52,26 @@ def mark_all_read(request):
         is_read=False,
     ).update(is_read=True)
     return Response({'status': 'ok', 'updated': updated})
+
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_notification(request, pk):
+    """Delete a single notification owned by the requesting user."""
+    try:
+        notification = Notification.objects.get(pk=pk, recipient=request.user)
+    except Notification.DoesNotExist:
+        return Response(
+            {'detail': 'Notification not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    notification.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def clear_all_notifications(request):
+    """Delete all notifications for the authenticated user."""
+    Notification.objects.filter(recipient=request.user).delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

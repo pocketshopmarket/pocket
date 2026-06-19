@@ -122,8 +122,8 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
         _categoryId = catIdFromServer;
       } else {
         // Fallback: match by name for legacy data.
-        final cats = ref.read(allCategoriesProvider).valueOrNull;
-        if (cats != null) {
+        final cats = ref.read(allCategoriesProvider);
+        if (cats.isNotEmpty) {
           final match = cats.where((c) => c.name == product.category).firstOrNull;
           _categoryId = match?.id;
         }
@@ -363,17 +363,17 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                 TextField(controller: _descCtrl, maxLines: 2, textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(labelText: 'Description (optional)')),
                 const SizedBox(height: 12),
-                ref.watch(allCategoriesProvider).when(
-                  data: (cats) => DropdownButtonFormField<int>(
+                Builder(builder: (context) {
+                  final cats = ref.watch(allCategoriesProvider);
+                  if (cats.isEmpty) return const LinearProgressIndicator();
+                  return DropdownButtonFormField<int>(
                     value: _categoryId,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: cats.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
                     onChanged: (v) { if (v != null) setState(() => _categoryId = v); },
-                  ),
-                  loading: () => const LinearProgressIndicator(),
-                  error: (_, __) => const Text('Could not load categories'),
-                ),
+                  );
+                }),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: _quality,

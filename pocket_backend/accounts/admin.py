@@ -1,6 +1,7 @@
 import random
 import string
 
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.db.models import Sum
@@ -16,13 +17,29 @@ from .models import (
 )
 
 
-def _generate_staff_password(length=6):
+def _generate_staff_password(length=8):
     chars = string.ascii_letters + string.digits
     return ''.join(random.choices(chars, k=length))
 
 
+class StaffUserCreationForm(forms.ModelForm):
+    """Minimal creation form — no password fields (auto-generated on save)."""
+    class Meta:
+        model = User
+        fields = ('phone_number', 'full_name', 'gender', 'role')
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_unusable_password()
+        if commit:
+            user.save()
+        return user
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
+    add_form = StaffUserCreationForm
+
     list_display = ['full_name', 'phone_number', 'email', 'role', 'gender', 'is_verified', 'is_phone_verified', 'total_paid_out', 'date_joined', 'is_active']
     list_filter = ['role', 'gender', 'is_verified', 'is_phone_verified', 'is_active', 'date_joined']
     search_fields = ['full_name', 'phone_number', 'email']

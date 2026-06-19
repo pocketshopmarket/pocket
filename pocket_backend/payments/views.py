@@ -358,14 +358,14 @@ class PawaPayWebhookView(APIView):
         order = deposit_tx.order
         from portal.models import PlatformSettings
         _ps = PlatformSettings.get()
-        commission_rate = Decimal(str(_ps.commission_rate))
+        seller_commission_rate = Decimal(str(_ps.seller_commission_rate))
+        rider_commission_rate = Decimal(str(_ps.rider_commission_rate))
 
         # Use the server-validated delivery fee from the Order model.
         delivery_fee = Decimal(str(order.delivery_fee or 0))
         item_total = Decimal(str(order.total_price))
 
-        # ── FIX #10: Platform takes commission on item total ──
-        platform_cut = (item_total * commission_rate).quantize(Decimal('0.01'))
+        platform_cut = (item_total * seller_commission_rate).quantize(Decimal('0.01'))
         seller_share = item_total - platform_cut
 
         # ── FIX #6: Use seller's OWN registered payment method ──
@@ -409,10 +409,12 @@ class PawaPayWebhookView(APIView):
                     transaction_type='payout',
                     recipient_role='delivery',
                 ).exists():
+                    rider_cut = (delivery_fee * rider_commission_rate).quantize(Decimal('0.01'))
+                    rider_share = delivery_fee - rider_cut
                     Transaction.objects.create(
                         order=order,
                         transaction_type='payout',
-                        amount=delivery_fee,
+                        amount=rider_share,
                         currency=deposit_tx.currency,
                         provider=rider_provider,
                         payer_number=rider_phone,

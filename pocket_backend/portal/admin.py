@@ -5,19 +5,20 @@ from .models import PlatformSettings
 @admin.register(PlatformSettings)
 class PlatformSettingsAdmin(admin.ModelAdmin):
     fieldsets = (
-        ('Commission', {
-            'fields': ('commission_rate',),
-            'description': 'Set the percentage the platform takes from each order.'
+        ('Charges', {
+            'fields': (
+                'buyer_service_fee_rate',
+                'seller_commission_rate',
+                'rider_commission_rate',
+                'payout_fee_rate',
+            ),
+            'description': (
+                'All rates are decimals: 0.05 = 5%, 0.10 = 10%, 0 = no charge. '
+                'Changes take effect immediately.'
+            ),
         }),
         ('Orders', {
             'fields': ('order_acceptance_timeout_minutes',),
-        }),
-        ('Delivery Pricing', {
-            'fields': (
-                'delivery_per_km_rate',
-                'delivery_short_distance_threshold_km',
-                'delivery_short_distance_flat_rate',
-            ),
         }),
         ('Payouts', {
             'fields': ('payout_method',),

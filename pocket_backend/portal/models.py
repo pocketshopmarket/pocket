@@ -7,30 +7,28 @@ class PlatformSettings(models.Model):
     All business-critical tunable values live here and are editable from Django admin.
     """
 
-    # Commission
-    commission_rate = models.DecimalField(
+    # Charges
+    buyer_service_fee_rate = models.DecimalField(
+        max_digits=5, decimal_places=4, default=0.00,
+        help_text='Service fee added to buyer order total. 0.02 = 2%, 0 = no fee.'
+    )
+    seller_commission_rate = models.DecimalField(
         max_digits=5, decimal_places=4, default=0.05,
-        help_text='Platform commission taken from each order. 0.05 = 5%, 0.10 = 10%.'
+        help_text='Commission deducted from seller earnings per order. 0.05 = 5%.'
+    )
+    rider_commission_rate = models.DecimalField(
+        max_digits=5, decimal_places=4, default=0.00,
+        help_text='Commission deducted from rider delivery earnings. 0.10 = 10%, 0 = no cut.'
+    )
+    payout_fee_rate = models.DecimalField(
+        max_digits=5, decimal_places=4, default=0.00,
+        help_text='Fee charged when paying out to sellers or riders. 0.01 = 1%, 0 = no fee.'
     )
 
     # Order management
     order_acceptance_timeout_minutes = models.PositiveIntegerField(
         default=30,
         help_text='Minutes a paid order can sit in accepted status before auto-cancel.'
-    )
-
-    # Delivery pricing
-    delivery_per_km_rate = models.DecimalField(
-        max_digits=8, decimal_places=2, default=8.00,
-        help_text='ZMW charged per km for long-distance deliveries.'
-    )
-    delivery_short_distance_threshold_km = models.DecimalField(
-        max_digits=5, decimal_places=2, default=2.00,
-        help_text='Distances at or below this get the flat rate instead.'
-    )
-    delivery_short_distance_flat_rate = models.DecimalField(
-        max_digits=8, decimal_places=2, default=12.00,
-        help_text='ZMW flat rate charged for short deliveries.'
     )
 
     # Payout
@@ -58,7 +56,7 @@ class PlatformSettings(models.Model):
         verbose_name_plural = 'Platform Settings'
 
     def __str__(self):
-        return f'Platform Settings (commission={self.commission_rate*100:.1f}%)'
+        return f'Platform Settings (seller commission={self.seller_commission_rate*100:.1f}%)'
 
     def save(self, *args, **kwargs):
         self.pk = 1

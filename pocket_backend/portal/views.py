@@ -21,11 +21,11 @@ class PublicSettingsView(APIView):
     def get(self, request):
         s = PlatformSettings.get()
         return Response({
+            'buyer_service_fee_rate': float(s.buyer_service_fee_rate),
+            'seller_commission_rate': float(s.seller_commission_rate),
+            'rider_commission_rate': float(s.rider_commission_rate),
+            'payout_fee_rate': float(s.payout_fee_rate),
             'order_acceptance_timeout_minutes': s.order_acceptance_timeout_minutes,
-            'commission_rate': float(s.commission_rate),
-            'delivery_per_km_rate': float(s.delivery_per_km_rate),
-            'delivery_short_distance_threshold_km': float(s.delivery_short_distance_threshold_km),
-            'delivery_short_distance_flat_rate': float(s.delivery_short_distance_flat_rate),
             'payout_method': s.payout_method,
             'maintenance_mode': s.maintenance_mode,
             'maintenance_message': s.maintenance_message,

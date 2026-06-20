@@ -63,6 +63,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         context.go('/seller/dashboard');
       case AppConstants.deliveryRole:
         context.go('/delivery/home');
+      case AppConstants.staffRole:
+        context.go('/staff/home');
+      case AppConstants.adminRole:
+        context.go('/admin');
       default:
         context.go('/buyer/home');
     }

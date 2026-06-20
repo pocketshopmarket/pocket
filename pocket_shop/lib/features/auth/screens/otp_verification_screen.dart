@@ -157,6 +157,12 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
               case 'delivery':
                 GoRouter.of(context).go('/delivery/home');
                 break;
+              case 'staff':
+                GoRouter.of(context).go('/staff/home');
+                break;
+              case 'admin':
+                GoRouter.of(context).go('/admin');
+                break;
               default:
                 GoRouter.of(context).go('/buyer/home');
             }

@@ -74,19 +74,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (authState.isAuthenticated && authState.user != null) {
       switch (authState.user!.role) {
         case AppConstants.sellerRole:
-          if (mounted) {
-            GoRouter.of(context).go('/seller/dashboard');
-          }
+          if (mounted) GoRouter.of(context).go('/seller/dashboard');
           break;
         case AppConstants.deliveryRole:
-          if (mounted) {
-            GoRouter.of(context).go('/delivery/home');
-          }
+          if (mounted) GoRouter.of(context).go('/delivery/home');
+          break;
+        case AppConstants.staffRole:
+          if (mounted) GoRouter.of(context).go('/staff/home');
+          break;
+        case AppConstants.adminRole:
+          if (mounted) GoRouter.of(context).go('/admin');
           break;
         default:
-          if (mounted) {
-            GoRouter.of(context).go('/buyer/home');
-          }
+          if (mounted) GoRouter.of(context).go('/buyer/home');
       }
     } else {
       if (mounted) {

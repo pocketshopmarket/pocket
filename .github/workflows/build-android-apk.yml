@@ -58,8 +58,7 @@ jobs:
     name: Flutter — Android release APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # Only build when manually triggered
-    if: github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
     defaults:
       run:
         working-directory: pocket_shop
@@ -87,7 +86,7 @@ jobs:
         run: |
           API_URL="${{ vars.POCKET_API_BASE_URL }}"
           if [ -z "$API_URL" ]; then
-            API_URL="https://mypocketshop.store/api/"
+            API_URL="http://138.68.153.6/api/"
           fi
           echo "Building with API_BASE_URL=$API_URL"
           flutter build apk --release --dart-define=API_BASE_URL="$API_URL"

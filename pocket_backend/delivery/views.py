@@ -732,9 +732,52 @@ class UpdateDeliveryStatusView(APIView):
                         )
                 
                 assignment.save()
-                
-                # Notify customer (later)
-                
+
+                # Send notifications to relevant parties
+                try:
+                    from notifications.signals import _create_notification
+                    order = assignment.order
+                    rider_name = assignment.delivery_person.full_name or 'Your rider'
+                    order_num = order.order_number
+
+                    if new_status == 'picked_up':
+                        # Seller: rider has collected the order
+                        _create_notification(
+                            recipient=order.seller,
+                            notification_type='order_out_for_delivery',
+                            title='Order Picked Up',
+                            message=f'{rider_name} has picked up order #{order_num} and is heading to the buyer.',
+                            data_payload={'order_id': order.id, 'order_number': order_num, 'status': 'out_for_delivery'},
+                        )
+                        # Buyer: order is on the way
+                        _create_notification(
+                            recipient=order.buyer,
+                            notification_type='order_out_for_delivery',
+                            title='Order On the Way',
+                            message=f'{rider_name} has picked up your order #{order_num} and is heading to you.',
+                            data_payload={'order_id': order.id, 'order_number': order_num, 'status': 'out_for_delivery'},
+                        )
+
+                    elif new_status == 'delivered':
+                        # Buyer: delivery confirmed
+                        _create_notification(
+                            recipient=order.buyer,
+                            notification_type='order_delivered',
+                            title='Order Delivered',
+                            message=f'Your order #{order_num} has been delivered. Enjoy!',
+                            data_payload={'order_id': order.id, 'order_number': order_num, 'status': 'delivered'},
+                        )
+                        # Seller: order completed
+                        _create_notification(
+                            recipient=order.seller,
+                            notification_type='order_delivered',
+                            title='Order Delivered',
+                            message=f'Order #{order_num} was successfully delivered by {rider_name}.',
+                            data_payload={'order_id': order.id, 'order_number': order_num, 'status': 'delivered'},
+                        )
+                except Exception as notify_err:
+                    logger.warning('Delivery status notification failed: %s', notify_err)
+
                 response_serializer = DeliveryAssignmentSerializer(assignment)
                 return Response(response_serializer.data)
             

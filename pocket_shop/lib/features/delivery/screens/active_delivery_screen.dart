@@ -296,6 +296,16 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
         );
         return;
       }
+      setState(() => _busy = false);
+      if (!mounted) return;
+      await _showScanSuccess(
+        icon: Icons.store_rounded,
+        color: AppTheme.primaryCyan,
+        title: 'Pickup confirmed!',
+        subtitle: 'Seller QR verified. The order is now with you.',
+        action: 'Continue',
+      );
+      if (!mounted) return;
       await _setStatus('picked_up');
     } catch (e) {
       if (!mounted) return;
@@ -345,6 +355,16 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
         );
         return;
       }
+      setState(() => _busy = false);
+      if (!mounted) return;
+      await _showScanSuccess(
+        icon: Icons.check_circle_rounded,
+        color: AppTheme.success,
+        title: 'Delivery confirmed!',
+        subtitle: 'Buyer QR verified. Order marked as delivered.',
+        action: 'Done',
+      );
+      if (!mounted) return;
       await _setStatus('delivered');
     } catch (e) {
       if (!mounted) return;
@@ -359,6 +379,60 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _showScanSuccess({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required String action,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 42, color: color),
+            ),
+            const SizedBox(height: 18),
+            Text(title,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+            const SizedBox(height: 8),
+            Text(subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5)),
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: color,
+                  minimumSize: const Size(0, 48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: Text(action, style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String? _nextActionLabel(String status) {

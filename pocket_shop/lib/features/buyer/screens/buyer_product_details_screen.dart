@@ -695,6 +695,7 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
   Future<void> _openReviewSheet(BuildContext context, int productId) async {
     int score = 5;
     final commentController = TextEditingController();
+    final messenger = ScaffoldMessenger.of(context);
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -747,7 +748,6 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
     );
 
     if (ok != true || !mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
     final msg = await ref.read(reviewProvider.notifier).submit(
       productId: productId,
       rating: score,

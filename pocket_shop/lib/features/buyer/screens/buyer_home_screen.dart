@@ -268,10 +268,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                       ('price_high', 'Price: high to low'),
                       ('name_az', 'Name: A to Z'),
                     ].map((option) {
+                        // ignore: deprecated_member_use
                         return RadioListTile<String>(
                         value: option.$1,
                         groupValue: tempSortBy,
-                        // ignore: deprecated_member_use
                         activeColor: AppTheme.primaryCyan,
                         contentPadding: EdgeInsets.zero,
                         title: Text(option.$2, style: const TextStyle(fontSize: 13)),

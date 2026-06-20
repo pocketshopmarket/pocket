@@ -151,9 +151,10 @@ class _AddPaymentMethodScreenState
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        final nav = Navigator.of(context);
         final leave = await _confirmLeave();
         if (!leave || !mounted) return;
-        Navigator.of(context).pop();
+        nav.pop();
       },
       child: Scaffold(
         backgroundColor: AppTheme.surfaceWhite,
@@ -174,9 +175,10 @@ class _AddPaymentMethodScreenState
               onPressed: _loading
                   ? null
                   : () async {
+                      final nav = Navigator.of(context);
                       final leave = await _confirmLeave();
                       if (!leave || !mounted) return;
-                      Navigator.of(context).pop();
+                      nav.pop();
                     },
               child: const Text('Cancel'),
             ),

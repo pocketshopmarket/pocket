@@ -563,7 +563,7 @@ class AuthService {
       return {
         'success': respBody['success'] == true,
         'message': respBody['message']?.toString() ?? 'Profile updated.',
-        ?'user': userMap,
+        if (userMap != null) 'user': userMap,
       };
     } on DioException catch (e) {
       return {
@@ -595,7 +595,7 @@ class AuthService {
       return {
         'success': body['success'] == true,
         'message': body['message']?.toString() ?? 'Profile photo updated.',
-        ?'user': userMap,
+        if (userMap != null) 'user': userMap,
       };
     } on DioException catch (e) {
       return {

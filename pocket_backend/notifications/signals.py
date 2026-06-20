@@ -207,14 +207,14 @@ def order_status_notification(sender, instance, created, **kwargs):
     if not mapping:
         return
 
-    # On creation, only fire 'pending' (new order for seller)
-    if created and status != 'pending':
-        return
-    # On update, skip 'pending' because it was already sent on create
-    if not created and status == 'pending':
-        return
-    # Ignore unrelated saves when the order remains in the same status.
+    # Orders default to 'payment_pending' and only reach 'pending' via a
+    # status transition after payment is confirmed — never at creation.
+    # Skip status changes that aren't real transitions (no-ops).
     if not created and getattr(instance, '_previous_status', None) == status:
+        return
+    # On creation, skip everything except orders that start directly as 'pending'
+    # (rare/admin path — normally orders are created as 'payment_pending').
+    if created and status != 'pending':
         return
 
     # Don't send "Order Cancelled" if the buyer never successfully paid.
@@ -254,9 +254,13 @@ def order_status_notification(sender, instance, created, **kwargs):
             data_payload=data_payload,
         )
 
-    # Send buyer copy on order creation (so buyer also gets confirmation)
+    # Send buyer copy when the order first becomes 'pending' (payment confirmed).
+    # This covers both direct creation as 'pending' and the normal path where
+    # a 'payment_pending' order transitions to 'pending' after payment.
+    prev = getattr(instance, '_previous_status', None)
+    first_pending = status == 'pending' and (created or prev == 'payment_pending')
     buyer_copy = mapping.get('buyer_copy')
-    if buyer_copy and created:
+    if buyer_copy and first_pending:
         _create_notification(
             recipient=instance.buyer,
             notification_type=buyer_copy['type'],

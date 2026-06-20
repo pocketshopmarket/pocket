@@ -605,9 +605,9 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              _statChip('Orders', '${_orders.length}'),
+              _statChip(label: 'Orders', value: '${_orders.length}'),
               const SizedBox(width: 8),
-              _statChip('Location', (_lat != 0 || _lng != 0) ? 'Ready' : 'Off'),
+              _statChip(label: 'Location', value: (_lat != 0 || _lng != 0) ? 'Ready' : 'Off'),
             ],
           ),
         ],

@@ -7,10 +7,77 @@
     <title>Pocket Shop | Zambia's Mobile Marketplace</title>
     <meta name="description" content="Buy, sell, and deliver across Zambia with instant mobile money payouts via MTN, Airtel, and Zamtel. No wallets. No delays. Just commerce.">
 
-    <!-- Fonts -->
+    <!-- Canonical & Favicon -->
+    <link rel="canonical" href="https://mypocketshop.store/">
+    <link rel="icon" type="image/jpeg" href="{% static 'portal/images/logo.jpg' %}">
+    <meta name="theme-color" content="#0EA5E9">
+
+    <!-- SEO -->
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Pocket Shop">
+    <meta name="keywords" content="online marketplace Zambia, mobile money payments, MTN MoMo, Airtel Money, buy online Zambia, sell online Zambia, delivery Zambia, Lusaka marketplace">
+    <meta name="geo.region" content="ZM">
+    <meta name="geo.placename" content="Zambia">
+
+    <!-- Open Graph (Facebook / WhatsApp) -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mypocketshop.store/">
+    <meta property="og:site_name" content="Pocket Shop">
+    <meta property="og:locale" content="en_ZM">
+    <meta property="og:title" content="Pocket Shop | Zambia's Mobile Marketplace">
+    <meta property="og:description" content="Buy, sell, and deliver across Zambia with instant mobile money payouts via MTN, Airtel, and Zamtel. No wallets. No delays. Just commerce.">
+    <meta property="og:image" content="https://mypocketshop.store/static/portal/images/logo.jpg">
+    <meta property="og:image:alt" content="Pocket Shop — Zambia's Mobile Marketplace">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Pocket Shop | Zambia's Mobile Marketplace">
+    <meta name="twitter:description" content="Buy, sell, and deliver across Zambia with instant mobile money payouts via MTN, Airtel, and Zamtel.">
+    <meta name="twitter:image" content="https://mypocketshop.store/static/portal/images/logo.jpg">
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://mypocketshop.store/#organization",
+          "name": "Pocket Shop",
+          "url": "https://mypocketshop.store/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://mypocketshop.store/static/portal/images/logo.jpg"
+          },
+          "description": "Zambia's mobile-first marketplace connecting buyers, sellers, and delivery agents with instant mobile money payouts.",
+          "areaServed": { "@type": "Country", "name": "Zambia" }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://mypocketshop.store/#website",
+          "url": "https://mypocketshop.store/",
+          "name": "Pocket Shop",
+          "publisher": { "@id": "https://mypocketshop.store/#organization" }
+        },
+        {
+          "@type": "MobileApplication",
+          "name": "Pocket Shop",
+          "operatingSystem": "Android",
+          "applicationCategory": "ShoppingApplication",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ZMW" },
+          "description": "Buy, sell, and deliver across Zambia with instant mobile money payouts.",
+          "publisher": { "@id": "https://mypocketshop.store/#organization" }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Fonts (non-blocking) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"></noscript>
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

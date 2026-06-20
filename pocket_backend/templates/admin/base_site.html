@@ -16,3 +16,8 @@
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'admin/css/pocket_brand.css' %}">
 {% endblock %}
+
+{% block userlinks %}
+<a href="/manual/" target="_blank" style="margin-right:12px;font-weight:600;color:#06b6d4;">📖 Manual</a>
+{{ block.super }}
+{% endblock %}

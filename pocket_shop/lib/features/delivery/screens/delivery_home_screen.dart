@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,11 +29,19 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
   List<Map<String, dynamic>> _orders = [];
   double _lat = 0;
   double _lng = 0;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _ensureLocation() async {
@@ -112,6 +122,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
     try {
       await ref.read(deliveryServiceProvider).acceptOrder(orderId: id, lat: _lat, lng: _lng);
       if (mounted) {
+        ref.read(activeDeliveryReloadTriggerProvider.notifier).state++;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delivery accepted')));
         context.go('/delivery/active');
       }

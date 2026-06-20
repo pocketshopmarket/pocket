@@ -881,6 +881,10 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(activeDeliveryReloadTriggerProvider, (_, __) {
+      if (mounted) _load();
+    });
+
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       body: SafeArea(

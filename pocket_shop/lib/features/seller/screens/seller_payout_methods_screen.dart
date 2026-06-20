@@ -55,7 +55,7 @@ class _SellerPayoutMethodsScreenState
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
+        errorBuilder: (_, _, _) => Container(
           width: size,
           height: size,
           alignment: Alignment.center,
@@ -372,7 +372,7 @@ class _SellerPayoutMethodsScreenState
                             ? null
                             : () async {
                                 if (createdId == null ||
-                                    otpController.text.trim().isEmpty) return;
+                                    otpController.text.trim().isEmpty) { return; }
                                 setModalState(() => busy = true);
                                 try {
                                   await ref

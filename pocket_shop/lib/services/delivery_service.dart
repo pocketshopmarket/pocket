@@ -35,7 +35,7 @@ class DeliveryService {
         'order_id': orderId,
         'lat': double.parse(lat.toStringAsFixed(8)),
         'lng': double.parse(lng.toStringAsFixed(8)),
-        if (offerId != null) 'offer_id': offerId,
+        ?'offer_id': offerId,
       },
     );
     final data = response.data;
@@ -61,8 +61,8 @@ class DeliveryService {
         'assignment_id': assignmentId,
         'lat': double.parse(lat.toStringAsFixed(8)),
         'lng': double.parse(lng.toStringAsFixed(8)),
-        if (speed != null) 'speed': speed,
-        if (accuracy != null) 'accuracy': accuracy,
+        ?'speed': speed,
+        ?'accuracy': accuracy,
       },
     );
   }

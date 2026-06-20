@@ -68,7 +68,7 @@ class BuyerOrdersScreen extends ConsumerWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: orders.length + 1,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (_, i) {
                 if (i == 0) {
                   return Container(

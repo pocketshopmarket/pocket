@@ -452,7 +452,7 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
   List<Widget> _verificationFormFields() {
     return [
       DropdownButtonFormField<String>(
-        value: _vehicleType,
+        initialValue: _vehicleType,
         items: const [
           DropdownMenuItem(value: 'bicycle', child: Text('Bicycle')),
           DropdownMenuItem(value: 'motorcycle', child: Text('Motorcycle')),

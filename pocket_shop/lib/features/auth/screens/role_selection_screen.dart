@@ -142,7 +142,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
                                     AppSizes.radius.r,
                                   ),
                                   color: isSelected
-                                      ? AppTheme.lightCyan.withOpacity(0.08)
+                                      ? AppTheme.lightCyan.withValues(alpha: 0.08)
                                       : AppTheme.surfaceWhite,
                                 ),
                                 child: Row(

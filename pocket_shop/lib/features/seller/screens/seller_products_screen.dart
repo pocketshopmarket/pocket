@@ -216,7 +216,7 @@ class _ProductTile extends StatelessWidget {
                         width: 68,
                         height: 68,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _imagePlaceholder(),
+                        errorBuilder: (_, _, _) => _imagePlaceholder(),
                       )
                     : _imagePlaceholder(),
               ),

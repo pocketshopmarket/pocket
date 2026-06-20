@@ -214,7 +214,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String?>(
-                      value: tempQuality,
+                      initialValue: tempQuality,
                       decoration: const InputDecoration(labelText: 'Condition', isDense: true),
                       items: const [
                         DropdownMenuItem(value: null, child: Text('Any')),
@@ -251,7 +251,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                       contentPadding: EdgeInsets.zero,
                       title: const Text('In-stock only'),
                       value: tempInStockOnly,
-                      activeColor: AppTheme.primaryCyan,
+                      activeThumbColor: AppTheme.primaryCyan,
                       onChanged: (value) => setModalState(() => tempInStockOnly = value),
                     ),
                     const SizedBox(height: 8),
@@ -268,9 +268,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                       ('price_high', 'Price: high to low'),
                       ('name_az', 'Name: A to Z'),
                     ].map((option) {
-                      return RadioListTile<String>(
+                        return RadioListTile<String>(
                         value: option.$1,
                         groupValue: tempSortBy,
+                        // ignore: deprecated_member_use
                         activeColor: AppTheme.primaryCyan,
                         contentPadding: EdgeInsets.zero,
                         title: Text(option.$2, style: const TextStyle(fontSize: 13)),
@@ -576,7 +577,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                               shrinkWrap: true,
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               itemCount: _searchSuggestions.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              separatorBuilder: (_, _) => const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final product = _searchSuggestions[i];
                                 return ListTile(
@@ -727,7 +728,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     return ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: categories.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (_, i) {
                         final category = categories[i];
                         final isSelected = ref.watch(selectedCategoryProvider) == category.id || (category.id == 0 && ref.watch(selectedCategoryProvider) == null);
@@ -822,7 +823,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                     child: CachedNetworkImage(
                                       imageUrl: banner.imageUrl!,
                                       fit: BoxFit.cover,
-                                      errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                                      errorWidget: (_, _, _) => const SizedBox.shrink(),
                                     ),
                                   ),
                                 // Semi-transparent overlay when image is present
@@ -952,7 +953,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: trendingProducts.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (_, index) {
                       final product = trendingProducts[index];
                       final inStock = product.isAvailable && product.isInStock;
@@ -1030,7 +1031,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: recommendedProducts.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 10),
+                          separatorBuilder: (_, _) => const SizedBox(width: 10),
                           itemBuilder: (_, index) {
                             final product = recommendedProducts[index];
                             final inStock = product.isAvailable && product.isInStock;
@@ -1077,7 +1078,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => Padding(
+                error: (_, _) => Padding(
                   padding: const EdgeInsets.only(bottom: 18),
                   child: Row(
                     children: [
@@ -1610,7 +1611,7 @@ class _SkeletonProductGrid extends StatelessWidget {
         crossAxisSpacing: 10,
         childAspectRatio: 0.52,
       ),
-      itemBuilder: (_, __) {
+      itemBuilder: (_, _) {
         return _Shimmer(
           child: Container(
             decoration: BoxDecoration(

@@ -434,7 +434,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                       return const LinearProgressIndicator();
                     }
                     return DropdownButtonFormField<int>(
-                      value: _selectedCategoryId,
+                      initialValue: _selectedCategoryId,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'Category'),
                       items: categories
@@ -447,7 +447,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   }),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    value: _quality,
+                    initialValue: _quality,
                     decoration: const InputDecoration(
                       labelText: 'Quality / condition',
                     ),

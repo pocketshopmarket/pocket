@@ -131,7 +131,7 @@ class _AddPaymentMethodScreenState
       borderRadius: BorderRadius.circular(8),
       child: Image.asset(
         logo, width: size, height: size, fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
+        errorBuilder: (_, _, _) => Container(
           width: size, height: size,
           alignment: Alignment.center,
           decoration: BoxDecoration(
@@ -151,7 +151,9 @@ class _AddPaymentMethodScreenState
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (await _confirmLeave() && mounted) Navigator.of(context).pop();
+        final leave = await _confirmLeave();
+        if (!leave || !mounted) return;
+        Navigator.of(context).pop();
       },
       child: Scaffold(
         backgroundColor: AppTheme.surfaceWhite,
@@ -172,9 +174,9 @@ class _AddPaymentMethodScreenState
               onPressed: _loading
                   ? null
                   : () async {
-                      if (await _confirmLeave() && mounted) {
-                        Navigator.of(context).pop();
-                      }
+                      final leave = await _confirmLeave();
+                      if (!leave || !mounted) return;
+                      Navigator.of(context).pop();
                     },
               child: const Text('Cancel'),
             ),

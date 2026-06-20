@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../models/category.dart';
 import '../../../../models/product.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/category_provider.dart';
@@ -254,7 +253,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
               itemCount: 1 + allCategories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, index) {
                 final isAll = index == 0;
                 final catId = isAll ? 'all' : allCategories[index - 1].id.toString();
@@ -563,7 +562,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: tempCategory,
+                initialValue: tempCategory,
                 decoration: const InputDecoration(labelText: 'Category'),
                 items: [
                   const DropdownMenuItem(value: 'all', child: Text('All')),
@@ -578,7 +577,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
               ),
               const SizedBox(height: 6),
               DropdownButtonFormField<String?>(
-                value: tempQuality,
+                initialValue: tempQuality,
                 decoration: const InputDecoration(labelText: 'Condition'),
                 items: const [
                   DropdownMenuItem(value: null, child: Text('Any')),
@@ -625,7 +624,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
               ),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: tempSort,
+                initialValue: tempSort,
                 decoration: const InputDecoration(labelText: 'Sort'),
                 items: const [
                   DropdownMenuItem(value: 'latest', child: Text('Latest')),

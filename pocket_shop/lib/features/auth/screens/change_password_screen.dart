@@ -57,6 +57,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       if (!mounted) return;
       // Sign out all sessions (tokens already blacklisted on server).
       await AuthService().logout();
+      if (!mounted) return;
       ref.read(authProvider.notifier).handlePasswordChanged();
       GoRouter.of(context).go('/phone');
     } else {

@@ -17,7 +17,7 @@ class PocketShopLogo extends StatelessWidget {
       width: size,
       height: size,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => Icon(
+      errorBuilder: (_, _, _) => Icon(
         Icons.storefront_rounded,
         size: size * 0.55,
         color: AppTheme.primaryCyan,

@@ -64,7 +64,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
     } finally {
       if (mounted) setState(() => _updatingOnline = false);
     }
-    if (value) _refresh(); else setState(() => _orders = []);
+    if (value) { _refresh(); } else { setState(() => _orders = []); }
   }
 
   Future<void> _refresh() async {
@@ -216,36 +216,42 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
   }
 
   Widget _buildBody() {
-    if (!_online) return _emptyState(
-      icon: Icons.wifi_off_rounded,
-      iconColor: AppTheme.textSecondary,
-      title: "You're offline",
-      subtitle: 'Toggle online to start receiving nearby delivery orders.',
-      action: FilledButton.icon(
-        onPressed: () => _setOnlineStatus(true),
-        icon: const Icon(Icons.toggle_on_rounded),
-        label: const Text('Go online'),
-        style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryCyan),
-      ),
-    );
+    if (!_online) {
+      return _emptyState(
+        icon: Icons.wifi_off_rounded,
+        iconColor: AppTheme.textSecondary,
+        title: "You're offline",
+        subtitle: 'Toggle online to start receiving nearby delivery orders.',
+        action: FilledButton.icon(
+          onPressed: () => _setOnlineStatus(true),
+          icon: const Icon(Icons.toggle_on_rounded),
+          label: const Text('Go online'),
+          style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryCyan),
+        ),
+      );
+    }
 
-    if (_loading) return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 60),
-      child: Center(child: CircularProgressIndicator(color: AppTheme.primaryCyan)),
-    );
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 60),
+        child: Center(child: CircularProgressIndicator(color: AppTheme.primaryCyan)),
+      );
+    }
 
-    if (_orders.isEmpty) return _emptyState(
-      icon: Icons.delivery_dining_rounded,
-      iconColor: AppTheme.primaryCyan,
-      title: 'No orders nearby',
-      subtitle: 'Pull down to refresh. New orders appear here as sellers prepare them.',
-      action: OutlinedButton.icon(
-        onPressed: _refresh,
-        icon: const Icon(Icons.refresh_rounded),
-        label: const Text('Refresh'),
-        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.darkCyan),
-      ),
-    );
+    if (_orders.isEmpty) {
+      return _emptyState(
+        icon: Icons.delivery_dining_rounded,
+        iconColor: AppTheme.primaryCyan,
+        title: 'No orders nearby',
+        subtitle: 'Pull down to refresh. New orders appear here as sellers prepare them.',
+        action: OutlinedButton.icon(
+          onPressed: _refresh,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Refresh'),
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.darkCyan),
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),

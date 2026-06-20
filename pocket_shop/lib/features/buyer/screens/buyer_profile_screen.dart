@@ -116,7 +116,7 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
+        errorBuilder: (_, _, _) {
           return Container(
             width: size,
             height: size,

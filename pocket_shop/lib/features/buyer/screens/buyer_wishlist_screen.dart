@@ -248,8 +248,9 @@ class BuyerWishlistScreen extends ConsumerWidget {
                                       final err = await cartNotifier.addProduct(
                                         product,
                                       );
-                                      if (!context.mounted || err == null)
+                                      if (!context.mounted || err == null) {
                                         return;
+                                      }
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(

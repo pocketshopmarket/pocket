@@ -28,7 +28,7 @@ class AuthService {
     if (e164 != null) return e164;
     var d = phone.replaceAll(RegExp(r'\D'), '');
     if (d.startsWith('260')) {
-      return '+${d}';
+      return '+$d';
     }
     if (d.startsWith('0')) {
       d = d.substring(1);
@@ -563,7 +563,7 @@ class AuthService {
       return {
         'success': respBody['success'] == true,
         'message': respBody['message']?.toString() ?? 'Profile updated.',
-        if (userMap != null) 'user': userMap,
+        ?'user': userMap,
       };
     } on DioException catch (e) {
       return {
@@ -595,7 +595,7 @@ class AuthService {
       return {
         'success': body['success'] == true,
         'message': body['message']?.toString() ?? 'Profile photo updated.',
-        if (userMap != null) 'user': userMap,
+        ?'user': userMap,
       };
     } on DioException catch (e) {
       return {

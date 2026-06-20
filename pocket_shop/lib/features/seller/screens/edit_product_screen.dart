@@ -94,7 +94,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
     _priceCtrl.dispose();
     _stockCtrl.dispose();
     _descCtrl.dispose();
-    for (final v in _variants) v.dispose();
+    for (final v in _variants) { v.dispose(); }
     super.dispose();
   }
 
@@ -341,7 +341,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                           borderRadius: BorderRadius.circular(10),
                           child: Image.network(
                             _keptImageUrls[i], width: 100, height: 100, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _imgPlaceholder(),
+                            errorBuilder: (_, _, _) => _imgPlaceholder(),
                           ),
                         ),
                         Positioned(right: 2, top: 2, child: IconButton.filled(
@@ -403,7 +403,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                   final cats = ref.watch(allCategoriesProvider);
                   if (cats.isEmpty) return const LinearProgressIndicator();
                   return DropdownButtonFormField<int>(
-                    value: _categoryId,
+                    initialValue: _categoryId,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: cats.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
@@ -412,7 +412,7 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                 }),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _quality,
+                  initialValue: _quality,
                   decoration: const InputDecoration(labelText: 'Quality / condition'),
                   items: _qualityChoices.map((e) => DropdownMenuItem(value: e.$1, child: Text(e.$2))).toList(),
                   onChanged: (v) { if (v != null) setState(() { _quality = v; _isDirty = true; }); },

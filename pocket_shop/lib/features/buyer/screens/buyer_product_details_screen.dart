@@ -426,7 +426,7 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                     );
                   },
                   loading: () => const SizedBox.shrink(),
-                  error: (_, __) => Container(
+                  error: (_, _) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF3F4F6),
@@ -715,7 +715,7 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<int>(
-              value: score,
+              initialValue: score,
               items: const [
                 DropdownMenuItem(value: 5, child: Text('5 - Excellent')),
                 DropdownMenuItem(value: 4, child: Text('4 - Good')),
@@ -747,13 +747,14 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
     );
 
     if (ok != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     final msg = await ref.read(reviewProvider.notifier).submit(
       productId: productId,
       rating: score,
       comment: commentController.text.trim(),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         content: Text(msg ?? 'Review submitted'),
         backgroundColor: msg == null ? AppTheme.success : AppTheme.error,

@@ -616,7 +616,7 @@ class CartScreen extends ConsumerWidget {
                             child: ListView.separated(
                               shrinkWrap: true,
                               itemCount: addressSuggestions.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const Divider(height: 1),
                               itemBuilder: (_, i) {
                                 final row = addressSuggestions[i];
@@ -688,7 +688,7 @@ class CartScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        value: pickupTimeSlot,
+                        initialValue: pickupTimeSlot,
                         decoration: InputDecoration(
                           labelText: 'Pickup time',
                           filled: true,
@@ -1537,7 +1537,7 @@ class CartScreen extends ConsumerWidget {
                 Expanded(
                   child: ListView.separated(
                     itemCount: cartState.items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (_, index) {
                       final item = cartState.items[index];
                       return Dismissible(
@@ -1775,7 +1775,7 @@ class CartScreen extends ConsumerWidget {
                       child: Image.asset(
                         imageAsset,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, _, _) => const Icon(
                           Icons.sim_card_rounded,
                           size: 24,
                           color: AppTheme.textSecondary,

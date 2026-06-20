@@ -875,7 +875,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: _shopLocationSuggestions.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, i) {
                 final row = _shopLocationSuggestions[i];
                 final name = row['display_name']?.toString() ?? '';

@@ -81,11 +81,11 @@ class OrderService {
   }) async {
     final metadata = <String, dynamic>{
       'fulfillment_type': fulfillmentType,
-      if (quotedDeliveryFee != null) 'quoted_delivery_fee': quotedDeliveryFee,
-      if (quotedDistanceKm != null) 'quoted_distance_km': quotedDistanceKm,
-      if (quotedEtaMinutes != null) 'quoted_eta_minutes': quotedEtaMinutes,
-      if (deliveryLat != null) 'delivery_lat': deliveryLat,
-      if (deliveryLng != null) 'delivery_lng': deliveryLng,
+      ?'quoted_delivery_fee': quotedDeliveryFee,
+      ?'quoted_distance_km': quotedDistanceKm,
+      ?'quoted_eta_minutes': quotedEtaMinutes,
+      ?'delivery_lat': deliveryLat,
+      ?'delivery_lng': deliveryLng,
       if (pickupTimeSlot != null && pickupTimeSlot.trim().isNotEmpty)
         'pickup_time_slot': pickupTimeSlot.trim(),
     };

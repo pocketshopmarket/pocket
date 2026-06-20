@@ -588,6 +588,53 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                         color: AppTheme.textPrimary,
                       ),
                     ),
+                    if ((assignment['delivery_person_name']?.toString() ?? '').isNotEmpty ||
+                        (assignment['rider_vehicle_type']?.toString() ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryCyan.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.primaryCyan.withValues(alpha: 0.18)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_pin_rounded, size: 20, color: AppTheme.darkCyan),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if ((assignment['delivery_person_name']?.toString() ?? '').isNotEmpty)
+                                    Text(
+                                      assignment['delivery_person_name'].toString(),
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                                    ),
+                                  Builder(builder: (_) {
+                                    final parts = <String>[
+                                      if ((assignment['rider_vehicle_make']?.toString() ?? '').isNotEmpty)
+                                        assignment['rider_vehicle_make'].toString(),
+                                      if ((assignment['rider_vehicle_model']?.toString() ?? '').isNotEmpty)
+                                        assignment['rider_vehicle_model'].toString(),
+                                    ];
+                                    final vehicleType = assignment['rider_vehicle_type']?.toString() ?? '';
+                                    final label = parts.isNotEmpty
+                                        ? parts.join(' ')
+                                        : (vehicleType.isNotEmpty ? _prettyVehicleType(vehicleType) : '');
+                                    if (label.isEmpty) return const SizedBox.shrink();
+                                    return Text(
+                                      label,
+                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (assignment['status'] == 'in_transit' || assignment['status'] == 'picked_up') ...[
                       const SizedBox(height: 12),
                       Material(
@@ -1065,6 +1112,16 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       }
     }
     return out;
+  }
+
+  String _prettyVehicleType(String s) {
+    switch (s) {
+      case 'motorcycle': return 'Motorcycle';
+      case 'bicycle': return 'Bicycle';
+      case 'car': return 'Car';
+      case 'van': return 'Van';
+      default: return s;
+    }
   }
 
   String _labelAssignmentStatus(String s) {

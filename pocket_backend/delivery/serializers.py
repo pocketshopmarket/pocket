@@ -27,6 +27,9 @@ class DeliveryAssignmentSerializer(serializers.ModelSerializer):
     seller_phone = serializers.SerializerMethodField()
     delivery_person_phone = serializers.SerializerMethodField()
     estimated_time = serializers.SerializerMethodField()
+    rider_vehicle_type = serializers.SerializerMethodField()
+    rider_vehicle_make = serializers.SerializerMethodField()
+    rider_vehicle_model = serializers.SerializerMethodField()
 
     class Meta:
         model = DeliveryAssignment
@@ -39,9 +42,10 @@ class DeliveryAssignmentSerializer(serializers.ModelSerializer):
                  'route_coordinates', 'route_distance_m', 'route_duration_s',
                  'route_source', 'route_confidence', 'last_eta_recomputed_at',
                  'reroute_count', 'initial_estimated_duration',
-                 'final_eta_error_minutes']
+                 'final_eta_error_minutes',
+                 'rider_vehicle_type', 'rider_vehicle_make', 'rider_vehicle_model']
         read_only_fields = ['assigned_at']
-    
+
     def get_seller_phone(self, obj):
         try:
             return obj.order.seller.phone_number
@@ -54,6 +58,24 @@ class DeliveryAssignmentSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_rider_vehicle_type(self, obj):
+        try:
+            return obj.delivery_person.delivery_profile.vehicle_type
+        except Exception:
+            return None
+
+    def get_rider_vehicle_make(self, obj):
+        try:
+            return obj.delivery_person.delivery_profile.vehicle_make or None
+        except Exception:
+            return None
+
+    def get_rider_vehicle_model(self, obj):
+        try:
+            return obj.delivery_person.delivery_profile.vehicle_model or None
+        except Exception:
+            return None
+
     def get_estimated_time(self, obj):
         if obj.estimated_duration:
             return f"{obj.estimated_duration} minutes"
@@ -63,7 +85,9 @@ class AvailableOrderSerializer(serializers.ModelSerializer):
     distance_from_rider = serializers.SerializerMethodField()
     estimated_time = serializers.SerializerMethodField()
     pickup_location = serializers.SerializerMethodField()
-    
+    seller_name = serializers.SerializerMethodField()
+    items_summary = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = [
@@ -71,12 +95,38 @@ class AvailableOrderSerializer(serializers.ModelSerializer):
             'order_number',
             'status',
             'total_price',
+            'delivery_fee',
             'delivery_address',
             'pickup_location',
             'distance_from_rider',
             'estimated_time',
             'created_at',
+            'seller_name',
+            'items_summary',
         ]
+
+    def get_seller_name(self, obj):
+        try:
+            return obj.seller.seller_profile.shop_name or obj.seller.full_name or ''
+        except Exception:
+            return obj.seller.full_name or ''
+
+    def get_items_summary(self, obj):
+        try:
+            items = list(obj.items.select_related('product').all()[:4])
+            if not items:
+                return ''
+            parts = []
+            for item in items[:3]:
+                name = item.product.name if item.product else ''
+                parts.append(f'{item.quantity}× {name}' if item.quantity > 1 else name)
+            summary = ', '.join(p for p in parts if p)
+            total = obj.items.count()
+            if total > 3:
+                summary += f' +{total - 3} more'
+            return summary
+        except Exception:
+            return ''
     
     def get_distance_from_rider(self, obj):
         """Great-circle distance from rider to this order's pickup (seller shop)."""

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../services/staff_service.dart';
@@ -26,6 +29,17 @@ class StaffHomeScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.invalidate(_statsProvider),
+          ),
+          TextButton.icon(
+            onPressed: () async {
+              // baseUrl is e.g. "http://host/api/" — strip /api/ to reach root
+              final root = AppConstants.baseUrl.replaceAll(RegExp(r'/api/?$'), '');
+              final uri = Uri.parse('$root/manual/');
+              if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+            },
+            icon: const Icon(Icons.menu_book_rounded, size: 18),
+            label: const Text('Manual'),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryCyan),
           ),
           Consumer(
             builder: (context, ref, _) {
@@ -161,7 +175,52 @@ class _StatsGrid extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Users', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _userTypeChip(Icons.shopping_bag_rounded, 'Buyers', '${data['buyer_count'] ?? 0}', Colors.blue),
+                  const SizedBox(width: 8),
+                  _userTypeChip(Icons.storefront_rounded, 'Sellers', '${data['seller_count'] ?? 0}', Colors.green),
+                  const SizedBox(width: 8),
+                  _userTypeChip(Icons.delivery_dining_rounded, 'Riders', '${data['rider_count'] ?? 0}', Colors.orange),
+                ],
+              ),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _userTypeChip(IconData icon, String label, String count, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(height: 4),
+            Text(count, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
+            Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+          ],
+        ),
+      ),
     );
   }
 }

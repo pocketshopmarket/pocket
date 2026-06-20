@@ -186,6 +186,8 @@ class DeliveryProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='delivery_profile')
     vehicle_type = models.CharField(max_length=20, choices=VEHICLE_CHOICES)
+    vehicle_make = models.CharField(max_length=60, blank=True)
+    vehicle_model = models.CharField(max_length=60, blank=True)
     license_number = models.CharField(max_length=50)
     license_front_image = models.ImageField(upload_to='delivery_licenses/', blank=True, null=True)
     license_back_image = models.ImageField(upload_to='delivery_licenses/', blank=True, null=True)

@@ -501,8 +501,13 @@ class EarningsSummaryView(APIView):
             payouts.filter(status='completed').aggregate(total=Sum('amount'))['total']
             or 0
         )
+        # Only count payouts that have passed QR verification (ready to pay out),
+        # not ones still waiting for pickup/dropoff scan — those aren't earned yet.
         pending_total = (
-            payouts.exclude(status='completed').aggregate(total=Sum('amount'))['total']
+            payouts.filter(
+                payout_stage__in=['ready_for_payout', 'payout_initiated'],
+                status='pending',
+            ).aggregate(total=Sum('amount'))['total']
             or 0
         )
 

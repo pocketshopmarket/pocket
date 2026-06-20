@@ -303,6 +303,8 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
     final dist = o['distance_from_rider'];
     final eta = o['estimated_time'];
     final status = o['status']?.toString() ?? '';
+    final sellerName = o['seller_name']?.toString() ?? '';
+    final itemsSummary = o['items_summary']?.toString() ?? '';
     final canAccept = status == 'out_for_delivery';
 
     return Padding(
@@ -333,15 +335,46 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      number,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          number,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                        ),
+                        if (sellerName.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(Icons.storefront_rounded, size: 12, color: AppTheme.darkCyan),
+                              const SizedBox(width: 4),
+                              Text(sellerName,
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.darkCyan, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   _statusBadge(status, canAccept),
                 ],
               ),
             ),
+            if (itemsSummary.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.inventory_2_rounded, size: 14, color: AppTheme.textSecondary),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(itemsSummary,
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3)),
+                    ),
+                  ],
+                ),
+              ),
             // Address
             if (addr.isNotEmpty)
               Padding(

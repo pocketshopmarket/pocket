@@ -460,6 +460,8 @@ class AuthService {
 
   Future<Map<String, dynamic>> submitDeliveryVerification({
     required String vehicleType,
+    String vehicleMake = '',
+    String vehicleModel = '',
     required String licenseNumber,
     required String licenseFrontPath,
     required String licenseBackPath,
@@ -473,6 +475,8 @@ class AuthService {
     try {
       final data = FormData.fromMap({
         'vehicle_type': vehicleType,
+        if (vehicleMake.isNotEmpty) 'vehicle_make': vehicleMake,
+        if (vehicleModel.isNotEmpty) 'vehicle_model': vehicleModel,
         'license_number': licenseNumber,
         'license_front_image': await MultipartFile.fromFile(licenseFrontPath),
         'license_back_image': await MultipartFile.fromFile(licenseBackPath),

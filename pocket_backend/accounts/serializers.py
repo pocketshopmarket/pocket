@@ -156,7 +156,8 @@ class DeliveryProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryProfile
         fields = [
-            'user', 'vehicle_type', 'license_number', 'license_front_image',
+            'user', 'vehicle_type', 'vehicle_make', 'vehicle_model',
+            'license_number', 'license_front_image',
             'license_back_image', 'province', 'town', 'area',
             'live_verification_photo', 'profile_photo', 'verification_status',
             'verification_rejection_reason', 'submitted_at', 'reviewed_at',
@@ -369,7 +370,8 @@ class DeliveryApplicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryProfile
         fields = [
-            'vehicle_type', 'license_number', 'license_front_image',
+            'vehicle_type', 'vehicle_make', 'vehicle_model',
+            'license_number', 'license_front_image',
             'license_back_image', 'province', 'town', 'area',
             'live_verification_photo', 'profile_photo',
         ]

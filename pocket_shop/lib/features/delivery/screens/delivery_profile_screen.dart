@@ -19,6 +19,8 @@ class DeliveryProfileScreen extends ConsumerStatefulWidget {
 
 class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
   final _licenseController = TextEditingController();
+  final _vehicleMakeController = TextEditingController();
+  final _vehicleModelController = TextEditingController();
   final _provinceController = TextEditingController();
   final _townController = TextEditingController();
   final _areaController = TextEditingController();
@@ -45,6 +47,8 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
   @override
   void dispose() {
     _licenseController.dispose();
+    _vehicleMakeController.dispose();
+    _vehicleModelController.dispose();
     _provinceController.dispose();
     _townController.dispose();
     _areaController.dispose();
@@ -62,6 +66,8 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
       final profile = data?['profile'] as Map<String, dynamic>?;
       if (profile != null) {
         _vehicleType = profile['vehicle_type']?.toString() ?? 'motorcycle';
+        _vehicleMakeController.text = profile['vehicle_make']?.toString() ?? '';
+        _vehicleModelController.text = profile['vehicle_model']?.toString() ?? '';
         _licenseController.text = profile['license_number']?.toString() ?? '';
         _provinceController.text = profile['province']?.toString() ?? '';
         _townController.text = profile['town']?.toString() ?? '';
@@ -127,6 +133,8 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
     setState(() => _submitting = true);
     final result = await ref.read(authServiceProvider).submitDeliveryVerification(
           vehicleType: _vehicleType,
+          vehicleMake: _vehicleMakeController.text.trim(),
+          vehicleModel: _vehicleModelController.text.trim(),
           licenseNumber: _licenseController.text.trim(),
           licenseFrontPath: _licenseFrontPath!,
           licenseBackPath: _licenseBackPath!,
@@ -221,8 +229,15 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
           )
         else ...[
-          _tile('Vehicle', _prettyVehicle(profile['vehicle_type']?.toString()),
-              icon: Icons.two_wheeler_outlined),
+          _tile(
+            'Vehicle',
+            [
+              _prettyVehicle(profile['vehicle_type']?.toString()),
+              profile['vehicle_make']?.toString() ?? '',
+              profile['vehicle_model']?.toString() ?? '',
+            ].where((s) => s.isNotEmpty).join(' · '),
+            icon: Icons.two_wheeler_outlined,
+          ),
           _tile('License', profile['license_number']?.toString() ?? '-',
               icon: Icons.badge_outlined),
           _tile('Service area', _serviceArea(profile),
@@ -461,6 +476,14 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
         ],
         onChanged: (v) => setState(() => _vehicleType = v ?? 'motorcycle'),
         decoration: const InputDecoration(labelText: 'Vehicle type'),
+      ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(child: _textField(_vehicleMakeController, 'Make (e.g. Toyota)')),
+          const SizedBox(width: 10),
+          Expanded(child: _textField(_vehicleModelController, 'Model (e.g. Corolla)')),
+        ],
       ),
       const SizedBox(height: 10),
       _textField(_licenseController, 'Driver license number'),

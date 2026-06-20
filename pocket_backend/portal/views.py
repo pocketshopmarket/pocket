@@ -14,6 +14,9 @@ def terms(request):
 def privacy(request):
     return render(request, 'portal/privacy.html')
 
+def manual(request):
+    return render(request, 'portal/manual.html')
+
 
 class PublicSettingsView(APIView):
     permission_classes = [permissions.AllowAny]

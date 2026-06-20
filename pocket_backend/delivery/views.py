@@ -94,7 +94,8 @@ class AvailableOrdersView(APIView):
                 status='out_for_delivery',
             )
             .exclude(id__in=busy_order_ids)
-            .select_related('seller')
+            .select_related('seller', 'seller__seller_profile')
+            .prefetch_related('items__product')
             .order_by('-created_at')
         )
 

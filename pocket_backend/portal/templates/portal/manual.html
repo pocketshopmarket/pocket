@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pocket Shop — System Manual</title>
+<style>
+  :root {
+    --cyan: #06b6d4;
+    --dark-cyan: #0891b2;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --text-sec: #475569;
+    --border: #e2e8f0;
+    --green: #16a34a;
+    --orange: #ea580c;
+    --red: #dc2626;
+    --blue: #2563eb;
+    --purple: #7c3aed;
+    --sidebar-w: 260px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: var(--sidebar-w); background: #0f172a; color: #cbd5e1;
+    position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto;
+    padding: 0 0 40px;
+    scrollbar-width: thin; scrollbar-color: #334155 transparent;
+  }
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-logo .dot { width: 32px; height: 32px; background: var(--cyan); border-radius: 8px; display:flex; align-items:center; justify-content:center; font-weight:800; color:#0f172a; font-size:14px; flex-shrink:0; }
+  .sidebar-logo span { font-weight: 700; color: #f1f5f9; font-size: 15px; }
+  .sidebar-logo small { display: block; font-size: 11px; color: #64748b; font-weight: 400; }
+  .nav-section { padding: 20px 12px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #475569; }
+  .nav-item {
+    display: block; padding: 9px 16px; font-size: 13px; color: #94a3b8; text-decoration: none;
+    border-radius: 8px; margin: 2px 8px; transition: all .15s;
+  }
+  .nav-item:hover, .nav-item.active { background: #1e293b; color: #e2e8f0; }
+  .nav-item.active { color: var(--cyan); }
+  .main { margin-left: var(--sidebar-w); flex: 1; padding: 0; }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: #0f172a; color: white; padding: 20px 40px;
+    border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar h1 { font-size: 18px; font-weight: 700; }
+  .topbar small { font-size: 12px; color: #64748b; }
+  .badge-version { background: var(--cyan); color: #0f172a; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+
+  /* ── Content ── */
+  .content { padding: 40px; max-width: 900px; }
+  section { margin-bottom: 60px; scroll-margin-top: 80px; }
+  h2 { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 6px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 16px; font-weight: 700; color: var(--text); margin: 28px 0 10px; }
+  h4 { font-size: 14px; font-weight: 700; color: var(--text-sec); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; }
+  p { color: var(--text-sec); font-size: 14px; margin-bottom: 10px; }
+  ul, ol { padding-left: 20px; color: var(--text-sec); font-size: 14px; }
+  li { margin-bottom: 5px; }
+  strong { color: var(--text); }
+
+  /* ── Cards ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .role-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
+  .role-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .role-icon { font-size: 28px; margin-bottom: 8px; }
+  .role-card h3 { margin: 0 0 6px; font-size: 15px; }
+  .role-card ul { padding-left: 16px; }
+  .role-card ul li { font-size: 13px; margin-bottom: 3px; }
+  .role-cannot { margin-top: 8px; }
+  .role-cannot small { font-size: 11px; color: #94a3b8; font-style: italic; }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #f1f5f9; padding: 10px 14px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-sec); border-bottom: 2px solid var(--border); }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-sec); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f8fafc; }
+  .code { font-family: 'SF Mono', 'Consolas', monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--dark-cyan); }
+
+  /* ── Status badges ── */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-orange { background: #ffedd5; color: #c2410c; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-red { background: #fee2e2; color: #b91c1c; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .badge-purple { background: #ede9fe; color: #6d28d9; }
+  .badge-cyan { background: #cffafe; color: #0e7490; }
+
+  /* ── Step-by-step ── */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex; gap: 16px; margin-bottom: 20px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px;
+  }
+  .step-num {
+    counter-increment: step;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--cyan); color: #0f172a; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-num::before { content: counter(step); }
+  .step-body { flex: 1; }
+  .step-body strong { display: block; margin-bottom: 4px; color: var(--text); }
+  .step-body p { margin: 0; }
+
+  /* ── Warning / info boxes ── */
+  .box { padding: 14px 18px; border-radius: 10px; margin: 16px 0; font-size: 13px; }
+  .box-warning { background: #fffbeb; border-left: 4px solid #f59e0b; color: #78350f; }
+  .box-info { background: #eff6ff; border-left: 4px solid var(--blue); color: #1e3a5f; }
+  .box-danger { background: #fef2f2; border-left: 4px solid var(--red); color: #7f1d1d; }
+  .box-success { background: #f0fdf4; border-left: 4px solid var(--green); color: #14532d; }
+  .box strong { display: block; margin-bottom: 4px; }
+
+  /* ── Field reference ── */
+  .field-list { margin: 0; padding: 0; list-style: none; }
+  .field-list li { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; gap: 12px; align-items: flex-start; }
+  .field-list li:last-child { border-bottom: none; }
+  .field-name { font-family: 'SF Mono', monospace; background: #f1f5f9; padding: 2px 7px; border-radius: 4px; font-size: 11px; color: var(--dark-cyan); flex-shrink: 0; margin-top: 1px; min-width: 160px; }
+  .field-desc { color: var(--text-sec); }
+
+  /* ── Problem/fix ── */
+  .problem-list { list-style: none; padding: 0; }
+  .problem-list li { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .problem-list .q { font-weight: 700; color: var(--red); font-size: 13px; margin-bottom: 4px; }
+  .problem-list .a { font-size: 13px; color: var(--text-sec); }
+  .problem-list .a strong { color: var(--text); }
+
+  /* ── Glossary ── */
+  .glossary dt { font-weight: 700; font-size: 14px; color: var(--text); margin-top: 14px; }
+  .glossary dd { font-size: 13px; color: var(--text-sec); margin: 2px 0 0 16px; }
+
+  /* ── Flow diagram ── */
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 16px 0; }
+  .flow-step { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: var(--text); }
+  .flow-arrow { color: #94a3b8; font-size: 16px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .content { padding: 24px 16px; }
+    .topbar { padding: 16px 20px; }
+    .role-grid { grid-template-columns: 1fr 1fr; }
+    .field-name { min-width: 120px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="dot">P</div>
+    <div>
+      <span>Pocket Shop</span>
+      <small>System Manual</small>
+    </div>
+  </div>
+
+  <div class="nav-section">Getting Started</div>
+  <a class="nav-item" href="#roles">User Roles</a>
+  <a class="nav-item" href="#dashboard">Dashboard</a>
+
+  <div class="nav-section">Order Flow</div>
+  <a class="nav-item" href="#order-statuses">Order Statuses</a>
+  <a class="nav-item" href="#delivery-statuses">Delivery Statuses</a>
+  <a class="nav-item" href="#payout-stages">Payout Stages</a>
+  <a class="nav-item" href="#transaction-statuses">Transaction Statuses</a>
+  <a class="nav-item" href="#verification-statuses">Verification Statuses</a>
+  <a class="nav-item" href="#qr-flow">QR Scan Flow</a>
+
+  <div class="nav-section">Admin Panel</div>
+  <a class="nav-item" href="#admin-accounts">Accounts</a>
+  <a class="nav-item" href="#admin-orders">Orders</a>
+  <a class="nav-item" href="#admin-payments">Payments &amp; Transactions</a>
+  <a class="nav-item" href="#admin-delivery">Delivery</a>
+  <a class="nav-item" href="#admin-notifications">Notifications</a>
+  <a class="nav-item" href="#admin-products">Products</a>
+  <a class="nav-item" href="#admin-portal">Portal &amp; Settings</a>
+
+  <div class="nav-section">How-To Guides</div>
+  <a class="nav-item" href="#how-payout">Process a Payout</a>
+  <a class="nav-item" href="#how-refund">Do a Manual Refund</a>
+  <a class="nav-item" href="#how-verification">Review a Verification</a>
+  <a class="nav-item" href="#how-announcement">Send an Announcement</a>
+  <a class="nav-item" href="#how-deactivate">Deactivate a User</a>
+  <a class="nav-item" href="#how-lookup">Look Up an Order</a>
+
+  <div class="nav-section">Reference</div>
+  <a class="nav-item" href="#problems">Common Problems</a>
+  <a class="nav-item" href="#glossary">Glossary</a>
+</nav>
+
+<!-- ── Main ── -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Pocket Shop — System Manual</h1>
+      <small>For staff and administrators</small>
+    </div>
+    <span class="badge-version">v1.0</span>
+  </div>
+
+  <div class="content">
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="roles">
+      <h2>👤 User Roles</h2>
+      <p>Every person who uses Pocket Shop has one role. The role decides what they can see and do in the app. Roles are set when a user registers and can only be changed by an admin.</p>
+
+      <div class="role-grid">
+        <div class="role-card">
+          <div class="role-icon">🛍️</div>
+          <h3>Buyer</h3>
+          <ul>
+            <li>Browse and search products</li>
+            <li>Add items to cart</li>
+            <li>Place and pay for orders</li>
+            <li>Track their deliveries</li>
+            <li>Rate products and sellers</li>
+            <li>Request cancellations</li>
+          </ul>
+          <div class="role-cannot"><small>Cannot: list products, accept orders, do deliveries</small></div>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">🏪</div>
+          <h3>Seller</h3>
+          <ul>
+            <li>List and manage products</li>
+            <li>Accept or reject incoming orders</li>
+            <li>Mark orders as preparing / ready</li>
+            <li>View their earnings</li>
+            <li>Request a payout withdrawal</li>
+          </ul>
+          <div class="role-cannot"><small>Must complete Tier 1 verification before listing. Tier 2 unlocks higher limits.</small></div>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">🛵</div>
+          <h3>Rider</h3>
+          <ul>
+            <li>Go online/offline</li>
+            <li>View and accept available deliveries</li>
+            <li>Scan QR codes at pickup and dropoff</li>
+            <li>Track their delivery earnings</li>
+          </ul>
+          <div class="role-cannot"><small>Must complete Delivery verification before accepting jobs.</small></div>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">🧑‍💼</div>
+          <h3>Staff</h3>
+          <ul>
+            <li>Process payout queue</li>
+            <li>Review verifications</li>
+            <li>Handle refunds</li>
+            <li>Send announcements</li>
+            <li>View system stats</li>
+          </ul>
+          <div class="role-cannot"><small>Uses the staff app. Does NOT have Django admin access by default.</small></div>
+        </div>
+        <div class="role-card">
+          <div class="role-icon">⚙️</div>
+          <h3>Admin</h3>
+          <ul>
+            <li>Everything Staff can do</li>
+            <li>Full Django admin access</li>
+            <li>Edit any record directly</li>
+            <li>Manage platform settings</li>
+            <li>Change user roles</li>
+            <li>View all logs and tokens</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>How to change a user's role or deactivate them</h3>
+      <ol>
+        <li>Go to <strong>Django Admin → Accounts → Users</strong></li>
+        <li>Search by phone number or name</li>
+        <li>Click the user to open their record</li>
+        <li>Change the <strong>Role</strong> field, or untick <strong>Is active</strong> to block login</li>
+        <li>Click <strong>Save</strong></li>
+      </ol>
+      <div class="box box-warning"><strong>Note:</strong> Deactivating a user immediately prevents them from logging in. Any active orders they have will not be cancelled automatically — you must handle those separately.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="dashboard">
+      <h2>📊 The Staff Dashboard</h2>
+      <p>The staff app home screen shows live numbers about what needs attention right now. Here is what every number means.</p>
+
+      <div class="card">
+        <div class="card-title">Payout Queue</div>
+        <p>How many payouts are <strong>ready to be sent out right now</strong>. These are sellers and riders who have completed their work — the QR scan happened, the money is cleared, and it is sitting waiting for staff to process it. This number should be kept as low as possible. If it is high, payouts are overdue.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Earnings Claims</div>
+        <p>Sellers or riders who have <strong>manually requested</strong> a withdrawal of their earned balance. Different from the payout queue — these are requests initiated by the user, not automatic post-delivery payouts.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Verifications</div>
+        <p>How many seller or rider verification applications are <strong>waiting for a staff member to review</strong>. A new seller or rider cannot operate until their verification is approved. If this number is high, users are waiting.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Refunds</div>
+        <p>Open refund requests that have not been processed yet. These are usually from cancelled orders or disputes.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Today's Revenue</div>
+        <p>Total money received from buyers <strong>today only</strong>, in ZMW. This only counts <strong>completed (confirmed)</strong> deposits — not pending payments. It resets at midnight.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Failed Payouts</div>
+        <p>Payouts that were sent but <strong>rejected by the mobile network</strong> — for example, because the phone number was wrong, the account was not registered for mobile money, or the network was down. These need to be investigated and retried.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Buyers / Sellers / Riders</div>
+        <p>A live count of all <strong>active registered users</strong> broken down by role. Useful for understanding the platform's growth at a glance.</p>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="order-statuses">
+      <h2>📦 Order Statuses — Full Lifecycle</h2>
+      <p>Every order goes through a series of statuses from the moment a buyer places it to when it is delivered. Here is what each one means, who triggers it, and what to do if an order is stuck there.</p>
+
+      <div class="flow">
+        <span class="flow-step" style="background:#dbeafe;color:#1d4ed8">payment_pending</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#fef9c3;color:#854d0e">pending</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#dcfce7;color:#15803d">accepted</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#dcfce7;color:#15803d">preparing</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#cffafe;color:#0e7490">out_for_delivery</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#d1fae5;color:#065f46">delivered</span>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:-8px">An order can also move to <strong>cancelled</strong> from most statuses.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Triggered by</th><th>What it means</th><th>Who gets notified</th><th>If stuck here</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="code">payment_pending</span></td>
+              <td>Buyer places order</td>
+              <td>Order created. Waiting for MoMo payment to be confirmed. Money has <strong>not</strong> arrived yet.</td>
+              <td>Buyer gets a "Awaiting payment" notification</td>
+              <td>Payment failed silently. Tell the buyer to check their MoMo app and retry. If it has been more than 10 minutes, the payment likely failed.</td>
+            </tr>
+            <tr>
+              <td><span class="code">pending</span></td>
+              <td>PawaPay webhook (payment confirmed)</td>
+              <td>Money received and held. Seller is notified and must now review and accept the order.</td>
+              <td>Seller gets "New Order" push notification. Buyer gets "Order submitted" notification.</td>
+              <td>Seller has not opened the app or has not responded. Contact the seller. If they cannot fulfil, cancel the order and issue a refund.</td>
+            </tr>
+            <tr>
+              <td><span class="code">accepted</span></td>
+              <td>Seller taps Accept in the app</td>
+              <td>Seller has committed to fulfil this order.</td>
+              <td>Buyer gets "Order Accepted" notification</td>
+              <td>Seller accepted but is not preparing. Follow up with them.</td>
+            </tr>
+            <tr>
+              <td><span class="code">preparing</span></td>
+              <td>Seller taps Preparing</td>
+              <td>Order is actively being packed or made.</td>
+              <td>Buyer gets "Order Being Prepared" notification</td>
+              <td>Seller has not progressed for a long time. Follow up.</td>
+            </tr>
+            <tr>
+              <td><span class="code">out_for_delivery</span></td>
+              <td>Seller marks ready</td>
+              <td>Order is packed and waiting for a rider to accept it and come to collect.</td>
+              <td>Buyer gets "Out for Delivery" notification</td>
+              <td>No rider has accepted. Check that riders are online in the area. The order stays here until a rider picks it up.</td>
+            </tr>
+            <tr>
+              <td><span class="code">delivered</span></td>
+              <td>Rider scans buyer QR and taps "Mark as Delivered"</td>
+              <td>Order complete. Payouts are queued for seller and rider.</td>
+              <td>Buyer and Seller both get "Order Delivered" notification</td>
+              <td>This is a final state. Nothing to do.</td>
+            </tr>
+            <tr>
+              <td><span class="code">cancelled</span></td>
+              <td>Seller or buyer cancels, or staff cancels</td>
+              <td>Order stopped. If payment was made, a refund should be issued.</td>
+              <td>Buyer and Seller both get "Order Cancelled" notification (only if payment was made)</td>
+              <td>Check if a refund has been created. If not, create one manually — see the Refund guide below.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="delivery-statuses">
+      <h2>🛵 Delivery Assignment Statuses</h2>
+      <p>Once a rider accepts an order, a delivery assignment is created. It has its own separate set of statuses that track where the rider is in the delivery process.</p>
+
+      <div class="flow">
+        <span class="flow-step" style="background:#dbeafe;color:#1d4ed8">accepted</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#fef9c3;color:#854d0e">picked_up</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#cffafe;color:#0e7490">in_transit</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step" style="background:#d1fae5;color:#065f46">delivered</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Triggered by</th><th>What it means</th><th>If stuck here</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="code">accepted</span></td>
+              <td>Rider taps Accept on an order card</td>
+              <td>Rider is heading to the seller's location to collect the order.</td>
+              <td>Rider accepted but has not moved. Contact the rider. If they are not responding, the assignment may need to be cancelled and re-offered.</td>
+            </tr>
+            <tr>
+              <td><span class="code">picked_up</span></td>
+              <td>Rider scans the seller's QR code at pickup</td>
+              <td>Seller confirmed the handoff. The order is now physically in the rider's hands.</td>
+              <td>Pickup scan happened but rider is not moving. Contact the rider.</td>
+            </tr>
+            <tr>
+              <td><span class="code">in_transit</span></td>
+              <td>System sets this automatically after pickup scan</td>
+              <td>Rider is on the way to the buyer's address.</td>
+              <td>Rider has been in transit for an unusually long time. Contact them and the buyer.</td>
+            </tr>
+            <tr>
+              <td><span class="code">delivered</span></td>
+              <td>Rider scans buyer QR and confirms</td>
+              <td>Buyer confirmed receipt. Delivery is complete.</td>
+              <td>Final state. Nothing to do.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="payout-stages">
+      <h2>💰 Payout Stages — Where the Money Is</h2>
+      <p>When a buyer pays, the money does not immediately go to the seller or rider. It is held and released in stages as work is confirmed. This protects everyone.</p>
+      <p>There are <strong>two separate payout rows</strong> created for every delivered order: one for the seller, and one for the rider.</p>
+
+      <div class="box box-info"><strong>Think of it like an envelope system.</strong> When payment is confirmed, the money goes into two envelopes — one for the seller, one for the rider. Each envelope is only opened and handed over once the relevant QR is scanned to prove the work was done.</div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Stage</th><th>Whose payout</th><th>Triggered by</th><th>What it means</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="code">pickup_pending_scan</span></td>
+              <td>Seller</td>
+              <td>Payment confirmed</td>
+              <td>Seller's money is locked and waiting. The pickup QR scan has not happened yet.</td>
+            </tr>
+            <tr>
+              <td><span class="code">ready_for_payout</span></td>
+              <td>Seller</td>
+              <td>Rider scans seller's QR at pickup</td>
+              <td>Seller has proven they handed the order to the rider. Their money is now cleared and ready. Staff should process this from the payout queue.</td>
+            </tr>
+            <tr>
+              <td><span class="code">dropoff_pending_scan</span></td>
+              <td>Rider</td>
+              <td>Payment confirmed</td>
+              <td>Rider's delivery fee is locked and waiting. The dropoff QR scan has not happened yet.</td>
+            </tr>
+            <tr>
+              <td><span class="code">ready_for_payout</span></td>
+              <td>Rider</td>
+              <td>Rider scans buyer's QR at dropoff</td>
+              <td>Buyer confirmed receipt. Rider's fee is cleared and ready to send.</td>
+            </tr>
+            <tr>
+              <td><span class="code">payout_initiated</span></td>
+              <td>Both</td>
+              <td>Staff processes payout from queue</td>
+              <td>The payout request has been sent to PawaPay. Waiting for the network to confirm.</td>
+            </tr>
+            <tr>
+              <td><span class="code">payout_paid</span></td>
+              <td>Both</td>
+              <td>PawaPay sends webhook confirmation</td>
+              <td>Money has arrived in the recipient's mobile wallet. Payout is complete.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="box box-warning"><strong>Pending earnings explained:</strong> In the seller or rider's earnings screen, "pending" only shows payouts at <span class="code">ready_for_payout</span> or later — not the early locked stages. This means the number they see is money that has actually been earned and confirmed, not just promised.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="transaction-statuses">
+      <h2>💳 Transaction / Payment Statuses</h2>
+      <p>Every movement of money — whether a buyer paying in, a payout going out, or a refund — is recorded as a Transaction. Transactions have their own status.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>What it means</th><th>What to do</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-orange">pending</span></td>
+              <td>Waiting for confirmation from the mobile network. The prompt has been sent to the user's phone but they have not approved it yet.</td>
+              <td>Wait. It will resolve to completed, failed, or cancelled. If it has been more than 10 minutes, it likely failed silently.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-green">completed</span></td>
+              <td>Confirmed and settled. Money has moved.</td>
+              <td>Nothing to do.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-red">failed</span></td>
+              <td>The payment network rejected it. The failure message field will say why.</td>
+              <td>Read the failure message. Common causes: insufficient balance, wrong number, network error. For deposits: tell the buyer to retry. For payouts: fix the number and retry.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-gray">cancelled</span></td>
+              <td>The user saw the MoMo prompt on their phone and declined it.</td>
+              <td>For deposits: the buyer changed their mind. The order goes back to payment_pending. For payouts: unusual — contact the recipient.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-gray">terminated</span></td>
+              <td>The payment timed out — the user did not respond to the MoMo prompt before it expired.</td>
+              <td>Same as failed — retry.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="verification-statuses">
+      <h2>✅ Verification Statuses</h2>
+      <p>Sellers and riders must be verified before they can operate. Sellers need Tier 1 (and optionally Tier 2) verification. Riders need Delivery verification. Staff review submitted applications and approve or reject them.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>What it means</th><th>What staff see</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-gray">not_started</span></td>
+              <td>User registered but has not submitted any documents yet.</td>
+              <td>Nothing to action — they have not applied.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-orange">submitted</span></td>
+              <td>User has uploaded their documents and is waiting for review. They appear in the staff Verifications queue.</td>
+              <td>Documents to review. Must approve or reject.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-green">approved</span></td>
+              <td>Staff reviewed and approved. The seller can now list products / the rider can now accept deliveries.</td>
+              <td>No action needed. User is active.</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-red">rejected</span></td>
+              <td>Staff rejected the application. The rejection reason is shown to the user in the app so they know what to fix and resubmit.</td>
+              <td>User may resubmit — will appear in queue again when they do.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="box box-info"><strong>Verification types:</strong> <span class="code">seller_tier1</span> — basic seller, required to list products. <span class="code">seller_tier2</span> — advanced tier, higher limits. <span class="code">delivery</span> — rider verification, requires license photos and a live selfie.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="qr-flow">
+      <h2>📱 QR Scan Flow</h2>
+      <p>The QR system is the proof-of-work mechanism. It makes sure money only moves when the right person confirmed the right handoff. Nobody can fake a scan — each QR is unique to the user and expires.</p>
+
+      <h3>The two QR checks</h3>
+      <div class="card">
+        <div class="card-title">1. Pickup QR — Seller's QR</div>
+        <p><strong>Who shows it:</strong> The seller opens the app and shows their identity QR.<br>
+        <strong>Who scans it:</strong> The rider, when they arrive at the seller's location to collect the order.<br>
+        <strong>What it proves:</strong> This specific rider collected from this specific seller. Not a stranger, not someone else's rider.<br>
+        <strong>What it triggers:</strong> Order moves to <span class="code">picked_up</span>. Seller's payout moves to <span class="code">ready_for_payout</span>.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">2. Dropoff QR — Buyer's QR</div>
+        <p><strong>Who shows it:</strong> The buyer opens the app and shows their identity QR when the rider arrives.<br>
+        <strong>Who scans it:</strong> The rider, at the buyer's door.<br>
+        <strong>What it proves:</strong> This specific buyer received this specific order from this specific rider.<br>
+        <strong>What it triggers:</strong> Rider taps "Mark as Delivered". Order moves to <span class="code">delivered</span>. Rider's payout moves to <span class="code">ready_for_payout</span>.</p>
+      </div>
+
+      <h3>What to do if a QR scan fails</h3>
+      <ul>
+        <li>The QR code expires after a set time. If too much time passed, the user must regenerate it (re-open their QR screen in the app).</li>
+        <li>If the rider cannot get the QR to scan, check that the rider is on the correct order and the buyer is showing the right screen.</li>
+        <li>In a genuine emergency (e.g. buyer has no phone battery), an admin can manually advance the order status from Django Admin → Orders. You will also need to manually move the payout stage in Payments → Transactions.</li>
+      </ul>
+
+      <div class="box box-warning"><strong>Never skip the QR.</strong> The QR scan is the only proof that the handoff happened. If you manually advance without it, you are releasing money without confirmation. Only do this if you have spoken to both parties and are certain the delivery occurred.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="admin-accounts">
+      <h2>🗂️ Admin Panel — Accounts</h2>
+
+      <h3>Users</h3>
+      <p>The master list of everyone registered on the platform. This is where you look up any user, change their role, or deactivate them.</p>
+      <ul class="field-list">
+        <li><span class="field-name">Phone number</span><span class="field-desc">Their login. Always stored in international format, e.g. <strong>+260974086484</strong>. This is how users are identified — not by name.</span></li>
+        <li><span class="field-name">Full name</span><span class="field-desc">Display name shown to other users and in order cards.</span></li>
+        <li><span class="field-name">Role</span><span class="field-desc">buyer / seller / delivery / staff / admin. Controls what the user can see and do in the app.</span></li>
+        <li><span class="field-name">Is active</span><span class="field-desc">If unticked, the user cannot log in. Use this to suspend an account without deleting it.</span></li>
+        <li><span class="field-name">Is staff</span><span class="field-desc">Allows access to the Django admin panel. Should only be ticked for trusted staff members.</span></li>
+        <li><span class="field-name">Is superuser</span><span class="field-desc">Full unrestricted admin access. Only for the system owner.</span></li>
+        <li><span class="field-name">FCM token</span><span class="field-desc">The device address for push notifications. Set automatically when the user logs in on a new device. If blank, they will not receive push notifications.</span></li>
+        <li><span class="field-name">QR secret</span><span class="field-desc">The secret key used to generate this user's identity QR code. Do not change this — it will invalidate their QR.</span></li>
+        <li><span class="field-name">Date joined / Last login</span><span class="field-desc">Registration date and the last time they successfully logged in.</span></li>
+      </ul>
+
+      <h3>Buyer Profiles</h3>
+      <ul class="field-list">
+        <li><span class="field-name">User</span><span class="field-desc">The buyer account this profile belongs to.</span></li>
+        <li><span class="field-name">Default delivery address</span><span class="field-desc">Their saved home or preferred drop-off address.</span></li>
+        <li><span class="field-name">Saved payment numbers</span><span class="field-desc">Mobile money numbers they have used for payment.</span></li>
+      </ul>
+
+      <h3>Seller Profiles</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Shop name</span><span class="field-desc">The public name of their store shown to buyers.</span></li>
+        <li><span class="field-name">Shop description</span><span class="field-desc">A short description of what they sell.</span></li>
+        <li><span class="field-name">Tier</span><span class="field-desc">tier1 = basic, can list products. tier2 = advanced, higher limits and features.</span></li>
+        <li><span class="field-name">Province / Town / Area</span><span class="field-desc">Their location — used as the pickup point for deliveries.</span></li>
+        <li><span class="field-name">Verification status</span><span class="field-desc">Current state of their seller verification.</span></li>
+      </ul>
+
+      <h3>Delivery Profiles</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Vehicle type</span><span class="field-desc">bicycle / motorcycle / car / van. Affects ETA estimates.</span></li>
+        <li><span class="field-name">Vehicle make</span><span class="field-desc">Brand of the vehicle, e.g. Toyota. Shown to buyers so they can identify their rider.</span></li>
+        <li><span class="field-name">Vehicle model</span><span class="field-desc">Model name, e.g. Corolla. Shown alongside make.</span></li>
+        <li><span class="field-name">License number</span><span class="field-desc">Their driver's license number.</span></li>
+        <li><span class="field-name">License front / back images</span><span class="field-desc">Photos of their physical license — required for approval.</span></li>
+        <li><span class="field-name">Live verification photo</span><span class="field-desc">A selfie taken at time of application — proves the person submitting is real.</span></li>
+        <li><span class="field-name">Profile photo</span><span class="field-desc">Their delivery profile picture — shown to buyers and sellers.</span></li>
+        <li><span class="field-name">Is available</span><span class="field-desc">Whether the rider is currently online and accepting jobs. They can toggle this in the app.</span></li>
+        <li><span class="field-name">Is approved</span><span class="field-desc">Set by staff after reviewing documents. Only approved riders can accept deliveries.</span></li>
+        <li><span class="field-name">Current location lat/lng</span><span class="field-desc">Their last reported GPS position. Updates while they are on a delivery.</span></li>
+        <li><span class="field-name">Verification status</span><span class="field-desc">not_started / submitted / approved / rejected.</span></li>
+        <li><span class="field-name">Rejection reason</span><span class="field-desc">Written by staff when rejecting — shown to the rider in the app.</span></li>
+      </ul>
+
+      <h3>Verification Requests</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Verification type</span><span class="field-desc">seller_tier1, seller_tier2, or delivery.</span></li>
+        <li><span class="field-name">Status</span><span class="field-desc">submitted / approved / rejected.</span></li>
+        <li><span class="field-name">Rejection reason</span><span class="field-desc">This text is shown directly to the user. Write clearly and specifically — "License photo blurry, please retake" is better than "Documents not acceptable".</span></li>
+        <li><span class="field-name">Reviewed by</span><span class="field-desc">Which staff member made the decision. Auto-filled when you approve/reject in the staff app.</span></li>
+        <li><span class="field-name">Submitted at / Reviewed at</span><span class="field-desc">When the user applied and when staff acted on it.</span></li>
+      </ul>
+
+      <h3>Phone OTPs</h3>
+      <p>One-time passwords sent to users for login. You do not normally need to touch these. If a user says they never received their OTP, you can look up their number here to see if one was generated.</p>
+
+      <h3>Error Logs</h3>
+      <p>System errors that were caught and logged. Useful for debugging problems. If a user reports something went wrong, check this table around the time of the issue.</p>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="admin-orders">
+      <h2>🗂️ Admin Panel — Orders</h2>
+
+      <h3>Orders</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Order number</span><span class="field-desc">Human-readable reference like <strong>ORD9D4F0BC6</strong>. Use this when communicating with buyers and sellers about a specific order.</span></li>
+        <li><span class="field-name">Buyer / Seller</span><span class="field-desc">The two parties in this order.</span></li>
+        <li><span class="field-name">Status</span><span class="field-desc">Current stage in the order lifecycle. See Order Statuses section above.</span></li>
+        <li><span class="field-name">Total price</span><span class="field-desc">The full amount the buyer paid including delivery fee.</span></li>
+        <li><span class="field-name">Delivery fee</span><span class="field-desc">The portion of the total that goes to the delivery rider.</span></li>
+        <li><span class="field-name">Delivery address</span><span class="field-desc">Where the buyer wants the order dropped off.</span></li>
+        <li><span class="field-name">Pickup location</span><span class="field-desc">The seller's address — where the rider goes to collect.</span></li>
+        <li><span class="field-name">Created at</span><span class="field-desc">When the buyer placed the order.</span></li>
+      </ul>
+
+      <h3>Order Items</h3>
+      <p>The individual products inside an order. Each row is one product line.</p>
+      <ul class="field-list">
+        <li><span class="field-name">Product / Variant</span><span class="field-desc">What was ordered.</span></li>
+        <li><span class="field-name">Quantity</span><span class="field-desc">How many of this item.</span></li>
+        <li><span class="field-name">Unit price</span><span class="field-desc">The price <strong>at the time of order</strong>. This is locked in — even if the seller later changes their product price, this number does not change.</span></li>
+      </ul>
+
+      <h3>Cancellation Requests</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Requested by</span><span class="field-desc">Whether the buyer or seller asked to cancel.</span></li>
+        <li><span class="field-name">Reason</span><span class="field-desc">Their stated reason.</span></li>
+        <li><span class="field-name">Status</span><span class="field-desc">pending / approved / rejected. Staff review these.</span></li>
+      </ul>
+
+      <h3>Carts / Cart Items</h3>
+      <p>Items buyers have added to their cart but not yet ordered. These are read-only reference data — you rarely need to touch them.</p>
+
+      <h3>Order Ratings</h3>
+      <p>Star ratings and comments buyers leave after receiving their orders. Visible to sellers and on product pages.</p>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="admin-payments">
+      <h2>🗂️ Admin Panel — Payments &amp; Transactions</h2>
+      <p>This is the most important section for staff. Every movement of money is recorded here.</p>
+
+      <h3>Transaction Types</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Direction</th><th>What it represents</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-blue">Deposit</span></td><td>Buyer → Platform</td><td>A buyer paying for an order via MoMo. The money comes in and is held until the order is fulfilled.</td></tr>
+            <tr><td><span class="badge badge-green">Payout</span></td><td>Platform → Seller or Rider</td><td>Sending earned money out to a seller (for selling) or rider (for delivering).</td></tr>
+            <tr><td><span class="badge badge-orange">Refund</span></td><td>Platform → Buyer</td><td>Returning money to a buyer after a cancellation or dispute.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Every field on a Transaction record</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Order</span><span class="field-desc">Which order this money belongs to. Click it to jump to the order record.</span></li>
+        <li><span class="field-name">Transaction type</span><span class="field-desc">Deposit, Payout, or Refund — see table above.</span></li>
+        <li><span class="field-name">Amount</span><span class="field-desc">How much money, in ZMW.</span></li>
+        <li><span class="field-name">Currency</span><span class="field-desc">Always ZMW (Zambian Kwacha) for now.</span></li>
+        <li><span class="field-name">Provider</span><span class="field-desc">Which mobile network: <strong>MTN_MOMO_ZMB</strong>, <strong>AIRTEL_OAPI_ZMB</strong>, or <strong>ZAMTEL_MONEY_ZMB</strong>. Determined by the phone number prefix.</span></li>
+        <li><span class="field-name">Payer number</span><span class="field-desc">For deposits: the buyer's number money came FROM. For payouts/refunds: the number money is going TO.</span></li>
+        <li><span class="field-name">Recipient</span><span class="field-desc">For payouts: the seller or rider user account that will receive the money. Empty for deposits.</span></li>
+        <li><span class="field-name">Recipient role</span><span class="field-desc">"seller" or "delivery" — for payouts only. Determines which earnings bucket the payment goes into.</span></li>
+        <li><span class="field-name">Payout stage</span><span class="field-desc">Where this payout is in the pipeline. Only relevant for payout transactions — see Payout Stages section above. For deposits this shows "Not Applicable".</span></li>
+        <li><span class="field-name">Trigger event</span><span class="field-desc"><strong>Manual</strong> = a staff member or user created this; <strong>pickup_qr</strong> = the pickup scan triggered it; <strong>dropoff_qr</strong> = the dropoff scan triggered it.</span></li>
+        <li><span class="field-name">Payout method</span><span class="field-desc"><strong>Manual</strong> = staff physically sends from the platform's own phone. <strong>Auto</strong> = system sends via PawaPay API automatically.</span></li>
+        <li><span class="field-name">Failure message</span><span class="field-desc">If the transaction failed, PawaPay's error reason is recorded here. Read this to understand what went wrong.</span></li>
+        <li><span class="field-name">Marked paid by</span><span class="field-desc">If staff manually confirmed the payment, their username is recorded here.</span></li>
+        <li><span class="field-name">Marked paid at</span><span class="field-desc">The date and time the manual confirmation was made. Note: the server is 2 hours behind your local time — adjust when reading timestamps.</span></li>
+        <li><span class="field-name">Payout notes</span><span class="field-desc">A free-text notes field for staff. Use it to record what you did — e.g. "Called recipient, confirmed received on 20 June at 14:00".</span></li>
+        <li><span class="field-name">Status</span><span class="field-desc">pending / completed / failed / cancelled / terminated — see Transaction Statuses section.</span></li>
+        <li><span class="field-name">Transaction ID</span><span class="field-desc">A unique UUID like <strong>5dba45c0-8fba-407a-a397-d5eefdaeb3b8</strong>. Give this to PawaPay support when reporting an issue with a specific payment.</span></li>
+        <li><span class="field-name">Created at / Updated at</span><span class="field-desc">When the transaction was created and last modified.</span></li>
+      </ul>
+
+      <div class="box box-info"><strong>Server time note:</strong> The admin panel says "You are 2 hours ahead of server time." This means if you set "Marked paid at" to now, the server will record it as 2 hours earlier. Always check this note when reading timestamps — add 2 hours to get your local time.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="admin-delivery">
+      <h2>🗂️ Admin Panel — Delivery</h2>
+
+      <h3>Delivery Assignments</h3>
+      <p>One row per delivery. Created when a rider accepts an order.</p>
+      <ul class="field-list">
+        <li><span class="field-name">Order / Rider</span><span class="field-desc">Which order and which rider.</span></li>
+        <li><span class="field-name">Status</span><span class="field-desc">accepted / picked_up / in_transit / delivered.</span></li>
+        <li><span class="field-name">Pickup / Delivery location</span><span class="field-desc">Start and end GPS coordinates.</span></li>
+        <li><span class="field-name">Current location</span><span class="field-desc">Rider's last known GPS position.</span></li>
+        <li><span class="field-name">Assigned / Accepted / Picked up / Delivered at</span><span class="field-desc">Timestamps for each stage of the delivery.</span></li>
+        <li><span class="field-name">Estimated distance / duration</span><span class="field-desc">Calculated at time of assignment.</span></li>
+        <li><span class="field-name">Route coordinates</span><span class="field-desc">The full path the rider took, stored as a JSON array of GPS points.</span></li>
+        <li><span class="field-name">Reroute count</span><span class="field-desc">How many times the route was recalculated mid-delivery.</span></li>
+        <li><span class="field-name">Final ETA error</span><span class="field-desc">How many minutes off the ETA estimate was. Used to improve future estimates.</span></li>
+      </ul>
+
+      <h3>Delivery Zones</h3>
+      <p>Geographic areas with their own pricing rules.</p>
+      <ul class="field-list">
+        <li><span class="field-name">Base rate</span><span class="field-desc">Flat fee charged for any delivery in this zone, regardless of distance.</span></li>
+        <li><span class="field-name">Per km rate</span><span class="field-desc">Additional fee per kilometre on top of the base rate.</span></li>
+        <li><span class="field-name">Is active</span><span class="field-desc">If unticked, deliveries in this zone are not accepted.</span></li>
+      </ul>
+
+      <h3>Delivery Pricing Config</h3>
+      <p>Global pricing overrides — minimum and maximum delivery fees, and whether any zones are overriding global rules.</p>
+
+      <h3>Delivery Speed Profiles</h3>
+      <p>The assumed average speed for each vehicle type (bicycle, motorcycle, car, van). Used to calculate ETAs. You can adjust these if real-world delivery times are consistently off.</p>
+
+      <h3>Delivery Trackings</h3>
+      <p>Raw GPS logs. Every few seconds while a rider is on a delivery, their location is recorded here. This is a large table — do not try to browse it manually. Use it only for investigating a specific disputed delivery.</p>
+
+      <h3>Delivery Telemetry Segments</h3>
+      <p>Aggregated summaries of tracking data by trip segment. More readable than raw trackings for audit purposes.</p>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="admin-notifications">
+      <h2>🗂️ Admin Panel — Notifications</h2>
+
+      <h3>Notifications</h3>
+      <p>Every in-app notification ever sent. Each row is one notification delivered to one user.</p>
+      <ul class="field-list">
+        <li><span class="field-name">Recipient</span><span class="field-desc">Which user received this.</span></li>
+        <li><span class="field-name">Type</span><span class="field-desc">The category — e.g. order_placed, payment_completed, payout_completed, delivery_assigned.</span></li>
+        <li><span class="field-name">Title / Message</span><span class="field-desc">What was shown to the user.</span></li>
+        <li><span class="field-name">Is read</span><span class="field-desc">Whether the user has opened it.</span></li>
+        <li><span class="field-name">Data payload</span><span class="field-desc">Technical JSON data the app uses to know where to navigate when the notification is tapped.</span></li>
+      </ul>
+
+      <h3>Announcements</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Target audience</span><span class="field-desc">all / buyers / sellers / delivery — who receives this announcement.</span></li>
+        <li><span class="field-name">Is sent</span><span class="field-desc">Once this is ticked, the announcement has been broadcast. <strong>You cannot unsend it.</strong></span></li>
+        <li><span class="field-name">Sent count</span><span class="field-desc">How many users received the notification.</span></li>
+      </ul>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="admin-products">
+      <h2>🗂️ Admin Panel — Products</h2>
+
+      <h3>Products</h3>
+      <ul class="field-list">
+        <li><span class="field-name">Name / Description</span><span class="field-desc">What the product is called and described to buyers.</span></li>
+        <li><span class="field-name">Price</span><span class="field-desc">Base price in ZMW.</span></li>
+        <li><span class="field-name">Seller</span><span class="field-desc">Which seller listed this product.</span></li>
+        <li><span class="field-name">Stock quantity</span><span class="field-desc">How many units available. If 0, buyers cannot order.</span></li>
+        <li><span class="field-name">Is active</span><span class="field-desc">If unticked, the product is hidden from buyers even if it has stock. Use this to temporarily hide a listing.</span></li>
+      </ul>
+
+      <h3>Product Variants</h3>
+      <p>Different versions of the same product — e.g. a shirt in size Small, Medium, or Large. Each variant can have its own price and stock count.</p>
+
+      <h3>Promo Banners</h3>
+      <p>The image banners shown at the top of the buyer home screen. Each banner has an image, a title, a subtitle, and a destination link. You can set the display order and toggle each one on or off.</p>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="admin-portal">
+      <h2>🗂️ Admin Panel — Portal &amp; Settings</h2>
+
+      <h3>Platform Settings</h3>
+      <p>System-wide configuration. Changes here affect the entire platform immediately.</p>
+      <ul class="field-list">
+        <li><span class="field-name">Maintenance mode</span><span class="field-desc">If enabled, the app shows a maintenance screen to all users and no new orders can be placed.</span></li>
+        <li><span class="field-name">PawaPay API key</span><span class="field-desc">The API credentials for the payment provider. <strong>Do not change these unless you know what you are doing.</strong> Wrong values will break all payments.</span></li>
+        <li><span class="field-name">Environment</span><span class="field-desc">Sandbox = test mode (no real money moves). Live = production (real money). Should always be Live unless doing testing.</span></li>
+        <li><span class="field-name">Delivery enabled</span><span class="field-desc">If turned off, no delivery orders can be placed.</span></li>
+        <li><span class="field-name">Min order value</span><span class="field-desc">Buyers cannot place orders below this amount.</span></li>
+        <li><span class="field-name">Platform fee %</span><span class="field-desc">The percentage the platform takes from each order before paying out the seller.</span></li>
+      </ul>
+
+      <h3>Revenue Snapshots</h3>
+      <p>Auto-generated daily and weekly summaries of financial activity. Read-only — you cannot edit these. Shows total deposits, total payouts, total refunds, and net revenue for each period.</p>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="how-payout">
+      <h2>📋 How to Process a Payout</h2>
+      <p>A payout is when you send earned money to a seller or rider. This should be done as soon as items appear in the payout queue.</p>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Open the Staff App and check the Payout Queue number.</strong><p>If it shows a number greater than zero, there are payouts waiting. Tap the Payout Queue card.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Review each payout in the list.</strong><p>For each one you will see: the order number, the recipient's name and phone, the amount, and the currency. Confirm the phone number looks correct before sending.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Send the money.</strong><p>If the payout method is <strong>Manual</strong>, you physically send the money from the platform's mobile money account to the recipient's number. If it is <strong>Auto</strong>, tap "Process" and the system sends it via PawaPay.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Mark it as paid.</strong><p>In the admin panel (Payments → Transactions), find the transaction, set Status to <strong>Completed</strong>, set <strong>Marked paid by</strong> to your username, set <strong>Marked paid at</strong> to now, and write a note in <strong>Payout notes</strong>. Save.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Confirm with the recipient (optional but recommended).</strong><p>For large payouts, call or message the recipient to confirm they received it. Note the confirmation in Payout notes.</p></div></div>
+      </div>
+
+      <div class="box box-danger"><strong>If a payout fails:</strong> Read the Failure message on the transaction. Common causes: wrong number, unregistered MoMo account, network error. Contact the recipient to verify their number, correct it in the transaction record, and retry. Never mark a failed payout as completed.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="how-refund">
+      <h2>📋 How to Do a Manual Refund</h2>
+      <p>A refund returns money to a buyer. This is needed when an order is cancelled after payment was confirmed, or after a dispute is resolved in the buyer's favour.</p>
+
+      <h3>When to issue a refund</h3>
+      <ul>
+        <li>Order was cancelled and the buyer had already paid</li>
+        <li>Order was delivered but items were wrong or missing and buyer has a valid complaint</li>
+        <li>Duplicate charge — buyer was charged twice</li>
+        <li>Rider collected but never delivered and the order cannot be re-delivered</li>
+      </ul>
+
+      <h3>When NOT to refund without investigation</h3>
+      <ul>
+        <li>Buyer says they did not receive the order but QR scan confirms delivery happened — investigate first</li>
+        <li>Buyer changed their mind after the seller has already accepted and started preparing</li>
+      </ul>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Find the original deposit transaction.</strong><p>Go to Admin Panel → Payments → Transactions. Filter by transaction type = Deposit and search for the order number or buyer's phone number. Find the completed deposit for the order in question.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Note the buyer's phone number and the amount paid.</strong><p>The payer number on the deposit is who you are refunding to. The amount is what you are refunding (full or partial).</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Create a new Refund transaction.</strong><p>In Admin → Payments → Transactions → Add Transaction. Set: Transaction type = <strong>Refund</strong>, Order = the same order, Amount = refund amount, Payer number = buyer's phone, Status = <strong>Pending</strong>, Payout method = Manual or Auto. Save.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Send the refund.</strong><p>If manual: send money from the platform account to the buyer's number. If auto: trigger via PawaPay.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Update the refund transaction to Completed.</strong><p>Set Status = Completed, fill in Marked paid by and Marked paid at, add a note explaining the reason for the refund. Save.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Update the order status if needed.</strong><p>If the order is still showing as pending or accepted, set it to Cancelled in Admin → Orders so it no longer appears in seller and rider queues.</p></div></div>
+      </div>
+
+      <div class="box box-info"><strong>Partial refund:</strong> If you are only refunding part of the amount (e.g. one item was missing but others were delivered), enter the partial amount on the refund transaction and note the reason clearly in Payout notes.</div>
+      <div class="box box-warning"><strong>What the buyer sees:</strong> After you process the refund, the buyer gets a push notification saying their refund has been processed. They will see it arrive in their MoMo wallet within minutes (for MTN and Airtel) or up to a few hours (Zamtel).</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="how-verification">
+      <h2>📋 How to Review a Verification</h2>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Open the Verifications queue in the staff app.</strong><p>It shows all submitted applications waiting for review. Tap one to open it.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Check each document carefully.</strong>
+          <p>For <strong>sellers</strong>: check their shop details are complete and real.<br>
+          For <strong>riders</strong>: check all four of these:</p>
+          <ul>
+            <li>License front image — must be clear, all text readable, not expired</li>
+            <li>License back image — same standards</li>
+            <li>Live verification photo — must be a clear selfie of a real person, not a photo of a photo</li>
+            <li>Profile photo — optional but helpful</li>
+          </ul>
+        </div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Approve or reject.</strong><p>If everything looks good: tap Approve. The user is immediately able to start operating.<br>If something is wrong: tap Reject. <strong>You must write a clear rejection reason.</strong> This is shown directly to the user — be specific about what they need to fix.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>The user is notified automatically.</strong><p>They receive a push notification telling them the result. If rejected, they can fix the issue and resubmit — it will appear in your queue again.</p></div></div>
+      </div>
+
+      <h3>Good rejection reason examples</h3>
+      <ul>
+        <li>"License photo is too dark — please retake in good lighting with all text clearly visible"</li>
+        <li>"License back image is missing — please upload a photo of the back of your license"</li>
+        <li>"Live verification photo does not show your face clearly — please take a front-facing selfie"</li>
+        <li>"License appears to be expired — please upload a valid current license"</li>
+      </ul>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="how-announcement">
+      <h2>📋 How to Send an Announcement</h2>
+
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Go to Admin Panel → Notifications → Announcements → Add.</strong></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Write your title and message.</strong><p>Keep the title short (under 60 characters). The message should be clear and direct.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Set the target audience.</strong><p>All = everyone. Buyers only = people who shop. Sellers only = shop owners. Delivery = riders only.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Save. The announcement sends automatically.</strong><p>Once saved, push notifications go out to all targeted users immediately. The in-app notification also appears in their notification list.</p></div></div>
+      </div>
+
+      <div class="box box-danger"><strong>You cannot unsend an announcement.</strong> Once saved, it is delivered. Double-check your message and audience before saving.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="how-deactivate">
+      <h2>📋 How to Deactivate a User</h2>
+      <div class="steps">
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Go to Admin Panel → Accounts → Users.</strong></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Search by phone number and open the user record.</strong></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Untick "Is active" and save.</strong><p>The user is immediately logged out on all devices and cannot log back in.</p></div></div>
+        <div class="step"><div class="step-num"></div><div class="step-body"><strong>Handle any open orders.</strong><p>Check if they have any active orders. Cancel them manually and issue refunds if needed.</p></div></div>
+      </div>
+      <div class="box box-info">To re-activate, tick "Is active" again and save. Their data is preserved.</div>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="how-lookup">
+      <h2>📋 How to Look Up an Order or Transaction</h2>
+      <p>When a user contacts you about a problem, here is the fastest way to find what you need.</p>
+
+      <h3>To find an order</h3>
+      <ol>
+        <li>Admin → Orders → Orders</li>
+        <li>Search by the <strong>order number</strong> (e.g. ORD9D4F0BC6) or filter by buyer/seller phone</li>
+        <li>Click the order to see full details including items, status, and delivery</li>
+      </ol>
+
+      <h3>To find a payment</h3>
+      <ol>
+        <li>Admin → Payments → Transactions</li>
+        <li>Search by the <strong>Transaction ID</strong> (UUID) if you have it, or filter by payer number / order</li>
+        <li>If the user says "I paid but nothing happened", filter by payer number and sort by created date — look for a pending or failed deposit</li>
+      </ol>
+
+      <h3>To find a user</h3>
+      <ol>
+        <li>Admin → Accounts → Users</li>
+        <li>Search by phone number (include the country code: +260)</li>
+      </ol>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="problems">
+      <h2>🔧 Common Problems and Fixes</h2>
+
+      <ul class="problem-list">
+        <li>
+          <div class="q">🔴 Buyer says they paid but the order is still showing "payment pending"</div>
+          <div class="a"><strong>Check:</strong> Admin → Payments → Transactions. Filter by the buyer's phone number. If there is a <strong>failed</strong> or <strong>cancelled</strong> deposit, the payment did not go through. Tell the buyer to retry. If there is a <strong>completed</strong> deposit but the order is still payment_pending, there may be a webhook issue — contact technical support.</div>
+        </li>
+        <li>
+          <div class="q">🔴 Seller says they never received a notification for a new order</div>
+          <div class="a"><strong>Check:</strong> Admin → Accounts → Users → find the seller → check if their FCM token field is filled. If blank, they have not logged in recently and their notification address is missing — ask them to log out and back in on their device.</div>
+        </li>
+        <li>
+          <div class="q">🔴 Order is stuck at "out_for_delivery" — no rider is picking it up</div>
+          <div class="a"><strong>Check:</strong> Are any riders online? Check Admin → Accounts → Delivery Profiles → filter by Is available = true. If no riders are online in the area, contact riders to come online. If the issue persists, the order may need to be manually re-offered.</div>
+        </li>
+        <li>
+          <div class="q">🔴 Payout failed — what do I do?</div>
+          <div class="a"><strong>Check:</strong> The Failure message field on the transaction. Most common causes:<br>
+          • "Invalid recipient number" — wrong or unregistered number. Contact the recipient to confirm their MoMo-registered number, update the Payer number field, and retry.<br>
+          • "Insufficient funds in platform account" — the platform's MoMo account is low. Top it up and retry.<br>
+          • "Network error" — temporary network issue. Wait a few minutes and retry.</div>
+        </li>
+        <li>
+          <div class="q">🔴 Rider cannot scan the QR code</div>
+          <div class="a">The token may have expired. Ask the seller or buyer to close and re-open their QR screen in the app to regenerate it. If the problem persists, check Admin → Delivery → Delivery assignments for that order — the assignment must be in the correct status for the scan to be accepted.</div>
+        </li>
+        <li>
+          <div class="q">🔴 User says they are locked out / cannot log in</div>
+          <div class="a">Check Admin → Accounts → Users → find the user → confirm "Is active" is ticked. If it is ticked but they still cannot log in, check Admin → Token Blacklist → Outstanding tokens to see if their session was invalidated. Ask them to use OTP login to get a fresh token.</div>
+        </li>
+        <li>
+          <div class="q">🔴 Rider's earnings show as zero even after completing deliveries</div>
+          <div class="a">Check Admin → Payments → Transactions → filter by recipient = that rider. If payout rows exist but are at pickup_pending_scan or dropoff_pending_scan, the QR was not scanned. If the delivery genuinely happened, you can manually advance the payout stage to ready_for_payout and then process the payout.</div>
+        </li>
+        <li>
+          <div class="q">🔴 Buyer received wrong items — wants a refund</div>
+          <div class="a">Investigate: confirm the order items against what was delivered. If the seller's fault: issue a refund to the buyer (see Refund guide), and contact the seller. The seller's payout for that order should be held until resolved. If disputed: get evidence from both sides before deciding.</div>
+        </li>
+      </ul>
+    </section>
+
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="glossary">
+      <h2>📖 Glossary</h2>
+      <dl class="glossary">
+        <dt>PawaPay</dt><dd>The payment processing company that handles all mobile money transactions on the platform. They connect to MTN, Airtel, and Zamtel networks.</dd>
+        <dt>MoMo / Mobile Money</dt><dd>A way to send and receive money using a mobile phone number — like MTN Mobile Money, Airtel Money, or Zamtel Kwacha.</dd>
+        <dt>Webhook</dt><dd>An automatic message sent by PawaPay to the platform when a payment status changes. For example, when a buyer's MoMo payment goes through, PawaPay sends a webhook to tell the system — the order then moves from payment_pending to pending.</dd>
+        <dt>FCM Token</dt><dd>A unique address for a specific app installation on a specific phone. The system uses it to send push notifications. It changes if the user reinstalls the app.</dd>
+        <dt>QR Secret</dt><dd>A private key stored on each user's account. Used to generate their identity QR code. Never share this with anyone.</dd>
+        <dt>Escrow</dt><dd>Money that is held safely by a neutral party until certain conditions are met. On Pocket Shop, buyer payments are held in escrow until the order is delivered — then released to seller and rider.</dd>
+        <dt>Payout Stage</dt><dd>The current step in the process of releasing held money to a seller or rider. Moves from locked → confirmed → sent → received.</dd>
+        <dt>Delivery Assignment</dt><dd>The record created when a rider accepts a delivery. Tracks the rider's progress from pickup to dropoff.</dd>
+        <dt>Handoff</dt><dd>The physical act of exchanging the order — either from seller to rider (pickup handoff) or from rider to buyer (dropoff handoff). Both are confirmed by QR scan.</dd>
+        <dt>UUID</dt><dd>A long unique ID like "5dba45c0-8fba-407a-a397-d5eefdaeb3b8". Used as transaction IDs and other system references. Paste these when contacting support.</dd>
+        <dt>Tier 1 / Tier 2 (Seller)</dt><dd>Verification levels for sellers. Tier 1 is required to list any products. Tier 2 unlocks higher product limits and additional features.</dd>
+        <dt>Sandbox</dt><dd>A test mode for payments where no real money moves. Used during development. The platform should always be in Live mode in production.</dd>
+        <dt>ETA</dt><dd>Estimated Time of Arrival — how long the system thinks a delivery will take, calculated from the rider's location and speed profile.</dd>
+        <dt>E.164</dt><dd>The international phone number format used in the system. Zambian numbers look like +260974086484.</dd>
+      </dl>
+    </section>
+
+
+  </div>
+</div>
+</div>
+
+<script>
+  // Highlight active nav item on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navItems = document.querySelectorAll('.nav-item');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navItems.forEach(n => n.classList.remove('active'));
+        const active = document.querySelector('.nav-item[href="#' + e.target.id + '"]');
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

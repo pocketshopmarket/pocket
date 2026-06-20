@@ -122,6 +122,11 @@ class StaffStatsView(APIView):
             status='failed',
         ).count()
 
+        from accounts.models import User as _User
+        buyer_count = _User.objects.filter(role='buyer', is_active=True).count()
+        seller_count = _User.objects.filter(role='seller', is_active=True).count()
+        rider_count = _User.objects.filter(role='delivery', is_active=True).count()
+
         return Response({
             'payout_queue_count': payout_queue_count,
             'withdrawal_count': withdrawal_count,
@@ -129,6 +134,9 @@ class StaffStatsView(APIView):
             'refund_count': refund_count,
             'today_revenue': str(today_deposits),
             'failed_payouts_count': failed_payouts_count,
+            'buyer_count': buyer_count,
+            'seller_count': seller_count,
+            'rider_count': rider_count,
         })
 
 

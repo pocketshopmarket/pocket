@@ -358,11 +358,11 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
       setState(() => _busy = false);
       if (!mounted) return;
       await _showScanSuccess(
-        icon: Icons.check_circle_rounded,
+        icon: Icons.how_to_reg_rounded,
         color: AppTheme.success,
-        title: 'Delivery confirmed!',
-        subtitle: 'Buyer QR verified. Order marked as delivered.',
-        action: 'Done',
+        title: 'Buyer identity verified',
+        subtitle: 'The buyer\'s QR matches. Tap the button below to officially mark this order as delivered.',
+        action: 'Mark as Delivered',
       );
       if (!mounted) return;
       await _setStatus('delivered');

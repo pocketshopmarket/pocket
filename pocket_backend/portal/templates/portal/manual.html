@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pocket Shop — System Manual</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
   :root {
     --cyan: #06b6d4;
@@ -75,7 +76,7 @@
   .card-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
   .role-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
   .role-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
-  .role-icon { font-size: 28px; margin-bottom: 8px; }
+  .role-icon { width: 38px; height: 38px; border-radius: 8px; background: #e0f2fe; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #0891b2; margin-bottom: 10px; }
   .role-card h3 { margin: 0 0 6px; font-size: 15px; }
   .role-card ul { padding-left: 16px; }
   .role-card ul li { font-size: 13px; margin-bottom: 3px; }
@@ -175,37 +176,37 @@
   </div>
 
   <div class="nav-section">Getting Started</div>
-  <a class="nav-item" href="#roles">User Roles</a>
-  <a class="nav-item" href="#dashboard">Dashboard</a>
+  <a class="nav-item" href="#roles"><i class="fa-solid fa-users fa-fw" style="margin-right:7px;"></i>User Roles</a>
+  <a class="nav-item" href="#dashboard"><i class="fa-solid fa-gauge fa-fw" style="margin-right:7px;"></i>Dashboard</a>
 
   <div class="nav-section">Order Flow</div>
-  <a class="nav-item" href="#order-statuses">Order Statuses</a>
-  <a class="nav-item" href="#delivery-statuses">Delivery Statuses</a>
-  <a class="nav-item" href="#payout-stages">Payout Stages</a>
-  <a class="nav-item" href="#transaction-statuses">Transaction Statuses</a>
-  <a class="nav-item" href="#verification-statuses">Verification Statuses</a>
-  <a class="nav-item" href="#qr-flow">QR Scan Flow</a>
+  <a class="nav-item" href="#order-statuses"><i class="fa-solid fa-box fa-fw" style="margin-right:7px;"></i>Order Statuses</a>
+  <a class="nav-item" href="#delivery-statuses"><i class="fa-solid fa-motorcycle fa-fw" style="margin-right:7px;"></i>Delivery Statuses</a>
+  <a class="nav-item" href="#payout-stages"><i class="fa-solid fa-money-bill-transfer fa-fw" style="margin-right:7px;"></i>Payout Stages</a>
+  <a class="nav-item" href="#transaction-statuses"><i class="fa-solid fa-credit-card fa-fw" style="margin-right:7px;"></i>Transaction Statuses</a>
+  <a class="nav-item" href="#verification-statuses"><i class="fa-solid fa-circle-check fa-fw" style="margin-right:7px;"></i>Verification Statuses</a>
+  <a class="nav-item" href="#qr-flow"><i class="fa-solid fa-qrcode fa-fw" style="margin-right:7px;"></i>QR Scan Flow</a>
 
   <div class="nav-section">Admin Panel</div>
-  <a class="nav-item" href="#admin-accounts">Accounts</a>
-  <a class="nav-item" href="#admin-orders">Orders</a>
-  <a class="nav-item" href="#admin-payments">Payments &amp; Transactions</a>
-  <a class="nav-item" href="#admin-delivery">Delivery</a>
-  <a class="nav-item" href="#admin-notifications">Notifications</a>
-  <a class="nav-item" href="#admin-products">Products</a>
-  <a class="nav-item" href="#admin-portal">Portal &amp; Settings</a>
+  <a class="nav-item" href="#admin-accounts"><i class="fa-solid fa-folder-open fa-fw" style="margin-right:7px;"></i>Accounts</a>
+  <a class="nav-item" href="#admin-orders"><i class="fa-solid fa-folder-open fa-fw" style="margin-right:7px;"></i>Orders</a>
+  <a class="nav-item" href="#admin-payments"><i class="fa-solid fa-folder-open fa-fw" style="margin-right:7px;"></i>Payments &amp; Transactions</a>
+  <a class="nav-item" href="#admin-delivery"><i class="fa-solid fa-folder-open fa-fw" style="margin-right:7px;"></i>Delivery</a>
+  <a class="nav-item" href="#admin-notifications"><i class="fa-solid fa-folder-open fa-fw" style="margin-right:7px;"></i>Notifications</a>
+  <a class="nav-item" href="#admin-products"><i class="fa-solid fa-folder-open fa-fw" style="margin-right:7px;"></i>Products</a>
+  <a class="nav-item" href="#admin-portal"><i class="fa-solid fa-folder-open fa-fw" style="margin-right:7px;"></i>Portal &amp; Settings</a>
 
   <div class="nav-section">How-To Guides</div>
-  <a class="nav-item" href="#how-payout">Process a Payout</a>
-  <a class="nav-item" href="#how-refund">Do a Manual Refund</a>
-  <a class="nav-item" href="#how-verification">Review a Verification</a>
-  <a class="nav-item" href="#how-announcement">Send an Announcement</a>
-  <a class="nav-item" href="#how-deactivate">Deactivate a User</a>
-  <a class="nav-item" href="#how-lookup">Look Up an Order</a>
+  <a class="nav-item" href="#how-payout"><i class="fa-solid fa-list-check fa-fw" style="margin-right:7px;"></i>Process a Payout</a>
+  <a class="nav-item" href="#how-refund"><i class="fa-solid fa-list-check fa-fw" style="margin-right:7px;"></i>Do a Manual Refund</a>
+  <a class="nav-item" href="#how-verification"><i class="fa-solid fa-list-check fa-fw" style="margin-right:7px;"></i>Review a Verification</a>
+  <a class="nav-item" href="#how-announcement"><i class="fa-solid fa-list-check fa-fw" style="margin-right:7px;"></i>Send an Announcement</a>
+  <a class="nav-item" href="#how-deactivate"><i class="fa-solid fa-list-check fa-fw" style="margin-right:7px;"></i>Deactivate a User</a>
+  <a class="nav-item" href="#how-lookup"><i class="fa-solid fa-list-check fa-fw" style="margin-right:7px;"></i>Look Up an Order</a>
 
   <div class="nav-section">Reference</div>
-  <a class="nav-item" href="#problems">Common Problems</a>
-  <a class="nav-item" href="#glossary">Glossary</a>
+  <a class="nav-item" href="#problems"><i class="fa-solid fa-wrench fa-fw" style="margin-right:7px;"></i>Common Problems</a>
+  <a class="nav-item" href="#glossary"><i class="fa-solid fa-book fa-fw" style="margin-right:7px;"></i>Glossary</a>
 </nav>
 
 <!-- ── Main ── -->
@@ -223,12 +224,12 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="roles">
-      <h2>👤 User Roles</h2>
+      <h2><i class="fa-solid fa-users" style="margin-right:10px;color:#0891b2;"></i>User Roles</h2>
       <p>Every person who uses Pocket Shop has one role. The role decides what they can see and do in the app. Roles are set when a user registers and can only be changed by an admin.</p>
 
       <div class="role-grid">
         <div class="role-card">
-          <div class="role-icon">🛍️</div>
+          <div class="role-icon"><i class="fa-solid fa-bag-shopping"></i></div>
           <h3>Buyer</h3>
           <ul>
             <li>Browse and search products</li>
@@ -241,7 +242,7 @@
           <div class="role-cannot"><small>Cannot: list products, accept orders, do deliveries</small></div>
         </div>
         <div class="role-card">
-          <div class="role-icon">🏪</div>
+          <div class="role-icon"><i class="fa-solid fa-store"></i></div>
           <h3>Seller</h3>
           <ul>
             <li>List and manage products</li>
@@ -253,7 +254,7 @@
           <div class="role-cannot"><small>Must complete Tier 1 verification before listing. Tier 2 unlocks higher limits.</small></div>
         </div>
         <div class="role-card">
-          <div class="role-icon">🛵</div>
+          <div class="role-icon"><i class="fa-solid fa-motorcycle"></i></div>
           <h3>Rider</h3>
           <ul>
             <li>Go online/offline</li>
@@ -264,7 +265,7 @@
           <div class="role-cannot"><small>Must complete Delivery verification before accepting jobs.</small></div>
         </div>
         <div class="role-card">
-          <div class="role-icon">🧑‍💼</div>
+          <div class="role-icon"><i class="fa-solid fa-user-tie"></i></div>
           <h3>Staff</h3>
           <ul>
             <li>Process payout queue</li>
@@ -276,7 +277,7 @@
           <div class="role-cannot"><small>Uses the staff app. Does NOT have Django admin access by default.</small></div>
         </div>
         <div class="role-card">
-          <div class="role-icon">⚙️</div>
+          <div class="role-icon"><i class="fa-solid fa-shield-halved"></i></div>
           <h3>Admin</h3>
           <ul>
             <li>Everything Staff can do</li>
@@ -303,7 +304,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="dashboard">
-      <h2>📊 The Staff Dashboard</h2>
+      <h2><i class="fa-solid fa-gauge" style="margin-right:10px;color:#0891b2;"></i>The Staff Dashboard</h2>
       <p>The staff app home screen shows live numbers about what needs attention right now. Here is what every number means.</p>
 
       <div class="card">
@@ -339,7 +340,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="order-statuses">
-      <h2>📦 Order Statuses — Full Lifecycle</h2>
+      <h2><i class="fa-solid fa-box" style="margin-right:10px;color:#0891b2;"></i>Order Statuses — Full Lifecycle</h2>
       <p>Every order goes through a series of statuses from the moment a buyer places it to when it is delivered. Here is what each one means, who triggers it, and what to do if an order is stuck there.</p>
 
       <div class="flow">
@@ -418,7 +419,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="delivery-statuses">
-      <h2>🛵 Delivery Assignment Statuses</h2>
+      <h2><i class="fa-solid fa-motorcycle" style="margin-right:10px;color:#0891b2;"></i>Delivery Assignment Statuses</h2>
       <p>Once a rider accepts an order, a delivery assignment is created. It has its own separate set of statuses that track where the rider is in the delivery process.</p>
 
       <div class="flow">
@@ -467,7 +468,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="payout-stages">
-      <h2>💰 Payout Stages — Where the Money Is</h2>
+      <h2><i class="fa-solid fa-money-bill-transfer" style="margin-right:10px;color:#0891b2;"></i>Payout Stages — Where the Money Is</h2>
       <p>When a buyer pays, the money does not immediately go to the seller or rider. It is held and released in stages as work is confirmed. This protects everyone.</p>
       <p>There are <strong>two separate payout rows</strong> created for every delivered order: one for the seller, and one for the rider.</p>
 
@@ -523,7 +524,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="transaction-statuses">
-      <h2>💳 Transaction / Payment Statuses</h2>
+      <h2><i class="fa-solid fa-credit-card" style="margin-right:10px;color:#0891b2;"></i>Transaction / Payment Statuses</h2>
       <p>Every movement of money — whether a buyer paying in, a payout going out, or a refund — is recorded as a Transaction. Transactions have their own status.</p>
 
       <div class="table-wrap">
@@ -563,7 +564,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="verification-statuses">
-      <h2>✅ Verification Statuses</h2>
+      <h2><i class="fa-solid fa-circle-check" style="margin-right:10px;color:#0891b2;"></i>Verification Statuses</h2>
       <p>Sellers and riders must be verified before they can operate. Sellers need Tier 1 (and optionally Tier 2) verification. Riders need Delivery verification. Staff review submitted applications and approve or reject them.</p>
 
       <div class="table-wrap">
@@ -600,7 +601,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="qr-flow">
-      <h2>📱 QR Scan Flow</h2>
+      <h2><i class="fa-solid fa-qrcode" style="margin-right:10px;color:#0891b2;"></i>QR Scan Flow</h2>
       <p>The QR system is the proof-of-work mechanism. It makes sure money only moves when the right person confirmed the right handoff. Nobody can fake a scan — each QR is unique to the user and expires.</p>
 
       <h3>The two QR checks</h3>
@@ -632,7 +633,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="admin-accounts">
-      <h2>🗂️ Admin Panel — Accounts</h2>
+      <h2><i class="fa-solid fa-folder-open" style="margin-right:10px;color:#0891b2;"></i>Admin Panel — Accounts</h2>
 
       <h3>Users</h3>
       <p>The master list of everyone registered on the platform. This is where you look up any user, change their role, or deactivate them.</p>
@@ -699,7 +700,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="admin-orders">
-      <h2>🗂️ Admin Panel — Orders</h2>
+      <h2><i class="fa-solid fa-folder-open" style="margin-right:10px;color:#0891b2;"></i>Admin Panel — Orders</h2>
 
       <h3>Orders</h3>
       <ul class="field-list">
@@ -738,7 +739,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="admin-payments">
-      <h2>🗂️ Admin Panel — Payments &amp; Transactions</h2>
+      <h2><i class="fa-solid fa-folder-open" style="margin-right:10px;color:#0891b2;"></i>Admin Panel — Payments &amp; Transactions</h2>
       <p>This is the most important section for staff. Every movement of money is recorded here.</p>
 
       <h3>Transaction Types</h3>
@@ -781,7 +782,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="admin-delivery">
-      <h2>🗂️ Admin Panel — Delivery</h2>
+      <h2><i class="fa-solid fa-folder-open" style="margin-right:10px;color:#0891b2;"></i>Admin Panel — Delivery</h2>
 
       <h3>Delivery Assignments</h3>
       <p>One row per delivery. Created when a rider accepts an order.</p>
@@ -821,7 +822,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="admin-notifications">
-      <h2>🗂️ Admin Panel — Notifications</h2>
+      <h2><i class="fa-solid fa-folder-open" style="margin-right:10px;color:#0891b2;"></i>Admin Panel — Notifications</h2>
 
       <h3>Notifications</h3>
       <p>Every in-app notification ever sent. Each row is one notification delivered to one user.</p>
@@ -844,7 +845,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="admin-products">
-      <h2>🗂️ Admin Panel — Products</h2>
+      <h2><i class="fa-solid fa-folder-open" style="margin-right:10px;color:#0891b2;"></i>Admin Panel — Products</h2>
 
       <h3>Products</h3>
       <ul class="field-list">
@@ -865,7 +866,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="admin-portal">
-      <h2>🗂️ Admin Panel — Portal &amp; Settings</h2>
+      <h2><i class="fa-solid fa-folder-open" style="margin-right:10px;color:#0891b2;"></i>Admin Panel — Portal &amp; Settings</h2>
 
       <h3>Platform Settings</h3>
       <p>System-wide configuration. Changes here affect the entire platform immediately.</p>
@@ -885,7 +886,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="how-payout">
-      <h2>📋 How to Process a Payout</h2>
+      <h2><i class="fa-solid fa-list-check" style="margin-right:10px;color:#0891b2;"></i>How to Process a Payout</h2>
       <p>A payout is when you send earned money to a seller or rider. This should be done as soon as items appear in the payout queue.</p>
 
       <div class="steps">
@@ -902,7 +903,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="how-refund">
-      <h2>📋 How to Do a Manual Refund</h2>
+      <h2><i class="fa-solid fa-list-check" style="margin-right:10px;color:#0891b2;"></i>How to Do a Manual Refund</h2>
       <p>A refund returns money to a buyer. This is needed when an order is cancelled after payment was confirmed, or after a dispute is resolved in the buyer's favour.</p>
 
       <h3>When to issue a refund</h3>
@@ -935,7 +936,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="how-verification">
-      <h2>📋 How to Review a Verification</h2>
+      <h2><i class="fa-solid fa-list-check" style="margin-right:10px;color:#0891b2;"></i>How to Review a Verification</h2>
 
       <div class="steps">
         <div class="step"><div class="step-num"></div><div class="step-body"><strong>Open the Verifications queue in the staff app.</strong><p>It shows all submitted applications waiting for review. Tap one to open it.</p></div></div>
@@ -965,7 +966,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="how-announcement">
-      <h2>📋 How to Send an Announcement</h2>
+      <h2><i class="fa-solid fa-list-check" style="margin-right:10px;color:#0891b2;"></i>How to Send an Announcement</h2>
 
       <div class="steps">
         <div class="step"><div class="step-num"></div><div class="step-body"><strong>Go to Admin Panel → Notifications → Announcements → Add.</strong></div></div>
@@ -980,7 +981,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="how-deactivate">
-      <h2>📋 How to Deactivate a User</h2>
+      <h2><i class="fa-solid fa-list-check" style="margin-right:10px;color:#0891b2;"></i>How to Deactivate a User</h2>
       <div class="steps">
         <div class="step"><div class="step-num"></div><div class="step-body"><strong>Go to Admin Panel → Accounts → Users.</strong></div></div>
         <div class="step"><div class="step-num"></div><div class="step-body"><strong>Search by phone number and open the user record.</strong></div></div>
@@ -993,7 +994,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="how-lookup">
-      <h2>📋 How to Look Up an Order or Transaction</h2>
+      <h2><i class="fa-solid fa-list-check" style="margin-right:10px;color:#0891b2;"></i>How to Look Up an Order or Transaction</h2>
       <p>When a user contacts you about a problem, here is the fastest way to find what you need.</p>
 
       <h3>To find an order</h3>
@@ -1020,42 +1021,42 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="problems">
-      <h2>🔧 Common Problems and Fixes</h2>
+      <h2><i class="fa-solid fa-wrench" style="margin-right:10px;color:#0891b2;"></i>Common Problems and Fixes</h2>
 
       <ul class="problem-list">
         <li>
-          <div class="q">🔴 Buyer says they paid but the order is still showing "payment pending"</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Buyer says they paid but the order is still showing "payment pending"</div>
           <div class="a"><strong>Check:</strong> Admin → Payments → Transactions. Filter by the buyer's phone number. If there is a <strong>failed</strong> or <strong>cancelled</strong> deposit, the payment did not go through. Tell the buyer to retry. If there is a <strong>completed</strong> deposit but the order is still payment_pending, there may be a webhook issue — contact technical support.</div>
         </li>
         <li>
-          <div class="q">🔴 Seller says they never received a notification for a new order</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Seller says they never received a notification for a new order</div>
           <div class="a"><strong>Check:</strong> Admin → Accounts → Users → find the seller → check if their FCM token field is filled. If blank, they have not logged in recently and their notification address is missing — ask them to log out and back in on their device.</div>
         </li>
         <li>
-          <div class="q">🔴 Order is stuck at "out_for_delivery" — no rider is picking it up</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Order is stuck at "out_for_delivery" — no rider is picking it up</div>
           <div class="a"><strong>Check:</strong> Are any riders online? Check Admin → Accounts → Delivery Profiles → filter by Is available = true. If no riders are online in the area, contact riders to come online. If the issue persists, the order may need to be manually re-offered.</div>
         </li>
         <li>
-          <div class="q">🔴 Payout failed — what do I do?</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Payout failed — what do I do?</div>
           <div class="a"><strong>Check:</strong> The Failure message field on the transaction. Most common causes:<br>
           • "Invalid recipient number" — wrong or unregistered number. Contact the recipient to confirm their MoMo-registered number, update the Payer number field, and retry.<br>
           • "Insufficient funds in platform account" — the platform's MoMo account is low. Top it up and retry.<br>
           • "Network error" — temporary network issue. Wait a few minutes and retry.</div>
         </li>
         <li>
-          <div class="q">🔴 Rider cannot scan the QR code</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Rider cannot scan the QR code</div>
           <div class="a">The token may have expired. Ask the seller or buyer to close and re-open their QR screen in the app to regenerate it. If the problem persists, check Admin → Delivery → Delivery assignments for that order — the assignment must be in the correct status for the scan to be accepted.</div>
         </li>
         <li>
-          <div class="q">🔴 User says they are locked out / cannot log in</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>User says they are locked out / cannot log in</div>
           <div class="a">Check Admin → Accounts → Users → find the user → confirm "Is active" is ticked. If it is ticked but they still cannot log in, check Admin → Token Blacklist → Outstanding tokens to see if their session was invalidated. Ask them to use OTP login to get a fresh token.</div>
         </li>
         <li>
-          <div class="q">🔴 Rider's earnings show as zero even after completing deliveries</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Rider's earnings show as zero even after completing deliveries</div>
           <div class="a">Check Admin → Payments → Transactions → filter by recipient = that rider. If payout rows exist but are at pickup_pending_scan or dropoff_pending_scan, the QR was not scanned. If the delivery genuinely happened, you can manually advance the payout stage to ready_for_payout and then process the payout.</div>
         </li>
         <li>
-          <div class="q">🔴 Buyer received wrong items — wants a refund</div>
+          <div class="q"><i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>Buyer received wrong items — wants a refund</div>
           <div class="a">Investigate: confirm the order items against what was delivered. If the seller's fault: issue a refund to the buyer (see Refund guide), and contact the seller. The seller's payout for that order should be held until resolved. If disputed: get evidence from both sides before deciding.</div>
         </li>
       </ul>
@@ -1064,7 +1065,7 @@
 
     <!-- ═══════════════════════════════════════════════ -->
     <section id="glossary">
-      <h2>📖 Glossary</h2>
+      <h2><i class="fa-solid fa-book" style="margin-right:10px;color:#0891b2;"></i>Glossary</h2>
       <dl class="glossary">
         <dt>PawaPay</dt><dd>The payment processing company that handles all mobile money transactions on the platform. They connect to MTN, Airtel, and Zamtel networks.</dd>
         <dt>MoMo / Mobile Money</dt><dd>A way to send and receive money using a mobile phone number — like MTN Mobile Money, Airtel Money, or Zamtel Kwacha.</dd>

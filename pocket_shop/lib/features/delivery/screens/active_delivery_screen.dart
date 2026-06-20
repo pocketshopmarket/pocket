@@ -831,36 +831,52 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                 ),
               )
             : _assignment == null
-            ? Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.local_shipping_outlined,
-                      size: 48,
-                      color: AppTheme.textSecondary,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'No active delivery',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delivery_dining_rounded,
+                          size: 52,
+                          color: AppTheme.primaryCyan,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Accept an order from Home to start.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: () => context.go('/delivery/home'),
-                      child: const Text('View available orders'),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      const Text(
+                        'No active delivery',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'You have no delivery in progress.\nHead to the home tab to find nearby orders.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+                      ),
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () => context.go('/delivery/home'),
+                          icon: const Icon(Icons.search_rounded),
+                          label: const Text('Find available orders'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.primaryCyan,
+                            minimumSize: const Size(0, 48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               )
             : _buildActiveBody(_assignment!),

@@ -94,6 +94,10 @@ class Transaction(models.Model):
     )
     marked_paid_at = models.DateTimeField(null=True, blank=True)
     payout_notes = models.TextField(blank=True, default='')
+    proof_image = models.ImageField(
+        upload_to='payout_proofs/', blank=True, null=True,
+        help_text='Screenshot of the mobile money transaction uploaded by staff',
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

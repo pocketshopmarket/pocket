@@ -524,6 +524,7 @@ class EarningsSummaryView(APIView):
                     'payout_stage': tx.payout_stage,
                     'trigger_event': tx.trigger_event,
                     'amount_color': 'green' if is_paid else 'orange',
+                    'proof_image_url': request.build_absolute_uri(tx.proof_image.url) if tx.proof_image else None,
                     'created_at': tx.created_at,
                 }
             )

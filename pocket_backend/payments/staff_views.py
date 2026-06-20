@@ -174,6 +174,7 @@ class StaffPayoutQueueView(APIView):
                 'trigger_event': tx.trigger_event,
                 'payout_method': tx.payout_method,
                 'payout_notes': tx.payout_notes,
+                'proof_image_url': request.build_absolute_uri(tx.proof_image.url) if tx.proof_image else None,
                 'created_at': tx.created_at.isoformat(),
             })
 
@@ -189,6 +190,7 @@ class StaffMarkPaidView(APIView):
 
     def post(self, request, tx_id):
         notes = request.data.get('notes', '')
+        proof_image = request.FILES.get('proof_image')
 
         with db_transaction.atomic():
             try:
@@ -204,18 +206,14 @@ class StaffMarkPaidView(APIView):
             if tx.payout_stage == 'payout_paid' and tx.status == 'completed':
                 return Response({'detail': 'Already marked as paid.'})
 
-            if tx.payout_method != 'manual':
-                return Response(
-                    {'error': 'Only manual payouts can be marked paid from the app.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
             tx.payout_stage = 'payout_paid'
             tx.status = 'completed'
             tx.marked_paid_by = request.user
             tx.marked_paid_at = timezone.now()
             if notes:
                 tx.payout_notes = notes
+            if proof_image:
+                tx.proof_image = proof_image
             tx.save()
 
         # Notify recipient
@@ -239,12 +237,17 @@ class StaffMarkPaidView(APIView):
             except Exception as exc:
                 logger.warning('Mark-paid notification failed: %s', exc)
 
+        proof_url = None
+        if tx.proof_image:
+            proof_url = request.build_absolute_uri(tx.proof_image.url)
+
         return Response({
             'success': True,
             'transaction_id': str(tx.transaction_id),
             'payout_stage': tx.payout_stage,
             'status': tx.status,
             'marked_paid_at': tx.marked_paid_at.isoformat(),
+            'proof_image_url': proof_url,
         })
 
 
@@ -332,6 +335,7 @@ class StaffWithdrawalsView(APIView):
                 'provider': tx.provider,
                 'payout_stage': tx.payout_stage,
                 'payout_notes': tx.payout_notes,
+                'proof_image_url': request.build_absolute_uri(tx.proof_image.url) if tx.proof_image else None,
                 'created_at': tx.created_at.isoformat(),
                 'total_earned': str(total_earned.quantize(Decimal('0.01'))),
                 'queue_already_paid': str(queue_already_paid.quantize(Decimal('0.01'))),

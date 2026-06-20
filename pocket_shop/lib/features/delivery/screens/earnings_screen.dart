@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -236,9 +237,9 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                   ),
                   const SizedBox(height: 8),
                   ...(_historyExpanded ? payouts : payouts.take(5).toList()).map((row) {
-                    final amountColor = row['amount_color'] == 'green'
-                        ? AppTheme.success
-                        : AppTheme.warning;
+                    final isPaid = row['amount_color'] == 'green';
+                    final amountColor = isPaid ? AppTheme.success : AppTheme.warning;
+                    final proofUrl = row['proof_image_url'] as String?;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(10),
@@ -247,31 +248,53 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppTheme.divider),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              row['order_number']?.toString() ?? '-',
-                              style: const TextStyle(fontSize: 12),
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  row['order_number']?.toString() ?? '-',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              if ((row['created_at']?.toString() ?? '').length >= 10) ...[
+                                Text(
+                                  row['created_at'].toString().substring(0, 10),
+                                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Text(
+                                'ZMW ${row['amount'] ?? '0'}',
+                                style: TextStyle(fontWeight: FontWeight.w800, color: amountColor),
+                              ),
+                            ],
                           ),
-                          if ((row['created_at']?.toString() ?? '').length >= 10) ...[
-                            Text(
-                              row['created_at'].toString().substring(0, 10),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textSecondary,
+                          if (isPaid && proofUrl != null) ...[
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: () => _viewProof(context, proofUrl),
+                              child: Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: CachedNetworkImage(
+                                      imageUrl: proofUrl,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => const SizedBox(width: 40, height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                                      errorWidget: (_, __, ___) => const SizedBox(width: 40, height: 40, child: Icon(Icons.broken_image_outlined, size: 18)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text('View payment receipt', style: TextStyle(fontSize: 11, color: AppTheme.success, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 8),
                           ],
-                          Text(
-                            'ZMW ${row['amount'] ?? '0'}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: amountColor,
-                            ),
-                          ),
                         ],
                       ),
                     );
@@ -294,6 +317,27 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                   ),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _viewProof(BuildContext context, String url) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: const Text('Payment Receipt'),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: CachedNetworkImage(imageUrl: url, fit: BoxFit.contain),
+            ),
           ),
         ),
       ),

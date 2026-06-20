@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../core/constants/app_constants.dart';
 import 'api_service.dart';
 
@@ -17,10 +19,19 @@ class StaffService {
     return List<Map<String, dynamic>>.from(data['results'] as List);
   }
 
-  Future<Map<String, dynamic>> markPaid(String txId, {String notes = ''}) async {
+  Future<Map<String, dynamic>> markPaid(
+    String txId, {
+    String notes = '',
+    String? proofImagePath,
+  }) async {
+    final FormData form = FormData.fromMap({
+      'notes': notes,
+      if (proofImagePath != null && proofImagePath.isNotEmpty)
+        'proof_image': await MultipartFile.fromFile(proofImagePath),
+    });
     final res = await _api.post(
       '${AppConstants.staffMarkPaidPrefix}$txId/',
-      data: {'notes': notes},
+      data: form,
     );
     return res.data as Map<String, dynamic>;
   }

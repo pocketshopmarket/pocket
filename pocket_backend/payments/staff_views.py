@@ -194,9 +194,12 @@ class StaffMarkPaidView(APIView):
 
         with db_transaction.atomic():
             try:
+                # of=('self',) locks only the transaction row — Postgres rejects
+                # FOR UPDATE across the LEFT JOIN that the nullable recipient
+                # FK introduces via select_related.
                 tx = (
                     Transaction.objects
-                    .select_for_update()
+                    .select_for_update(of=('self',))
                     .select_related('recipient', 'order')
                     .get(transaction_id=tx_id, transaction_type='payout')
                 )

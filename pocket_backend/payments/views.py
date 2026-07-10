@@ -11,6 +11,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .earnings import earnings_breakdown
 from .models import Transaction
 from .services.pawapay import PawaPayService
 from .staff_views import notify_staff_new_withdrawal
@@ -301,7 +302,7 @@ class PawaPayWebhookView(APIView):
                 except Exception:
                     logger.exception('Payment notification failed for order %s', transaction.order.order_number)
 
-                self._create_payout_rows(transaction)
+                create_payout_rows_for_deposit(transaction)
 
             elif transaction.transaction_type == 'refund':
                 cancel_order_with_refund(transaction.order, reason='Refund completed by PawaPay')
@@ -348,83 +349,88 @@ class PawaPayWebhookView(APIView):
             status=status.HTTP_200_OK,
         )
 
-    def _create_payout_rows(self, deposit_tx):
-        """
-        After a successful deposit, create payout rows for:
-        - Seller (item total minus platform commission)
-        - Delivery agent (delivery fee, triggered on dropoff QR)
-        Platform commission is kept by the platform (no payout row needed).
-        """
-        order = deposit_tx.order
-        from portal.models import PlatformSettings
-        _ps = PlatformSettings.get()
-        seller_commission_rate = Decimal(str(_ps.seller_commission_rate))
-        rider_commission_rate = Decimal(str(_ps.rider_commission_rate))
 
-        # Use the server-validated delivery fee from the Order model.
-        delivery_fee = Decimal(str(order.delivery_fee or 0))
-        item_total = Decimal(str(order.total_price))
+def create_payout_rows_for_deposit(deposit_tx):
+    """
+    After a successful deposit, create payout rows for:
+    - Seller (item total minus platform commission)
+    - Delivery agent (delivery fee minus rider commission, paid on dropoff QR)
+    Platform commission is kept by the platform (no payout row needed).
 
-        platform_cut = (item_total * seller_commission_rate).quantize(Decimal('0.01'))
-        seller_share = item_total - platform_cut
+    This is the ONLY place payout amounts are calculated. The webhook calls
+    it when the deposit completes; the QR-scan flow calls it again as a
+    safety net (both creations are guarded against duplicates).
+    """
+    order = deposit_tx.order
+    from portal.models import PlatformSettings
+    _ps = PlatformSettings.get()
+    seller_commission_rate = Decimal(str(_ps.seller_commission_rate))
+    rider_commission_rate = Decimal(str(_ps.rider_commission_rate))
 
-        # ── FIX #6: Use seller's OWN registered payment method ──
-        seller_provider, seller_phone = _resolve_payout_provider(order.seller)
+    # Use the server-validated delivery fee from the Order model.
+    delivery_fee = Decimal(str(order.delivery_fee or 0))
+    item_total = Decimal(str(order.total_price))
 
-        payout_method = _ps.payout_method
+    platform_cut = (item_total * seller_commission_rate).quantize(Decimal('0.01'))
+    seller_share = item_total - platform_cut
 
-        # Seller payout — triggered when rider scans seller QR (pickup).
-        if seller_share > 0 and not Transaction.objects.filter(
+    # ── FIX #6: Use seller's OWN registered payment method ──
+    seller_provider, seller_phone = _resolve_payout_provider(order.seller)
+
+    payout_method = _ps.payout_method
+
+    # Seller payout — triggered when rider scans seller QR (pickup).
+    if seller_share > 0 and not Transaction.objects.filter(
+        order=order,
+        transaction_type='payout',
+        recipient_role='seller',
+    ).exists():
+        Transaction.objects.create(
             order=order,
             transaction_type='payout',
+            amount=seller_share,
+            currency=deposit_tx.currency,
+            provider=seller_provider,
+            payer_number=seller_phone,
+            recipient=order.seller,
             recipient_role='seller',
-        ).exists():
-            Transaction.objects.create(
+            trigger_event='pickup_qr',
+            payout_stage='pickup_pending_scan',
+            payout_method=payout_method,
+            status='pending',
+        )
+
+    # ── FIX #7: Delivery agent payout — triggered on dropoff QR ──
+    if delivery_fee > 0:
+        from delivery.models import DeliveryAssignment
+        assignment = DeliveryAssignment.objects.filter(
+            order=order,
+            status__in=['accepted', 'picked_up', 'in_transit'],
+        ).first()
+        if assignment and assignment.delivery_person:
+            rider = assignment.delivery_person
+            rider_provider, rider_phone = _resolve_payout_provider(rider)
+            if not Transaction.objects.filter(
                 order=order,
                 transaction_type='payout',
-                amount=seller_share,
-                currency=deposit_tx.currency,
-                provider=seller_provider,
-                payer_number=seller_phone,
-                recipient=order.seller,
-                recipient_role='seller',
-                trigger_event='pickup_qr',
-                payout_stage='pickup_pending_scan',
-                payout_method=payout_method,
-                status='pending',
-            )
-
-        # ── FIX #7: Delivery agent payout — triggered on dropoff QR ──
-        if delivery_fee > 0:
-            from delivery.models import DeliveryAssignment
-            assignment = DeliveryAssignment.objects.filter(
-                order=order,
-                status__in=['accepted', 'picked_up', 'in_transit'],
-            ).first()
-            if assignment and assignment.delivery_person:
-                rider = assignment.delivery_person
-                rider_provider, rider_phone = _resolve_payout_provider(rider)
-                if not Transaction.objects.filter(
+                recipient_role='delivery',
+            ).exists():
+                rider_cut = (delivery_fee * rider_commission_rate).quantize(Decimal('0.01'))
+                rider_share = delivery_fee - rider_cut
+                Transaction.objects.create(
                     order=order,
                     transaction_type='payout',
+                    amount=rider_share,
+                    currency=deposit_tx.currency,
+                    provider=rider_provider,
+                    payer_number=rider_phone,
+                    recipient=rider,
                     recipient_role='delivery',
-                ).exists():
-                    rider_cut = (delivery_fee * rider_commission_rate).quantize(Decimal('0.01'))
-                    rider_share = delivery_fee - rider_cut
-                    Transaction.objects.create(
-                        order=order,
-                        transaction_type='payout',
-                        amount=rider_share,
-                        currency=deposit_tx.currency,
-                        provider=rider_provider,
-                        payer_number=rider_phone,
-                        recipient=rider,
-                        recipient_role='delivery',
-                        trigger_event='dropoff_qr',
-                        payout_stage='dropoff_pending_scan',
-                        payout_method=payout_method,
-                        status='pending',
-                    )
+                    trigger_event='dropoff_qr',
+                    payout_stage='dropoff_pending_scan',
+                    payout_method=payout_method,
+                    status='pending',
+                )
 
 
 # ─── Payment Status Check ──────────────────────────────────────────────
@@ -558,55 +564,11 @@ class RequestPayoutView(APIView):
 
         role_key = 'seller' if request.user.role == 'seller' else 'delivery'
 
-        # Total earned = all automatic payout rows from completed orders
-        # (these are created when the buyer's deposit completes — they represent
-        # money the seller/rider has earned, regardless of whether the payout
-        # to their mobile money has been triggered yet)
-        total_earned = (
-            Transaction.objects.filter(
-                transaction_type='payout',
-                recipient=request.user,
-                recipient_role=role_key,
-                trigger_event__in=['pickup_qr', 'dropoff_qr'],
-            ).exclude(
-                status='failed',
-            ).aggregate(total=Sum('amount'))['total']
-            or Decimal('0.00')
-        )
-
-        # All completed payouts — covers both staff-direct (pickup_qr/dropoff_qr)
-        # and manual withdrawal claims so neither path causes a double-pay.
-        total_paid_out = (
-            Transaction.objects.filter(
-                transaction_type='payout',
-                recipient=request.user,
-                recipient_role=role_key,
-                status='completed',
-                payout_stage='payout_paid',
-            ).aggregate(total=Sum('amount'))['total']
-            or Decimal('0.00')
-        )
-
-        # Pending manual withdrawal requests (submitted but not yet paid)
-        pending_withdrawals = (
-            Transaction.objects.filter(
-                transaction_type='payout',
-                recipient=request.user,
-                recipient_role=role_key,
-                trigger_event='manual',
-                status__in=['pending', 'accepted'],
-            ).aggregate(total=Sum('amount'))['total']
-            or Decimal('0.00')
-        )
-
-        available = total_earned - total_paid_out - pending_withdrawals
-
-        # Ensure all amounts are formatted to 2 decimal places
-        _fmt = Decimal('0.01')
-        total_earned = total_earned.quantize(_fmt)
-        total_paid_out = total_paid_out.quantize(_fmt)
-        pending_withdrawals = pending_withdrawals.quantize(_fmt)
-        available = available.quantize(_fmt)
+        totals = earnings_breakdown(request.user, role_key)
+        total_earned = totals['total_earned']
+        total_paid_out = totals['total_paid_out']
+        pending_withdrawals = totals['pending_withdrawals']
+        available = totals['available']
 
         # Default payout method
         method = (
@@ -672,38 +634,7 @@ class RequestPayoutView(APIView):
         role_key = 'seller' if request.user.role == 'seller' else 'delivery'
 
         # Calculate available balance (same logic as GET)
-        total_earned = (
-            Transaction.objects.filter(
-                transaction_type='payout',
-                recipient=request.user,
-                recipient_role=role_key,
-                trigger_event__in=['pickup_qr', 'dropoff_qr'],
-            ).exclude(
-                status='failed',
-            ).aggregate(total=Sum('amount'))['total']
-            or Decimal('0.00')
-        )
-        total_paid_out = (
-            Transaction.objects.filter(
-                transaction_type='payout',
-                recipient=request.user,
-                recipient_role=role_key,
-                status='completed',
-                payout_stage='payout_paid',
-            ).aggregate(total=Sum('amount'))['total']
-            or Decimal('0.00')
-        )
-        pending_withdrawals = (
-            Transaction.objects.filter(
-                transaction_type='payout',
-                recipient=request.user,
-                recipient_role=role_key,
-                trigger_event='manual',
-                status__in=['pending', 'accepted'],
-            ).aggregate(total=Sum('amount'))['total']
-            or Decimal('0.00')
-        )
-        available = total_earned - total_paid_out - pending_withdrawals
+        available = earnings_breakdown(request.user, role_key)['available']
 
         if amount > available:
             return Response(

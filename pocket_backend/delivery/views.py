@@ -47,30 +47,6 @@ from .utils import LocationService
 logger = logging.getLogger(__name__)
 
 
-def _extract_order_finance_meta(order: Order) -> dict:
-    text = order.special_instructions or ''
-    start = text.find('[PS_META]')
-    end = text.find('[/PS_META]')
-    if start == -1 or end == -1 or end <= start:
-        return {}
-    raw = text[start + len('[PS_META]') : end].strip()
-    if not raw:
-        return {}
-    try:
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except json.JSONDecodeError:
-        return {}
-
-
-def _delivery_fee_for_order(order: Order) -> Decimal:
-    meta = _extract_order_finance_meta(order)
-    raw_fee = meta.get('quoted_delivery_fee')
-    try:
-        return Decimal(str(raw_fee))
-    except Exception:
-        return Decimal('0')
-
 class AvailableOrdersView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
     
@@ -1007,13 +983,15 @@ def _advance_payout_for_step(assignment, step, deposit_tx):
     """
     Advance payout rows after a QR handoff is verified.
     Called by both VerifyHandoffTokenView and VerifyIdentityQRView.
+
+    Row creation (amounts, commission, delivery fee) lives in ONE place:
+    payments.views.create_payout_rows_for_deposit. Normally the deposit
+    webhook already created the rows; calling it again here is a safety
+    net for orders where the webhook was missed, and is duplicate-safe.
     """
-    from payments.views import _resolve_payout_provider
-    from portal.models import PlatformSettings
-    payout_method = PlatformSettings.get().payout_method
-    delivery_fee = _delivery_fee_for_order(assignment.order)
-    order_total = Decimal(str(assignment.order.total_price))
-    seller_share = max(order_total - delivery_fee, Decimal('0'))
+    from payments.views import create_payout_rows_for_deposit
+
+    create_payout_rows_for_deposit(deposit_tx)
 
     if step == 'pickup':
         seller_tx = Transaction.objects.filter(
@@ -1023,49 +1001,9 @@ def _advance_payout_for_step(assignment, step, deposit_tx):
             recipient_role='seller',
             trigger_event='pickup_qr',
         ).order_by('-created_at').first()
-        if seller_tx is None and seller_share > 0:
-            provider, phone = _resolve_payout_provider(assignment.order.seller)
-            seller_tx = Transaction.objects.create(
-                order=assignment.order,
-                transaction_type='payout',
-                amount=seller_share,
-                currency=deposit_tx.currency,
-                provider=provider,
-                payer_number=phone,
-                recipient=assignment.order.seller,
-                recipient_role='seller',
-                trigger_event='pickup_qr',
-                payout_stage='pickup_pending_scan',
-                payout_method=payout_method,
-                status='pending',
-            )
         if seller_tx is not None and seller_tx.payout_stage == 'pickup_pending_scan':
             seller_tx.payout_stage = 'ready_for_payout'
             seller_tx.save(update_fields=['payout_stage', 'updated_at'])
-
-        rider_tx = Transaction.objects.filter(
-            order=assignment.order,
-            transaction_type='payout',
-            recipient=assignment.delivery_person,
-            recipient_role='delivery',
-            trigger_event='dropoff_qr',
-        ).order_by('-created_at').first()
-        if rider_tx is None and delivery_fee > 0:
-            provider, phone = _resolve_payout_provider(assignment.delivery_person)
-            Transaction.objects.create(
-                order=assignment.order,
-                transaction_type='payout',
-                amount=delivery_fee,
-                currency=deposit_tx.currency,
-                provider=provider,
-                payer_number=phone,
-                recipient=assignment.delivery_person,
-                recipient_role='delivery',
-                trigger_event='dropoff_qr',
-                payout_stage='dropoff_pending_scan',
-                payout_method=payout_method,
-                status='pending',
-            )
 
     elif step == 'dropoff':
         rider_tx = Transaction.objects.filter(
@@ -1075,22 +1013,6 @@ def _advance_payout_for_step(assignment, step, deposit_tx):
             recipient_role='delivery',
             trigger_event='dropoff_qr',
         ).order_by('-created_at').first()
-        if rider_tx is None and delivery_fee > 0:
-            provider, phone = _resolve_payout_provider(assignment.delivery_person)
-            rider_tx = Transaction.objects.create(
-                order=assignment.order,
-                transaction_type='payout',
-                amount=delivery_fee,
-                currency=deposit_tx.currency,
-                provider=provider,
-                payer_number=phone,
-                recipient=assignment.delivery_person,
-                recipient_role='delivery',
-                trigger_event='dropoff_qr',
-                payout_stage='dropoff_pending_scan',
-                payout_method=payout_method,
-                status='pending',
-            )
         if rider_tx is not None and rider_tx.payout_stage == 'dropoff_pending_scan':
             rider_tx.payout_stage = 'ready_for_payout'
             rider_tx.save(update_fields=['payout_stage', 'updated_at'])

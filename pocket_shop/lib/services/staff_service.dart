@@ -36,6 +36,23 @@ class StaffService {
     return res.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> markRefunded(
+    String txId, {
+    String notes = '',
+    String? proofImagePath,
+  }) async {
+    final FormData form = FormData.fromMap({
+      'notes': notes,
+      if (proofImagePath != null && proofImagePath.isNotEmpty)
+        'proof_image': await MultipartFile.fromFile(proofImagePath),
+    });
+    final res = await _api.post(
+      '${AppConstants.staffMarkRefundedPrefix}$txId/',
+      data: form,
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> getWithdrawals() async {
     final res = await _api.get(AppConstants.staffWithdrawalsEndpoint);
     final data = res.data as Map<String, dynamic>;

@@ -99,6 +99,9 @@ def cancel_order_with_refund(order: Order, *, reason: str = '') -> bool:
         ).exists()
 
         if deposit_tx and not has_refund:
+            from portal.models import PlatformSettings
+            payout_method = PlatformSettings.get().payout_method
+
             refund_tx = Transaction.objects.create(
                 order=locked_order,
                 transaction_type='refund',
@@ -109,16 +112,26 @@ def cancel_order_with_refund(order: Order, *, reason: str = '') -> bool:
                 recipient=locked_order.buyer,
                 recipient_role='buyer',
                 trigger_event='order_cancelled',
+                payout_method=payout_method,
                 status='pending',
             )
-            try:
-                PawaPayService.initiate_refund(refund_tx)
-            except Exception as exc:
-                logger.error(
-                    'Refund initiation failed for order %s: %s',
-                    locked_order.order_number,
-                    exc,
-                )
+            if payout_method == 'gateway':
+                try:
+                    PawaPayService.initiate_refund(refund_tx)
+                except Exception as exc:
+                    logger.error(
+                        'Refund initiation failed for order %s: %s',
+                        locked_order.order_number,
+                        exc,
+                    )
+            else:
+                # Manual mode — staff sends the money from the platform phone
+                # and marks it refunded in the staff app.
+                try:
+                    from payments.staff_views import notify_staff_new_refund
+                    notify_staff_new_refund(refund_tx)
+                except Exception as exc:
+                    logger.warning('Staff refund notification failed: %s', exc)
 
         # ── 4. Cancel any pending payout rows ─────────────────────────
         Transaction.objects.filter(

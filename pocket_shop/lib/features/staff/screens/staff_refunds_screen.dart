@@ -1,5 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../services/staff_service.dart';
 
@@ -33,7 +36,7 @@ class StaffRefundsScreen extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 8),
-              Text(e.toString()),
+              const Text('Could not load refunds. Check your connection.'),
               TextButton(
                 onPressed: () => ref.invalidate(_refundsProvider),
                 child: const Text('Retry'),
@@ -59,7 +62,10 @@ class StaffRefundsScreen extends ConsumerWidget {
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: items.length,
-              itemBuilder: (context, i) => _RefundCard(item: items[i]),
+              itemBuilder: (context, i) => _RefundCard(
+                item: items[i],
+                onRefunded: () => ref.invalidate(_refundsProvider),
+              ),
             ),
           );
         },
@@ -68,17 +74,120 @@ class StaffRefundsScreen extends ConsumerWidget {
   }
 }
 
-class _RefundCard extends StatelessWidget {
+class _RefundCard extends StatefulWidget {
   final Map<String, dynamic> item;
+  final VoidCallback onRefunded;
 
-  const _RefundCard({required this.item});
+  const _RefundCard({required this.item, required this.onRefunded});
+
+  @override
+  State<_RefundCard> createState() => _RefundCardState();
+}
+
+class _RefundCardState extends State<_RefundCard> {
+  bool _loading = false;
+  String? _proofImagePath;
+
+  Future<void> _markRefunded(Map<String, dynamic> pendingRefund) async {
+    final txId = pendingRefund['transaction_id'] as String;
+    final amount = pendingRefund['amount']?.toString() ?? '';
+    final phone = pendingRefund['refund_phone'] as String? ?? '';
+    final notesController = TextEditingController();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('Confirm Refund Sent?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Confirm you sent ZMW $amount back to '
+                '${widget.item['buyer_name']} ($phone)',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesController,
+                decoration: const InputDecoration(
+                  labelText: 'Reference / Notes (optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final picked = await ImagePicker()
+                      .pickImage(source: ImageSource.gallery, imageQuality: 85);
+                  if (picked != null) setLocal(() => _proofImagePath = picked.path);
+                },
+                icon: const Icon(Icons.attach_file_rounded, size: 18),
+                label: Text(_proofImagePath != null
+                    ? 'Receipt attached ✓'
+                    : 'Attach MoMo screenshot'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+          ],
+        ),
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _loading = true);
+    try {
+      await StaffService().markRefunded(
+        txId,
+        notes: notesController.text,
+        proofImagePath: _proofImagePath,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Marked as refunded'), backgroundColor: Colors.green),
+        );
+        widget.onRefunded();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not mark as refunded. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _copyPhone(String phone) async {
+    await Clipboard.setData(ClipboardData(text: phone));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Copied $phone'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final wasPaid = item['was_paid'] as bool? ?? false;
     final refundCount = item['refund_count'] as int? ?? 0;
     final refundStatuses = item['refund_statuses'] as List? ?? [];
-    final hasPendingRefund = refundStatuses.contains('pending');
+    final pendingRefund = item['pending_refund'] as Map<String, dynamic>?;
+    final refundCompleted = item['refund_completed'] as bool? ?? false;
+    final proofUrl = item['refund_proof_url'] as String?;
+    final hasPendingRefund = pendingRefund != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -95,37 +204,21 @@ class _RefundCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
-                if (wasPaid)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: hasPendingRefund ? Colors.red.shade100 : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      hasPendingRefund ? 'Refund Pending' : 'Paid',
-                      style: TextStyle(
-                        color: hasPendingRefund ? Colors.red.shade800 : Colors.grey.shade700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Not Paid',
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-                    ),
-                  ),
+                _StatusBadge(
+                  wasPaid: wasPaid,
+                  hasPendingRefund: hasPendingRefund,
+                  refundCompleted: refundCompleted,
+                ),
               ],
             ),
             const SizedBox(height: 8),
-            _InfoRow(label: 'Buyer', value: '${item['buyer_name']} (${item['buyer_phone']})'),
+            GestureDetector(
+              onTap: () => _copyPhone(item['buyer_phone'] as String? ?? ''),
+              child: _InfoRow(
+                label: 'Buyer',
+                value: '${item['buyer_name']} (${item['buyer_phone']})',
+              ),
+            ),
             _InfoRow(label: 'Seller', value: item['seller_name'] as String? ?? ''),
             _InfoRow(label: 'Total', value: 'ZMW ${item['grand_total']}'),
             if (refundCount > 0)
@@ -135,7 +228,11 @@ class _RefundCard extends StatelessWidget {
                 label: 'Cancelled',
                 value: (item['cancelled_at'] as String).split('T').first,
               ),
-            if (wasPaid && hasPendingRefund)
+            if (proofUrl != null) ...[
+              const SizedBox(height: 8),
+              _ProofThumbnail(url: proofUrl),
+            ],
+            if (hasPendingRefund) ...[
               Container(
                 margin: const EdgeInsets.only(top: 8),
                 padding: const EdgeInsets.all(10),
@@ -150,15 +247,132 @@ class _RefundCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'This order was paid — a refund may need to be processed manually.',
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+                        'Send ZMW ${pendingRefund['amount']} back to '
+                        '${pendingRefund['refund_phone']} (tap buyer row to copy), '
+                        'then mark it refunded below.',
+                        style: TextStyle(color: Colors.red.shade700, fontSize: 12, height: 1.4),
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : () => _markRefunded(pendingRefund),
+                  icon: _loading
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.assignment_return_rounded),
+                  label: const Text('Mark Refunded'),
+                ),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final bool wasPaid;
+  final bool hasPendingRefund;
+  final bool refundCompleted;
+
+  const _StatusBadge({
+    required this.wasPaid,
+    required this.hasPendingRefund,
+    required this.refundCompleted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String label;
+    final Color bg;
+    final Color fg;
+    if (!wasPaid) {
+      label = 'Not Paid';
+      bg = Colors.grey.shade200;
+      fg = Colors.grey.shade700;
+    } else if (refundCompleted && !hasPendingRefund) {
+      label = 'Refunded';
+      bg = Colors.green.shade100;
+      fg = Colors.green.shade800;
+    } else if (hasPendingRefund) {
+      label = 'Refund Pending';
+      bg = Colors.red.shade100;
+      fg = Colors.red.shade800;
+    } else {
+      label = 'Paid';
+      bg = Colors.grey.shade200;
+      fg = Colors.grey.shade700;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(label, style: TextStyle(color: fg, fontSize: 12)),
+    );
+  }
+}
+
+class _ProofThumbnail extends StatelessWidget {
+  final String url;
+  const _ProofThumbnail({required this.url});
+
+  void _viewFull(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: const Text('Refund Receipt'),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: CachedNetworkImage(imageUrl: url, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _viewFull(context),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: CachedNetworkImage(
+              imageUrl: url,
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => const SizedBox(
+                  width: 64, height: 64,
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+              errorWidget: (_, __, ___) => const SizedBox(
+                  width: 64, height: 64, child: Icon(Icons.broken_image_outlined)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            'Refund receipt attached — tap to view',
+            style: TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }

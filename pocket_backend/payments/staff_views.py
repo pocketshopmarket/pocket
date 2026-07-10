@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 from accounts.models import User, VerificationRequest
 from notifications.signals import _create_notification, _send_push
 from orders.models import Order
+from .earnings import earnings_breakdown
 from .models import Transaction
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,23 @@ def notify_staff_new_withdrawal(transaction):
     )
 
 
+def notify_staff_new_refund(refund_tx):
+    """Called when a cancelled order needs a manual refund to the buyer."""
+    _notify_staff(
+        title='Refund Needed',
+        message=(
+            f'Order #{refund_tx.order.order_number} was cancelled — refund '
+            f'ZMW {refund_tx.amount} to {refund_tx.payer_number}.'
+        ),
+        data_payload={
+            'type': 'refund_request',
+            'transaction_id': str(refund_tx.transaction_id),
+            'order_number': refund_tx.order.order_number,
+            'amount': str(refund_tx.amount),
+        },
+    )
+
+
 def notify_staff_new_verification(verification_request):
     """Called when a seller/rider submits verification documents."""
     _notify_staff(
@@ -88,16 +106,17 @@ class StaffStatsView(APIView):
     def get(self, request):
         today = timezone.now().date()
 
+        # Manual claims live in the withdrawals tab only — keep the two
+        # counts disjoint so the dashboard matches the tabs.
         payout_queue_count = Transaction.objects.filter(
             transaction_type='payout',
             payout_stage='ready_for_payout',
             status='pending',
-        ).count()
+        ).exclude(trigger_event='manual').count()
 
         withdrawal_count = Transaction.objects.filter(
             transaction_type='payout',
             trigger_event='manual',
-            payout_stage='ready_for_payout',
             status='pending',
         ).count()
 
@@ -151,11 +170,13 @@ class StaffPayoutQueueView(APIView):
 
     def get(self, request):
         role_filter = request.query_params.get('role', '')
+        # Manual withdrawal claims are handled in the Earnings Claims tab —
+        # exclude them here so the same money can't be paid from two places.
         qs = Transaction.objects.filter(
             transaction_type='payout',
             payout_stage='ready_for_payout',
             status='pending',
-        ).select_related('recipient', 'order').order_by('created_at')
+        ).exclude(trigger_event='manual').select_related('recipient', 'order').order_by('created_at')
 
         if role_filter in ('seller', 'delivery'):
             qs = qs.filter(recipient_role=role_filter)
@@ -276,52 +297,12 @@ class StaffWithdrawalsView(APIView):
             role_key = tx.recipient_role
 
             if recipient:
-                # Total earned from completed deliveries / sales
-                total_earned = (
-                    Transaction.objects.filter(
-                        transaction_type='payout',
-                        recipient=recipient,
-                        recipient_role=role_key,
-                        trigger_event__in=['pickup_qr', 'dropoff_qr'],
-                    ).exclude(status='failed')
-                    .aggregate(total=Sum('amount'))['total']
-                    or Decimal('0.00')
-                )
-                # Paid directly from payout queue (per-delivery, not via claim)
-                queue_already_paid = (
-                    Transaction.objects.filter(
-                        transaction_type='payout',
-                        recipient=recipient,
-                        recipient_role=role_key,
-                        trigger_event__in=['pickup_qr', 'dropoff_qr'],
-                        status='completed',
-                        payout_stage='payout_paid',
-                    ).aggregate(total=Sum('amount'))['total']
-                    or Decimal('0.00')
-                )
-                # All completed payouts any method
-                total_paid_out = (
-                    Transaction.objects.filter(
-                        transaction_type='payout',
-                        recipient=recipient,
-                        recipient_role=role_key,
-                        status='completed',
-                        payout_stage='payout_paid',
-                    ).aggregate(total=Sum('amount'))['total']
-                    or Decimal('0.00')
-                )
-                # All pending manual claims (includes this one)
-                pending_claims = (
-                    Transaction.objects.filter(
-                        transaction_type='payout',
-                        recipient=recipient,
-                        recipient_role=role_key,
-                        trigger_event='manual',
-                        status__in=['pending', 'accepted'],
-                    ).aggregate(total=Sum('amount'))['total']
-                    or Decimal('0.00')
-                )
-                available_balance = total_earned - total_paid_out - pending_claims
+                # Same math as the seller/rider payout screen — one source
+                # of truth in payments.earnings.
+                totals = earnings_breakdown(recipient, role_key)
+                total_earned = totals['total_earned']
+                queue_already_paid = totals['queue_already_paid']
+                available_balance = totals['available']
             else:
                 total_earned = Decimal('0.00')
                 queue_already_paid = Decimal('0.00')
@@ -410,6 +391,68 @@ class StaffApproveVerificationView(APIView):
 
 # ── Refunds / Cancellations ─────────────────────────────────────────────────
 
+class StaffMarkRefundedView(APIView):
+    """
+    POST /api/staff/mark-refunded/<tx_id>/
+    Mark a refund transaction as completed (manual mode — staff sent the
+    money from the platform phone). Mirrors StaffMarkPaidView.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStaff]
+
+    def post(self, request, tx_id):
+        notes = request.data.get('notes', '')
+        proof_image = request.FILES.get('proof_image')
+
+        with db_transaction.atomic():
+            try:
+                tx = (
+                    Transaction.objects
+                    .select_for_update(of=('self',))
+                    .select_related('recipient', 'order')
+                    .get(transaction_id=tx_id, transaction_type='refund')
+                )
+            except Transaction.DoesNotExist:
+                return Response({'error': 'Refund not found'}, status=status.HTTP_404_NOT_FOUND)
+
+            if tx.status == 'completed':
+                return Response({'detail': 'Already marked as refunded.'})
+
+            tx.status = 'completed'
+            tx.marked_paid_by = request.user
+            tx.marked_paid_at = timezone.now()
+            if notes:
+                tx.payout_notes = notes
+            if proof_image:
+                tx.proof_image = proof_image
+            tx.save()
+
+        if tx.recipient:
+            try:
+                _create_notification(
+                    recipient=tx.recipient,
+                    notification_type='refund_completed',
+                    title='Refund Sent',
+                    message=(
+                        f'Your refund of ZMW {tx.amount} for cancelled order '
+                        f'#{tx.order.order_number} has been sent to {tx.payer_number}.'
+                    ),
+                    data_payload={
+                        'order_number': tx.order.order_number,
+                        'transaction_id': str(tx.transaction_id),
+                        'amount': str(tx.amount),
+                    },
+                )
+            except Exception as exc:
+                logger.warning('Mark-refunded notification failed: %s', exc)
+
+        return Response({
+            'success': True,
+            'transaction_id': str(tx.transaction_id),
+            'status': tx.status,
+            'marked_refunded_at': tx.marked_paid_at.isoformat(),
+        })
+
+
 class StaffRefundsView(APIView):
     """
     GET /api/staff/refunds/
@@ -434,6 +477,15 @@ class StaffRefundsView(APIView):
             ]
             was_paid = bool(deposit_txs)
 
+            pending_refund = next(
+                (tx for tx in refund_txs if tx.status in ('pending', 'accepted')),
+                None,
+            )
+            completed_refund = next(
+                (tx for tx in refund_txs if tx.status == 'completed'),
+                None,
+            )
+
             rows.append({
                 'order_id': order.id,
                 'order_number': order.order_number,
@@ -445,6 +497,17 @@ class StaffRefundsView(APIView):
                 'was_paid': was_paid,
                 'refund_count': len(refund_txs),
                 'refund_statuses': [tx.status for tx in refund_txs],
+                'pending_refund': {
+                    'transaction_id': str(pending_refund.transaction_id),
+                    'amount': str(pending_refund.amount),
+                    'refund_phone': pending_refund.payer_number,
+                    'payout_method': pending_refund.payout_method,
+                } if pending_refund else None,
+                'refund_completed': completed_refund is not None,
+                'refund_proof_url': (
+                    request.build_absolute_uri(completed_refund.proof_image.url)
+                    if completed_refund and completed_refund.proof_image else None
+                ),
                 'cancelled_at': order.updated_at.isoformat(),
             })
 

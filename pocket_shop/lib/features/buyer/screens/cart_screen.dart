@@ -52,6 +52,9 @@ class CartScreen extends ConsumerWidget {
     bool searchingAddress = false;
     bool addressSearchFailed = false;
     List<Map<String, dynamic>> addressSuggestions = [];
+    // Must live outside the sheet builder: the builder re-runs when the
+    // keyboard opens (viewInsets change) and would reset this to step 1.
+    int step = 1;
 
     // Always fetch fresh payment methods so the number pre-fill reflects
     // any methods the user just registered before opening checkout.
@@ -97,7 +100,6 @@ class CartScreen extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (ctx) {
-        int step = 1;
         return StatefulBuilder(
           builder: (context, setModalState) {
             if (step == 1 &&

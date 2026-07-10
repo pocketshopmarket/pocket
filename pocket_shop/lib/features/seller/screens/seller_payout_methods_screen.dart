@@ -79,8 +79,15 @@ class _SellerPayoutMethodsScreenState
   // ─── 3-step bottom-sheet add-flow (matches buyer profile) ───
   Future<void> _showAddPayoutFlow(BuildContext context) async {
     final phoneController = TextEditingController();
+    final otpController = TextEditingController();
     String selectedProvider = 'MTN';
     int? createdId;
+    // Flow state must live OUTSIDE the sheet builder: the builder re-runs
+    // when the keyboard opens/changes (viewInsets), and any variables
+    // declared inside it reset — which threw users back to step 1 right
+    // when the OTP field appeared.
+    int step = 1;
+    bool busy = false;
 
     await showModalBottomSheet(
       context: context,
@@ -90,10 +97,6 @@ class _SellerPayoutMethodsScreenState
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (_) {
-        int step = 1;
-        final otpController = TextEditingController();
-        bool busy = false;
-
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             return Padding(

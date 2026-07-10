@@ -511,7 +511,7 @@ class EarningsSummaryView(APIView):
         # not ones still waiting for pickup/dropoff scan — those aren't earned yet.
         pending_total = (
             payouts.filter(
-                payout_stage__in=['ready_for_payout', 'payout_initiated'],
+                payout_stage__in=['ready_for_payout', 'payout_sent'],
                 status='pending',
             ).aggregate(total=Sum('amount'))['total']
             or 0
@@ -633,15 +633,6 @@ class RequestPayoutView(APIView):
 
         role_key = 'seller' if request.user.role == 'seller' else 'delivery'
 
-        # Calculate available balance (same logic as GET)
-        available = earnings_breakdown(request.user, role_key)['available']
-
-        if amount > available:
-            return Response(
-                {'error': f'Amount exceeds available earnings. Available: ZMW {available}'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         # Resolve payout method
         provider_code, phone = _resolve_payout_provider(request.user)
 
@@ -685,20 +676,34 @@ class RequestPayoutView(APIView):
         from portal.models import PlatformSettings
         payout_method = PlatformSettings.get().payout_method
 
-        tx = Transaction.objects.create(
-            order=latest_order,
-            transaction_type='payout',
-            amount=amount,
-            currency='ZMW',
-            provider=provider_code,
-            payer_number=phone,
-            recipient=request.user,
-            recipient_role=role_key,
-            trigger_event='manual',
-            payout_stage='ready_for_payout',
-            payout_method=payout_method,
-            status='pending',
-        )
+        from django.db import transaction as db_transaction
+
+        with db_transaction.atomic():
+            # Per-user lock: two simultaneous claims (double-tap) would both
+            # pass the balance check without it and over-withdraw.
+            type(request.user).objects.select_for_update().get(pk=request.user.pk)
+
+            available = earnings_breakdown(request.user, role_key)['available']
+            if amount > available:
+                return Response(
+                    {'error': f'Amount exceeds available earnings. Available: ZMW {available}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            tx = Transaction.objects.create(
+                order=latest_order,
+                transaction_type='payout',
+                amount=amount,
+                currency='ZMW',
+                provider=provider_code,
+                payer_number=phone,
+                recipient=request.user,
+                recipient_role=role_key,
+                trigger_event='manual',
+                payout_stage='ready_for_payout',
+                payout_method=payout_method,
+                status='pending',
+            )
 
         if payout_method == 'gateway':
             try:

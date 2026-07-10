@@ -555,16 +555,19 @@ class SellerDashboardStatsView(APIView):
                 recipient=request.user,
                 recipient_role='seller',
                 status='completed',
+                payout_stage='payout_paid',
             ).aggregate(total=Sum('amount'))['total']
             or 0
         )
+        # Earned (post QR scan) but not yet paid — matches the payout screen.
         payout_pending = (
             Transaction.objects.filter(
                 transaction_type='payout',
                 recipient=request.user,
                 recipient_role='seller',
+                status='pending',
+                payout_stage__in=['ready_for_payout', 'payout_sent'],
             )
-            .exclude(status='completed')
             .aggregate(total=Sum('amount'))['total']
             or 0
         )

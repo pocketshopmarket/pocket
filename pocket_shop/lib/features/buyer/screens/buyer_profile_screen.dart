@@ -166,6 +166,9 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
   }) async {
     final controller = TextEditingController(text: current);
     final formKey = GlobalKey<FormState>();
+    // Outside the sheet builder so keyboard-driven rebuilds don't reset them.
+    bool locating = false;
+    bool locationDetected = false;
 
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
@@ -175,8 +178,6 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        bool locating = false;
-        bool locationDetected = false;
         return StatefulBuilder(
           builder: (ctx, setModalState) {
           Future<void> useCurrentLocation() async {

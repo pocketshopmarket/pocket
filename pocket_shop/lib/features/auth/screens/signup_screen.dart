@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/utils/validators.dart';
@@ -444,6 +446,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               ),
             ],
             SizedBox(height: AppSizes.spacingLarge.h),
+            const _TermsAndPrivacyNotice(),
+            SizedBox(height: 12.h),
             Row(
               children: [
                 Expanded(
@@ -535,6 +539,50 @@ class _StepProgressIndicator extends StatelessWidget {
           color: Colors.white,
         ),
       ),
+    );
+  }
+}
+
+class _TermsAndPrivacyNotice extends StatelessWidget {
+  const _TermsAndPrivacyNotice();
+
+  static final Uri _termsUri = Uri.parse('https://mypocketshop.store/terms/');
+  static final Uri _privacyUri = Uri.parse('https://mypocketshop.store/privacy/');
+
+  Future<void> _open(Uri uri) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final linkStyle = TextStyle(
+      fontSize: 12.sp,
+      color: AppTheme.primaryCyan,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+    );
+    return Text.rich(
+      TextSpan(
+        text: 'By creating an account you agree to our ',
+        style: TextStyle(fontSize: 12.sp, color: AppTheme.textSecondary, height: 1.4),
+        children: [
+          TextSpan(
+            text: 'Terms of Service',
+            style: linkStyle,
+            recognizer: TapGestureRecognizer()..onTap = () => _open(_termsUri),
+          ),
+          const TextSpan(text: ' and '),
+          TextSpan(
+            text: 'Privacy Policy',
+            style: linkStyle,
+            recognizer: TapGestureRecognizer()..onTap = () => _open(_privacyUri),
+          ),
+          const TextSpan(text: '.'),
+        ],
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }

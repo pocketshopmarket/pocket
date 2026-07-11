@@ -17,6 +17,15 @@ from products.models import Product, ProductVariant
 logger = logging.getLogger(__name__)
 
 
+def _notify_staff_refund(refund_tx):
+    """Alert staff that a refund needs to be sent manually."""
+    try:
+        from payments.staff_views import notify_staff_new_refund
+        notify_staff_new_refund(refund_tx)
+    except Exception as exc:
+        logger.warning('Staff refund notification failed: %s', exc)
+
+
 def cancel_order_with_refund(order: Order, *, reason: str = '') -> bool:
     """
     Atomically cancel an order, restore stock, and initiate a PawaPay refund
@@ -43,6 +52,11 @@ def cancel_order_with_refund(order: Order, *, reason: str = '') -> bool:
         locked_order = Order.objects.select_for_update().get(pk=order.pk)
         if locked_order.status in NON_CANCELLABLE:
             return False
+
+        # Status at the moment of cancellation decides the refund path:
+        # before the seller accepted, the buyer's money bounces back
+        # automatically via the gateway.
+        pre_cancel_status = locked_order.status
 
         # ── 1. Restore product stock ──────────────────────────────────
         items = list(
@@ -102,6 +116,14 @@ def cancel_order_with_refund(order: Order, *, reason: str = '') -> bool:
             from portal.models import PlatformSettings
             payout_method = PlatformSettings.get().payout_method
 
+            # Orders cancelled before the seller accepted always try the
+            # automatic gateway refund, even when payouts run in manual
+            # mode — no goods moved, so the deposit simply bounces back.
+            auto_refund = (
+                payout_method == 'gateway'
+                or pre_cancel_status in ('payment_pending', 'pending')
+            )
+
             refund_tx = Transaction.objects.create(
                 order=locked_order,
                 transaction_type='refund',
@@ -112,10 +134,11 @@ def cancel_order_with_refund(order: Order, *, reason: str = '') -> bool:
                 recipient=locked_order.buyer,
                 recipient_role='buyer',
                 trigger_event='order_cancelled',
-                payout_method=payout_method,
+                payout_method='gateway' if auto_refund else 'manual',
                 status='pending',
             )
-            if payout_method == 'gateway':
+
+            if auto_refund:
                 try:
                     PawaPayService.initiate_refund(refund_tx)
                 except Exception as exc:
@@ -124,14 +147,17 @@ def cancel_order_with_refund(order: Order, *, reason: str = '') -> bool:
                         locked_order.order_number,
                         exc,
                     )
+                if refund_tx.status not in ('accepted', 'completed'):
+                    # Gateway attempt failed — hand over to staff so the
+                    # buyer still gets refunded manually.
+                    refund_tx.status = 'pending'
+                    refund_tx.payout_method = 'manual'
+                    refund_tx.save(update_fields=['status', 'payout_method', 'updated_at'])
+                    _notify_staff_refund(refund_tx)
             else:
                 # Manual mode — staff sends the money from the platform phone
                 # and marks it refunded in the staff app.
-                try:
-                    from payments.staff_views import notify_staff_new_refund
-                    notify_staff_new_refund(refund_tx)
-                except Exception as exc:
-                    logger.warning('Staff refund notification failed: %s', exc)
+                _notify_staff_refund(refund_tx)
 
         # ── 4. Cancel any pending payout rows ─────────────────────────
         Transaction.objects.filter(

@@ -477,8 +477,10 @@ class StaffRefundsView(APIView):
             ]
             was_paid = bool(deposit_txs)
 
+            # Only manual refunds wait on staff; a gateway refund in flight
+            # has status 'accepted' and completes via the webhook.
             pending_refund = next(
-                (tx for tx in refund_txs if tx.status in ('pending', 'accepted')),
+                (tx for tx in refund_txs if tx.status == 'pending'),
                 None,
             )
             completed_refund = next(

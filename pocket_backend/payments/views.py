@@ -18,6 +18,7 @@ from .staff_views import notify_staff_new_withdrawal
 from accounts.models import BuyerPaymentMethod
 from accounts.phone_utils import normalize_zambia_phone_to_e164
 from notifications.signals import (
+    _create_notification,
     create_payment_notification,
     create_payout_completed_notification,
 )
@@ -306,6 +307,28 @@ class PawaPayWebhookView(APIView):
 
             elif transaction.transaction_type == 'refund':
                 cancel_order_with_refund(transaction.order, reason='Refund completed by PawaPay')
+                if transaction.recipient:
+                    try:
+                        _create_notification(
+                            recipient=transaction.recipient,
+                            notification_type='refund_completed',
+                            title='Refund Sent',
+                            message=(
+                                f'Your refund of ZMW {transaction.amount} for cancelled order '
+                                f'#{transaction.order.order_number} has been sent to '
+                                f'{transaction.payer_number}.'
+                            ),
+                            data_payload={
+                                'order_number': transaction.order.order_number,
+                                'transaction_id': str(transaction.transaction_id),
+                                'amount': str(transaction.amount),
+                            },
+                        )
+                    except Exception:
+                        logger.exception(
+                            'Refund completion notification failed for tx %s',
+                            transaction.transaction_id,
+                        )
 
         elif status_value in ('FAILED', 'TERMINATED'):
             transaction.status = 'failed'
@@ -332,6 +355,17 @@ class PawaPayWebhookView(APIView):
                     )
                 except Exception:
                     logger.exception('Payment failure notification failed for order %s', transaction.order.order_number)
+
+            elif transaction.transaction_type == 'refund':
+                # Gateway refund failed — put it back in the staff manual
+                # queue so the buyer still gets their money.
+                transaction.status = 'pending'
+                transaction.payout_method = 'manual'
+                try:
+                    from .staff_views import notify_staff_new_refund
+                    notify_staff_new_refund(transaction)
+                except Exception as exc:
+                    logger.warning('Staff refund notification failed: %s', exc)
 
         transaction.save()
 

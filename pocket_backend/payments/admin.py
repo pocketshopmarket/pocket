@@ -36,7 +36,54 @@ class TransactionAdmin(admin.ModelAdmin):
     readonly_fields = ['transaction_id', 'created_at', 'updated_at']
     raw_id_fields = ['order', 'recipient']
     ordering = ['-created_at']
-    actions = ['mark_as_manually_paid', 'retry_refund']
+    actions = ['mark_as_manually_paid', 'retry_refund', 'mark_refund_manually_sent']
+
+    @admin.action(description='Mark refund as manually sent (notifies the buyer)')
+    def mark_refund_manually_sent(self, request, queryset):
+        from django.utils import timezone
+        from notifications.signals import _create_notification
+
+        eligible = queryset.filter(
+            transaction_type='refund',
+            status__in=['pending', 'failed'],
+        )
+        count = eligible.count()
+        if count == 0:
+            self.message_user(
+                request,
+                'No eligible refund rows selected (must be type=refund and status=pending or failed).',
+                messages.WARNING,
+            )
+            return
+
+        for tx in eligible.select_related('recipient', 'order'):
+            tx.status = 'completed'
+            tx.payout_method = 'manual'
+            tx.marked_paid_by = request.user
+            tx.marked_paid_at = timezone.now()
+            tx.save(update_fields=[
+                'status', 'payout_method', 'marked_paid_by', 'marked_paid_at', 'updated_at',
+            ])
+            if tx.recipient:
+                try:
+                    _create_notification(
+                        recipient=tx.recipient,
+                        notification_type='refund_completed',
+                        title='Refund Sent',
+                        message=(
+                            f'Your refund of ZMW {tx.amount} for cancelled order '
+                            f'#{tx.order.order_number} has been sent to {tx.payer_number}.'
+                        ),
+                        data_payload={
+                            'order_number': tx.order.order_number,
+                            'transaction_id': str(tx.transaction_id),
+                            'amount': str(tx.amount),
+                        },
+                    )
+                except Exception:
+                    pass
+
+        self.message_user(request, f'{count} refund(s) marked as sent and buyers notified.')
 
     @admin.action(description='Retry refund via PawaPay (failed/pending refunds only)')
     def retry_refund(self, request, queryset):

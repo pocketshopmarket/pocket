@@ -192,11 +192,12 @@ class PawaPayService:
             transaction.save()
             return None
 
+        # No amount/currency — PawaPay treats that as a FULL refund of the
+        # deposit, which avoids AMOUNT_TOO_LARGE and decimal-support
+        # rejections on providers that don't accept decimals in refunds.
         payload = {
             "refundId": str(transaction.transaction_id),
             "depositId": str(deposit_tx.transaction_id),
-            "amount": str(transaction.amount),
-            "currency": transaction.currency,
         }
         try:
             response = requests.post(

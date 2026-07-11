@@ -1,0 +1,158 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Your Account | Pocket Shop</title>
+    <meta name="description" content="Request deletion of your My PocketShop account and associated personal data.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{% static 'portal/styles.css' %}">
+
+    <style>
+        .legal-hero {
+            background: linear-gradient(135deg, var(--surface) 0%, rgba(0,188,212,0.06) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 80px 0 48px;
+            text-align: center;
+        }
+        .legal-hero h1 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+        .legal-hero p { color: var(--text-secondary); font-size: 1rem; }
+        .legal-wrap {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 64px 24px 96px;
+        }
+        .legal-wrap h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 40px 0 12px;
+        }
+        .legal-wrap h2:first-child { margin-top: 0; }
+        .legal-wrap p, .legal-wrap li {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            font-size: 0.97rem;
+        }
+        .legal-wrap ul { margin: 12px 0 12px 24px; }
+        .legal-wrap ul li { margin-bottom: 6px; }
+        .del-form {
+            background: var(--surface, #f8f9fa);
+            border: 1px solid var(--border, #e2e6ea);
+            border-radius: 14px;
+            padding: 28px;
+            margin-top: 24px;
+        }
+        .del-form label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            margin: 16px 0 6px;
+        }
+        .del-form label:first-child { margin-top: 0; }
+        .del-form input, .del-form textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid var(--border, #cfd6dc);
+            border-radius: 10px;
+            font: inherit;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        .del-form textarea { min-height: 90px; resize: vertical; }
+        .del-form button {
+            margin-top: 20px;
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 10px;
+            background: #d32f2f;
+            color: #fff;
+            font: inherit;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .del-form button:hover { background: #b71c1c; }
+        .del-error {
+            background: #fdecea;
+            border: 1px solid #f5c6cb;
+            color: #b71c1c;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            font-size: 0.92rem;
+        }
+        .del-success {
+            background: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            color: #1b5e20;
+            border-radius: 14px;
+            padding: 28px;
+            margin-top: 24px;
+            text-align: center;
+        }
+        .del-success i { font-size: 2rem; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+    <section class="legal-hero">
+        <h1>Delete Your Account</h1>
+        <p>Request deletion of your My PocketShop account and personal data</p>
+    </section>
+
+    <div class="legal-wrap">
+        <h2>How it works</h2>
+        <ul>
+            <li>Enter the mobile number registered to your Pocket Shop account below.</li>
+            <li>Our team will contact you on that number to verify that you own the account. This protects your account from being deleted by someone else.</li>
+            <li>Once verified, your account is deleted within <strong>7 days</strong>.</li>
+        </ul>
+
+        <h2>What gets deleted</h2>
+        <ul>
+            <li>Your account, profile details (name, phone number, addresses), saved payment methods, wishlist, and notifications.</li>
+            <li>Product listings and shop details, if you are a seller.</li>
+        </ul>
+
+        <h2>What we keep</h2>
+        <ul>
+            <li>Completed order and payment records are retained as required by Zambian financial regulations, but they are no longer linked to an active account.</li>
+        </ul>
+
+        {% if submitted %}
+            <div class="del-success">
+                <i class="fa-solid fa-circle-check"></i>
+                <strong>Request received.</strong>
+                <p>Our team will contact you on the number you provided to verify your identity, and your account will be deleted within 7 days of verification.</p>
+            </div>
+        {% else %}
+            <form class="del-form" method="post">
+                {% csrf_token %}
+                <label for="phone">Registered mobile number</label>
+                <input type="tel" id="phone" name="phone" placeholder="097XXXXXXX or +26097XXXXXXX" required>
+
+                <label for="reason">Reason (optional)</label>
+                <textarea id="reason" name="reason" placeholder="Tell us why you're leaving — it helps us improve."></textarea>
+
+                {% if error %}<div class="del-error">{{ error }}</div>{% endif %}
+
+                <button type="submit">Request Account Deletion</button>
+            </form>
+        {% endif %}
+
+        <h2>Prefer to do it in the app?</h2>
+        <p>You can also contact us from your profile screen in the app, or reach our support team via the contact details on <a href="/">mypocketshop.store</a>.</p>
+    </div>
+</body>
+</html>

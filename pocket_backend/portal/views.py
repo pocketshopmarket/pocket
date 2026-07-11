@@ -24,6 +24,43 @@ def manual(request):
     return render(request, 'portal/manual.html')
 
 
+def delete_account(request):
+    """
+    Public account-deletion request page (required by Google Play).
+    Files the request as a staff notification; staff verify the owner's
+    identity before deleting.
+    """
+    submitted = False
+    error = ''
+    if request.method == 'POST':
+        phone = (request.POST.get('phone') or '').strip()
+        reason = (request.POST.get('reason') or '').strip()[:500]
+        try:
+            from accounts.phone_utils import normalize_zambia_phone_to_e164
+            phone_e164 = normalize_zambia_phone_to_e164(phone)
+        except Exception:
+            error = 'Please enter a valid Zambian mobile number (e.g. 097XXXXXXX).'
+        if not error:
+            from payments.staff_views import _notify_staff
+            message = f'{phone_e164} requested account deletion via the website.'
+            if reason:
+                message += f' Reason: {reason}'
+            _notify_staff(
+                title='Account Deletion Request',
+                message=message,
+                data_payload={
+                    'type': 'account_deletion_request',
+                    'phone': phone_e164,
+                },
+            )
+            submitted = True
+    return render(
+        request,
+        'portal/delete_account.html',
+        {'submitted': submitted, 'error': error},
+    )
+
+
 def sitemap(request):
     today = datetime.now().strftime('%Y-%m-%d')
     pages = [

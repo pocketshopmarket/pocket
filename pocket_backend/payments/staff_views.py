@@ -461,9 +461,14 @@ class StaffRefundsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsStaff]
 
     def get(self, request):
+        # Only cancelled orders where the buyer actually paid — failed or
+        # never-completed payments need no refund and would just be noise
+        # (or worse, tempt staff to "refund" money that never arrived).
         cancelled_orders = Order.objects.filter(
             status='cancelled',
-        ).prefetch_related('transactions', 'buyer', 'seller').order_by('-updated_at')[:100]
+            transactions__transaction_type='deposit',
+            transactions__status='completed',
+        ).distinct().prefetch_related('transactions', 'buyer', 'seller').order_by('-updated_at')[:100]
 
         rows = []
         for order in cancelled_orders:

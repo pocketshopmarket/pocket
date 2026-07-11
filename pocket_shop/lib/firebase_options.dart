@@ -54,7 +54,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDySVAOqnSnDGVeSUCDDTWWXWQtU0Gyf6M',
-    appId: '1:676730922365:android:ba5a17d4b2549580089814',
+    appId: '1:676730922365:android:a45801107c20d0e0089814',
     messagingSenderId: '676730922365',
     projectId: 'pocket-shop-app',
     storageBucket: 'pocket-shop-app.firebasestorage.app',

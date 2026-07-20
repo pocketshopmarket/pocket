@@ -118,13 +118,16 @@ jobs:
           if-no-files-found: error
 
       - name: Upload to TestFlight
-        if: ${{ secrets.ASC_API_KEY_BASE64 != '' && secrets.ASC_API_KEY_ID != '' && secrets.ASC_API_ISSUER_ID != '' }}
         env:
           ASC_API_KEY_B64: ${{ secrets.ASC_API_KEY_BASE64 }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         run: |
           set -e
+          if [ -z "$ASC_API_KEY_B64" ] || [ -z "$ASC_API_KEY_ID" ] || [ -z "$ASC_API_ISSUER_ID" ]; then
+            echo "::notice::ASC_API_KEY_* secrets not set — skipping TestFlight upload. Download the IPA artifact instead."
+            exit 0
+          fi
           mkdir -p ~/private_keys
           echo "$ASC_API_KEY_B64" | base64 --decode > ~/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
           IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n1)

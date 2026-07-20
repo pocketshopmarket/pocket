@@ -51,5 +51,11 @@
 	<string>Pocket Shop needs photo access so you can upload product images for buyers to see.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Pocket Shop uses the camera so you can take photos of products to sell.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

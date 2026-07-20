@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -58,5 +55,14 @@ class DefaultFirebaseOptions {
     messagingSenderId: '676730922365',
     projectId: 'pocket-shop-app',
     storageBucket: 'pocket-shop-app.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCsP40pkx3I6yk3knAZQbbuScRayPgsJyg',
+    appId: '1:676730922365:ios:db7fb3b391269a52089814',
+    messagingSenderId: '676730922365',
+    projectId: 'pocket-shop-app',
+    storageBucket: 'pocket-shop-app.firebasestorage.app',
+    iosBundleId: 'store.mypocketshop.app',
   );
 }

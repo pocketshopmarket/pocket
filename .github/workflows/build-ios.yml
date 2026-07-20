@@ -1,0 +1,132 @@
+# iOS build + TestFlight upload for Pocket Shop.
+#
+# Manual only (workflow_dispatch) — needs signing secrets that aren't
+# always set, and macOS runner minutes are expensive, so this doesn't run
+# on every push like the Android jobs do.
+#
+# Required GitHub secrets (Settings > Secrets and variables > Actions > Secrets):
+#   IOS_DIST_CERTIFICATE_BASE64    — Apple Distribution .p12, base64-encoded
+#   IOS_DIST_CERTIFICATE_PASSWORD  — password for that .p12
+#   IOS_PROVISIONING_PROFILE_BASE64 — App Store .mobileprovision, base64-encoded
+#   IOS_KEYCHAIN_PASSWORD          — any random string; password for the throwaway CI keychain
+#   APPLE_TEAM_ID                  — 10-character Apple Developer Team ID
+#   IOS_PROVISIONING_PROFILE_NAME  — exact name of the App Store provisioning profile
+#   ASC_API_KEY_BASE64             — App Store Connect API key .p8, base64-encoded (optional — enables TestFlight upload)
+#   ASC_API_KEY_ID                 — App Store Connect API key ID (optional)
+#   ASC_API_ISSUER_ID              — App Store Connect API issuer ID (optional)
+#
+# Required GitHub repo variables (Settings > Secrets and variables > Actions > Variables):
+#   POCKET_API_BASE_URL            — same as used for the Android build
+
+name: iOS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ios-ipa:
+    name: Flutter — iOS release IPA
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: pocket_shop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify required secrets are set
+        env:
+          CERT: ${{ secrets.IOS_DIST_CERTIFICATE_BASE64 }}
+          CERT_PW: ${{ secrets.IOS_DIST_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PW: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+        run: |
+          missing=()
+          [ -z "$CERT" ] && missing+=("IOS_DIST_CERTIFICATE_BASE64")
+          [ -z "$CERT_PW" ] && missing+=("IOS_DIST_CERTIFICATE_PASSWORD")
+          [ -z "$PROFILE" ] && missing+=("IOS_PROVISIONING_PROFILE_BASE64")
+          [ -z "$KEYCHAIN_PW" ] && missing+=("IOS_KEYCHAIN_PASSWORD")
+          [ -z "$TEAM_ID" ] && missing+=("APPLE_TEAM_ID")
+          [ -z "$PROFILE_NAME" ] && missing+=("IOS_PROVISIONING_PROFILE_NAME")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing required secrets/vars: ${missing[*]}"
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Import signing certificate and provisioning profile
+        env:
+          CERT_B64: ${{ secrets.IOS_DIST_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_DIST_CERTIFICATE_PASSWORD }}
+          PROFILE_B64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -e
+          KEYCHAIN_PATH="$RUNNER_TEMP/ci-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/dist_cert.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+
+          echo "$CERT_B64" | base64 --decode > "$CERT_PATH"
+          echo "$PROFILE_B64" | base64 --decode > "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          PROFILE_DIR=~/Library/MobileDevice/Provisioning\ Profiles
+          mkdir -p "$PROFILE_DIR"
+          cp "$PROFILE_PATH" "$PROFILE_DIR/ci-profile.mobileprovision"
+
+      - name: Render ExportOptions.plist
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+        run: |
+          sed -i '' "s/__APPLE_TEAM_ID__/$TEAM_ID/g" ios/ExportOptions.plist
+          sed -i '' "s/__PROVISIONING_PROFILE_NAME__/$PROFILE_NAME/g" ios/ExportOptions.plist
+
+      - name: Build release IPA
+        run: |
+          API_URL="${{ vars.POCKET_API_BASE_URL }}"
+          if [ -z "$API_URL" ]; then
+            API_URL="https://mypocketshop.store/api/"
+          fi
+          echo "Building with API_BASE_URL=$API_URL"
+          flutter build ipa --release \
+            --export-options-plist=ios/ExportOptions.plist \
+            --dart-define=API_BASE_URL="$API_URL"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocket-shop-${{ github.sha }}-ios-release
+          path: pocket_shop/build/ios/ipa/*.ipa
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload to TestFlight
+        if: ${{ secrets.ASC_API_KEY_BASE64 != '' && secrets.ASC_API_KEY_ID != '' && secrets.ASC_API_ISSUER_ID != '' }}
+        env:
+          ASC_API_KEY_B64: ${{ secrets.ASC_API_KEY_BASE64 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          set -e
+          mkdir -p ~/private_keys
+          echo "$ASC_API_KEY_B64" | base64 --decode > ~/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
+          IPA_PATH=$(find build/ios/ipa -name "*.ipa" | head -n1)
+          xcrun altool --upload-app -f "$IPA_PATH" -t ios \
+            --apiKey "$ASC_API_KEY_ID" --apiIssuer "$ASC_API_ISSUER_ID"

@@ -47,6 +47,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Pocket Shop uses your location to show nearby deliveries and update the buyer while you are on a trip.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Pocket Shop uses your location to show nearby deliveries and update the buyer while you are on a trip.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pocket Shop needs photo access so you can upload product images for buyers to see.</string>
 	<key>NSCameraUsageDescription</key>

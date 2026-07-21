@@ -78,6 +78,10 @@ def _send_push(recipient, title, message, data_payload):
             notification=messaging.Notification(title=title, body=message),
             data=str_data,
             token=token,
+            apns=messaging.APNSConfig(
+                headers={'apns-priority': '10'},
+                payload=messaging.APNSPayload(aps=messaging.Aps(sound='default')),
+            ),
         )
         messaging.send(msg, app=app)
         logger.info('FCM push sent to user %s', recipient.id)
@@ -465,6 +469,10 @@ def _send_announcement_push_batch(tokens, title, message):
             notification=messaging.Notification(title=title, body=message),
             data={'notification_type': 'announcement'},
             tokens=tokens,
+            apns=messaging.APNSConfig(
+                headers={'apns-priority': '10'},
+                payload=messaging.APNSPayload(aps=messaging.Aps(sound='default')),
+            ),
         )
         response = messaging.send_each_for_multicast(multicast, app=app)
         logger.info('Announcement FCM: %s success, %s failure', response.success_count, response.failure_count)

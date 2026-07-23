@@ -26,6 +26,7 @@ Future<void> initFirebaseIfSupported() async {
     return;
   }
 
+  final debugLines = <String>[];
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -36,7 +37,9 @@ Future<void> initFirebaseIfSupported() async {
     await _initLocalNotifications();
 
     final fcm = FirebaseMessaging.instance;
-    await fcm.requestPermission(alert: true, badge: true, sound: true);
+    final settings =
+        await fcm.requestPermission(alert: true, badge: true, sound: true);
+    debugLines.add('perm=${settings.authorizationStatus}');
 
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     // Registered before the initial getToken() attempt below so a failure
@@ -45,11 +48,13 @@ Future<void> initFirebaseIfSupported() async {
     fcm.onTokenRefresh.listen(_postFcmToken);
 
     if (Platform.isIOS) {
-      await _waitForApnsToken(fcm);
+      final apnsToken = await _waitForApnsToken(fcm);
+      debugLines.add('apns=${apnsToken != null ? "ok" : "timeout"}');
     }
 
     try {
       final token = await fcm.getToken();
+      debugLines.add(token != null ? 'fcm=ok:${token.substring(0, 12)}' : 'fcm=null');
       if (token != null) {
         await _postFcmToken(token);
       }
@@ -57,10 +62,41 @@ Future<void> initFirebaseIfSupported() async {
     } catch (e) {
       // Non-fatal: onTokenRefresh (registered above) will pick up the
       // token once APNS registration actually completes.
+      debugLines.add('fcm_err=$e');
       if (kDebugMode) debugPrint('[FCM] Initial getToken() failed (non-fatal): $e');
     }
   } catch (e) {
+    debugLines.add('init_err=$e');
     if (kDebugMode) debugPrint('[Firebase] Init error (non-fatal): $e');
+  }
+
+  // TEMPORARY diagnostic — remove once iOS push delivery is confirmed
+  // working. Shows what actually happened via a local notification since
+  // release/TestFlight builds have no visible console output.
+  if (Platform.isIOS) {
+    await _showDebugNotification(debugLines.join(' | '));
+  }
+}
+
+Future<void> _showDebugNotification(String body) async {
+  try {
+    await _localNotifications.show(
+      999999,
+      'FCM Debug',
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'pocket_shop_channel',
+          'Pocket Shop',
+          channelDescription: 'Pocket Shop order and payment updates',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+    );
+  } catch (_) {
+    // Nothing we can do if even the local notification fails to show.
   }
 }
 
@@ -86,12 +122,13 @@ Future<void> registerFcmTokenWithBackend() async {
 /// token, which happens asynchronously right after requestPermission().
 /// Poll briefly rather than calling getToken() immediately, which is a
 /// documented race that throws apns-token-not-set on a cold start.
-Future<void> _waitForApnsToken(FirebaseMessaging fcm) async {
+Future<String?> _waitForApnsToken(FirebaseMessaging fcm) async {
   for (var i = 0; i < 10; i++) {
     final apnsToken = await fcm.getAPNSToken();
-    if (apnsToken != null) return;
+    if (apnsToken != null) return apnsToken;
     await Future.delayed(const Duration(milliseconds: 500));
   }
+  return null;
 }
 
 Future<void> _initLocalNotifications() async {

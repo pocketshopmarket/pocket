@@ -32,7 +32,7 @@ from payments.models import Transaction
 from payments.services.pawapay import PawaPayService
 from .models import OrderRating
 from accounts.permissions import IsBuyer
-from .services import cancel_order_with_refund
+from .services import cancel_order_with_refund, issue_refund_for_delivered_order
 
 
 def _cart_for_api(cart):
@@ -718,45 +718,50 @@ class RefundRequestRespondView(APIView):
         refund = get_object_or_404(RefundRequest, pk=pk)
         user = request.user
 
-        if user.role == 'seller' and refund.order.seller == user:
-            if refund.status != 'pending_seller':
-                return Response(
-                    {'error': 'Already responded.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            serializer = SellerRespondRefundSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            action = serializer.validated_data['action']
-            note = serializer.validated_data.get('note', '')
-            mapping = {
-                'approve': 'approved_by_seller',
-                'reject': 'rejected_by_seller',
-                'escalate': 'escalated',
-            }
-            refund.status = mapping[action]
-            refund.seller_note = note
-            refund.save(update_fields=['status', 'seller_note', 'updated_at'])
-            if action == 'approve':
-                cancel_order_with_refund(refund.order, reason='Seller approved refund request')
+        with transaction.atomic():
+            if user.role == 'seller' and refund.order.seller == user:
+                if refund.status != 'pending_seller':
+                    return Response(
+                        {'error': 'Already responded.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                serializer = SellerRespondRefundSerializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                action = serializer.validated_data['action']
+                note = serializer.validated_data.get('note', '')
+                mapping = {
+                    'approve': 'approved_by_seller',
+                    'reject': 'rejected_by_seller',
+                    'escalate': 'escalated',
+                }
+                refund.status = mapping[action]
+                refund.seller_note = note
+                refund.save(update_fields=['status', 'seller_note', 'updated_at'])
+                if action == 'approve':
+                    issue_refund_for_delivered_order(
+                        refund.order, reason='Seller approved refund request'
+                    )
 
-        elif user.role in ('admin', 'staff') or user.is_staff:
-            if refund.status not in ('escalated', 'rejected_by_seller'):
-                return Response(
-                    {'error': 'Not available for admin action at this stage.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            serializer = AdminRespondRefundSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            action = serializer.validated_data['action']
-            note = serializer.validated_data.get('note', '')
-            mapping = {'approve': 'approved_by_admin', 'reject': 'rejected_by_admin'}
-            refund.status = mapping[action]
-            refund.admin_note = note
-            refund.save(update_fields=['status', 'admin_note', 'updated_at'])
-            if action == 'approve':
-                cancel_order_with_refund(refund.order, reason='Admin approved refund request')
-        else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            elif user.role in ('admin', 'staff') or user.is_staff:
+                if refund.status not in ('escalated', 'rejected_by_seller'):
+                    return Response(
+                        {'error': 'Not available for admin action at this stage.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                serializer = AdminRespondRefundSerializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                action = serializer.validated_data['action']
+                note = serializer.validated_data.get('note', '')
+                mapping = {'approve': 'approved_by_admin', 'reject': 'rejected_by_admin'}
+                refund.status = mapping[action]
+                refund.admin_note = note
+                refund.save(update_fields=['status', 'admin_note', 'updated_at'])
+                if action == 'approve':
+                    issue_refund_for_delivered_order(
+                        refund.order, reason='Admin approved refund request'
+                    )
+            else:
+                return Response(status=status.HTTP_403_FORBIDDEN)
 
         return Response(RefundRequestSerializer(refund).data)
 
@@ -823,44 +828,45 @@ class CancellationRequestRespondView(APIView):
         req = get_object_or_404(CancellationRequest, pk=pk)
         user = request.user
 
-        if user.role == 'seller' and req.order.seller == user:
-            if req.status != 'pending_seller':
-                return Response(
-                    {'error': 'Already responded.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            serializer = SellerRespondCancellationSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            action = serializer.validated_data['action']
-            note = serializer.validated_data.get('note', '')
-            mapping = {
-                'approve': 'approved_by_seller',
-                'reject': 'rejected_by_seller',
-                'escalate': 'escalated',
-            }
-            req.status = mapping[action]
-            req.seller_note = note
-            req.save(update_fields=['status', 'seller_note', 'updated_at'])
-            if action == 'approve':
-                cancel_order_with_refund(req.order, reason='Seller approved cancellation request')
+        with transaction.atomic():
+            if user.role == 'seller' and req.order.seller == user:
+                if req.status != 'pending_seller':
+                    return Response(
+                        {'error': 'Already responded.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                serializer = SellerRespondCancellationSerializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                action = serializer.validated_data['action']
+                note = serializer.validated_data.get('note', '')
+                mapping = {
+                    'approve': 'approved_by_seller',
+                    'reject': 'rejected_by_seller',
+                    'escalate': 'escalated',
+                }
+                req.status = mapping[action]
+                req.seller_note = note
+                req.save(update_fields=['status', 'seller_note', 'updated_at'])
+                if action == 'approve':
+                    cancel_order_with_refund(req.order, reason='Seller approved cancellation request')
 
-        elif user.role in ('admin', 'staff') or user.is_staff:
-            if req.status not in ('escalated', 'rejected_by_seller'):
-                return Response(
-                    {'error': 'Not available for admin action at this stage.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            serializer = AdminRespondCancellationSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            action = serializer.validated_data['action']
-            note = serializer.validated_data.get('note', '')
-            mapping = {'approve': 'approved_by_admin', 'reject': 'rejected_by_admin'}
-            req.status = mapping[action]
-            req.admin_note = note
-            req.save(update_fields=['status', 'admin_note', 'updated_at'])
-            if action == 'approve':
-                cancel_order_with_refund(req.order, reason='Admin approved cancellation request')
-        else:
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            elif user.role in ('admin', 'staff') or user.is_staff:
+                if req.status not in ('escalated', 'rejected_by_seller'):
+                    return Response(
+                        {'error': 'Not available for admin action at this stage.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                serializer = AdminRespondCancellationSerializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                action = serializer.validated_data['action']
+                note = serializer.validated_data.get('note', '')
+                mapping = {'approve': 'approved_by_admin', 'reject': 'rejected_by_admin'}
+                req.status = mapping[action]
+                req.admin_note = note
+                req.save(update_fields=['status', 'admin_note', 'updated_at'])
+                if action == 'approve':
+                    cancel_order_with_refund(req.order, reason='Admin approved cancellation request')
+            else:
+                return Response(status=status.HTTP_403_FORBIDDEN)
 
         return Response(CancellationRequestSerializer(req).data)

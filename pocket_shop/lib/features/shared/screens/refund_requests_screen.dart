@@ -65,7 +65,7 @@ class _RefundRequestsScreenState extends ConsumerState<RefundRequestsScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'The order will be cancelled and the buyer will be refunded.',
+                  'The buyer will be refunded. The order stays marked delivered.',
                   style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
               ),

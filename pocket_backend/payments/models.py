@@ -40,6 +40,7 @@ class Transaction(models.Model):
         ('pickup_qr', 'Pickup QR'),
         ('dropoff_qr', 'Dropoff QR'),
         ('order_cancelled', 'Order Cancelled'),
+        ('refund_request', 'Refund Request Approved'),
     ]
 
     PAYOUT_METHOD_CHOICES = [

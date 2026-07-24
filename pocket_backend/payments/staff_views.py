@@ -66,13 +66,16 @@ def notify_staff_new_withdrawal(transaction):
 
 
 def notify_staff_new_refund(refund_tx):
-    """Called when a cancelled order needs a manual refund to the buyer."""
+    """Called when an order needs a manual refund to the buyer — either a
+    pre-delivery cancellation or an approved post-delivery refund request."""
+    context = (
+        f'Order #{refund_tx.order.order_number} was cancelled'
+        if refund_tx.order.status == 'cancelled'
+        else f'Refund approved for order #{refund_tx.order.order_number}'
+    )
     _notify_staff(
         title='Refund Needed',
-        message=(
-            f'Order #{refund_tx.order.order_number} was cancelled — refund '
-            f'ZMW {refund_tx.amount} to {refund_tx.payer_number}.'
-        ),
+        message=f'{context} — refund ZMW {refund_tx.amount} to {refund_tx.payer_number}.',
         data_payload={
             'type': 'refund_request',
             'transaction_id': str(refund_tx.transaction_id),
@@ -426,24 +429,14 @@ class StaffMarkRefundedView(APIView):
                 tx.proof_image = proof_image
             tx.save()
 
-        if tx.recipient:
-            try:
-                _create_notification(
-                    recipient=tx.recipient,
-                    notification_type='refund_completed',
-                    title='Refund Sent',
-                    message=(
-                        f'Your refund of ZMW {tx.amount} for cancelled order '
-                        f'#{tx.order.order_number} has been sent to {tx.payer_number}.'
-                    ),
-                    data_payload={
-                        'order_number': tx.order.order_number,
-                        'transaction_id': str(tx.transaction_id),
-                        'amount': str(tx.amount),
-                    },
-                )
-            except Exception as exc:
-                logger.warning('Mark-refunded notification failed: %s', exc)
+            from orders.services import sync_refund_request_status
+            sync_refund_request_status(tx)
+
+        try:
+            from notifications.signals import notify_buyer_refund_completed
+            notify_buyer_refund_completed(tx)
+        except Exception as exc:
+            logger.warning('Mark-refunded notification failed: %s', exc)
 
         return Response({
             'success': True,
@@ -456,22 +449,26 @@ class StaffMarkRefundedView(APIView):
 class StaffRefundsView(APIView):
     """
     GET /api/staff/refunds/
-    List cancelled orders that have pending refund transactions.
+    List orders that have refund transactions — both pre-delivery
+    cancellations (Order.status='cancelled') and post-delivery
+    refund-request approvals (Order.status stays 'delivered'). Driven by
+    "has a refund Transaction" rather than Order.status so the latter
+    isn't invisible to staff.
     """
     permission_classes = [permissions.IsAuthenticated, IsStaff]
 
     def get(self, request):
-        # Only cancelled orders where the buyer actually paid — failed or
-        # never-completed payments need no refund and would just be noise
-        # (or worse, tempt staff to "refund" money that never arrived).
-        cancelled_orders = Order.objects.filter(
-            status='cancelled',
-            transactions__transaction_type='deposit',
-            transactions__status='completed',
+        order_ids = (
+            Transaction.objects.filter(transaction_type='refund')
+            .values_list('order_id', flat=True)
+            .distinct()
+        )
+        orders_with_refunds = Order.objects.filter(
+            id__in=order_ids,
         ).distinct().prefetch_related('transactions', 'buyer', 'seller').order_by('-updated_at')[:100]
 
         rows = []
-        for order in cancelled_orders:
+        for order in orders_with_refunds:
             refund_txs = [
                 tx for tx in order.transactions.all()
                 if tx.transaction_type == 'refund'

@@ -224,13 +224,14 @@ class RefundRequestSerializer(serializers.ModelSerializer):
         source='order.total_price', max_digits=10, decimal_places=2, read_only=True
     )
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    refund_transaction = serializers.SerializerMethodField()
 
     class Meta:
         model = RefundRequest
         fields = [
             'id', 'order', 'order_number', 'order_total',
             'requested_by', 'buyer_name',
-            'reason', 'status', 'status_display',
+            'reason', 'status', 'status_display', 'refund_transaction',
             'seller_note', 'admin_note',
             'created_at', 'updated_at',
         ]
@@ -238,6 +239,22 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             'id', 'order', 'requested_by', 'status',
             'seller_note', 'admin_note', 'created_at', 'updated_at',
         ]
+
+    def get_refund_transaction(self, obj):
+        """
+        The real, money-movement status of this refund — `status` above is
+        only the approval decision. Reads the actual Transaction rather
+        than trying to keep a second status enum in sync with it.
+        """
+        try:
+            tx = obj.order.transactions.filter(
+                transaction_type='refund',
+            ).order_by('-created_at').first()
+            if tx is None:
+                return None
+            return {'status': tx.status, 'amount': str(tx.amount)}
+        except Exception:
+            return None
 
 
 class CreateRefundRequestSerializer(serializers.Serializer):

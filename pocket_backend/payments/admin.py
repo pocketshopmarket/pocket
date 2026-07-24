@@ -41,7 +41,6 @@ class TransactionAdmin(admin.ModelAdmin):
     @admin.action(description='Mark refund as manually sent (notifies the buyer)')
     def mark_refund_manually_sent(self, request, queryset):
         from django.utils import timezone
-        from notifications.signals import _create_notification
 
         eligible = queryset.filter(
             transaction_type='refund',
@@ -56,6 +55,9 @@ class TransactionAdmin(admin.ModelAdmin):
             )
             return
 
+        from orders.services import sync_refund_request_status
+        from notifications.signals import notify_buyer_refund_completed
+
         for tx in eligible.select_related('recipient', 'order'):
             tx.status = 'completed'
             tx.payout_method = 'manual'
@@ -64,24 +66,11 @@ class TransactionAdmin(admin.ModelAdmin):
             tx.save(update_fields=[
                 'status', 'payout_method', 'marked_paid_by', 'marked_paid_at', 'updated_at',
             ])
-            if tx.recipient:
-                try:
-                    _create_notification(
-                        recipient=tx.recipient,
-                        notification_type='refund_completed',
-                        title='Refund Sent',
-                        message=(
-                            f'Your refund of ZMW {tx.amount} for cancelled order '
-                            f'#{tx.order.order_number} has been sent to {tx.payer_number}.'
-                        ),
-                        data_payload={
-                            'order_number': tx.order.order_number,
-                            'transaction_id': str(tx.transaction_id),
-                            'amount': str(tx.amount),
-                        },
-                    )
-                except Exception:
-                    pass
+            sync_refund_request_status(tx)
+            try:
+                notify_buyer_refund_completed(tx)
+            except Exception:
+                pass
 
         self.message_user(request, f'{count} refund(s) marked as sent and buyers notified.')
 

@@ -191,6 +191,34 @@ def _create_notification(recipient, notification_type, title, message, data_payl
     _send_push(recipient, title, message, data_payload)
 
 
+def notify_buyer_refund_completed(tx):
+    """
+    Shared by the PawaPay webhook, staff mark-refunded action, and admin
+    mark-refunded action so the three never drift in wording — and so the
+    message is accurate for both pre-delivery cancellations and
+    post-delivery refund-request approvals (only the former "cancels" the
+    order).
+    """
+    if not tx.recipient:
+        return
+    context = (
+        f'for cancelled order #{tx.order.order_number}'
+        if tx.order.status == 'cancelled'
+        else f'for order #{tx.order.order_number}'
+    )
+    _create_notification(
+        recipient=tx.recipient,
+        notification_type='refund_completed',
+        title='Refund Sent',
+        message=f'Your refund of ZMW {tx.amount} {context} has been sent to {tx.payer_number}.',
+        data_payload={
+            'order_number': tx.order.order_number,
+            'transaction_id': str(tx.transaction_id),
+            'amount': str(tx.amount),
+        },
+    )
+
+
 @receiver(pre_save, sender=Order)
 def store_previous_order_status(sender, instance, **kwargs):
     """Attach the persisted status before save so post_save can detect real changes."""

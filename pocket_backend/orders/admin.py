@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart, CartItem, Order, OrderItem, OrderRating, CancellationRequest
+from .models import Cart, CartItem, Order, OrderItem, OrderRating, CancellationRequest, RefundRequest
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
@@ -22,7 +22,11 @@ class OrderAdmin(admin.ModelAdmin):
     
     def get_readonly_fields(self, request, obj=None):
         if obj:  # editing an existing object
-            return self.readonly_fields + ['total_price', 'buyer', 'seller']
+            # 'status' is deliberately excluded from direct editing here —
+            # setting it straight to 'cancelled' bypasses stock restore and
+            # refund logic entirely. Use the Cancellation/Refund Request
+            # admin actions (or the staff app) instead.
+            return self.readonly_fields + ['total_price', 'buyer', 'seller', 'status']
         return self.readonly_fields
 
 @admin.register(OrderItem)
@@ -63,3 +67,29 @@ class CancellationRequestAdmin(admin.ModelAdmin):
         eligible = queryset.filter(status__in=['escalated', 'rejected_by_seller'])
         eligible.update(status='rejected_by_admin', admin_note='Rejected by admin')
         self.message_user(request, f'{eligible.count()} cancellation(s) rejected.')
+
+
+@admin.register(RefundRequest)
+class RefundRequestAdmin(admin.ModelAdmin):
+    list_display = ['id', 'order', 'requested_by', 'status', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['order__order_number', 'requested_by__phone_number', 'requested_by__full_name']
+    readonly_fields = ['order', 'requested_by', 'reason', 'created_at', 'updated_at']
+    actions = ['admin_approve', 'admin_reject']
+
+    @admin.action(description='Approve selected refund requests (refund buyer)')
+    def admin_approve(self, request, queryset):
+        from orders.services import issue_refund_for_delivered_order
+        eligible = queryset.filter(status__in=['escalated', 'rejected_by_seller'])
+        for req in eligible:
+            req.status = 'approved_by_admin'
+            req.admin_note = 'Approved by admin'
+            req.save(update_fields=['status', 'admin_note', 'updated_at'])
+            issue_refund_for_delivered_order(req.order, reason='Admin approved refund request')
+        self.message_user(request, f'{eligible.count()} refund(s) approved and buyers refunded.')
+
+    @admin.action(description='Reject selected refund requests')
+    def admin_reject(self, request, queryset):
+        eligible = queryset.filter(status__in=['escalated', 'rejected_by_seller'])
+        eligible.update(status='rejected_by_admin', admin_note='Rejected by admin')
+        self.message_user(request, f'{eligible.count()} refund(s) rejected.')

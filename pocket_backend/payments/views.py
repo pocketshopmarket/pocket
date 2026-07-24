@@ -306,29 +306,20 @@ class PawaPayWebhookView(APIView):
                 create_payout_rows_for_deposit(transaction)
 
             elif transaction.transaction_type == 'refund':
+                # No-op for post-delivery refund-request approvals (order
+                # stays 'delivered'); for pre-delivery cancellations the
+                # order was already moved to 'cancelled' at initiation.
                 cancel_order_with_refund(transaction.order, reason='Refund completed by PawaPay')
-                if transaction.recipient:
-                    try:
-                        _create_notification(
-                            recipient=transaction.recipient,
-                            notification_type='refund_completed',
-                            title='Refund Sent',
-                            message=(
-                                f'Your refund of ZMW {transaction.amount} for cancelled order '
-                                f'#{transaction.order.order_number} has been sent to '
-                                f'{transaction.payer_number}.'
-                            ),
-                            data_payload={
-                                'order_number': transaction.order.order_number,
-                                'transaction_id': str(transaction.transaction_id),
-                                'amount': str(transaction.amount),
-                            },
-                        )
-                    except Exception:
-                        logger.exception(
-                            'Refund completion notification failed for tx %s',
-                            transaction.transaction_id,
-                        )
+                from orders.services import sync_refund_request_status
+                sync_refund_request_status(transaction)
+                try:
+                    from notifications.signals import notify_buyer_refund_completed
+                    notify_buyer_refund_completed(transaction)
+                except Exception:
+                    logger.exception(
+                        'Refund completion notification failed for tx %s',
+                        transaction.transaction_id,
+                    )
 
         elif status_value in ('FAILED', 'TERMINATED'):
             transaction.status = 'failed'

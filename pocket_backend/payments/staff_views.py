@@ -406,6 +406,12 @@ class StaffMarkRefundedView(APIView):
         notes = request.data.get('notes', '')
         proof_image = request.FILES.get('proof_image')
 
+        if not proof_image:
+            return Response(
+                {'error': 'A screenshot of the mobile money transaction is required to mark a refund as sent.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         with db_transaction.atomic():
             try:
                 tx = (
@@ -425,8 +431,7 @@ class StaffMarkRefundedView(APIView):
             tx.marked_paid_at = timezone.now()
             if notes:
                 tx.payout_notes = notes
-            if proof_image:
-                tx.proof_image = proof_image
+            tx.proof_image = proof_image
             tx.save()
 
             from orders.services import sync_refund_request_status

@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,11 +128,22 @@ class _RefundCardState extends State<_RefundCard> {
                     ? 'Receipt attached ✓'
                     : 'Attach MoMo screenshot'),
               ),
+              if (_proofImagePath == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text(
+                    'A screenshot is required before you can confirm.',
+                    style: TextStyle(fontSize: 11, color: Colors.red),
+                  ),
+                ),
             ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
+            FilledButton(
+              onPressed: _proofImagePath != null ? () => Navigator.pop(ctx, true) : null,
+              child: const Text('Confirm'),
+            ),
           ],
         ),
       ),
@@ -153,11 +165,15 @@ class _RefundCardState extends State<_RefundCard> {
       }
     } catch (e) {
       if (mounted) {
+        String message = 'Could not mark as refunded. Please try again.';
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map && data['error'] is String) {
+            message = data['error'] as String;
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not mark as refunded. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
         );
       }
     } finally {

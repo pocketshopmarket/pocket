@@ -63,8 +63,16 @@ class TransactionAdmin(admin.ModelAdmin):
             tx.payout_method = 'manual'
             tx.marked_paid_by = request.user
             tx.marked_paid_at = timezone.now()
+            # The staff app requires a screenshot before it lets this
+            # action happen; this admin bulk action has no per-row upload
+            # step, so stamp it clearly for anyone auditing later.
+            stamp = '[Marked via admin by %s — no proof image attached]' % request.user
+            tx.payout_notes = (
+                f'{stamp} {tx.payout_notes}'.strip() if tx.payout_notes else stamp
+            )
             tx.save(update_fields=[
-                'status', 'payout_method', 'marked_paid_by', 'marked_paid_at', 'updated_at',
+                'status', 'payout_method', 'marked_paid_by', 'marked_paid_at',
+                'payout_notes', 'updated_at',
             ])
             sync_refund_request_status(tx)
             try:

@@ -38,6 +38,7 @@ class AppConstants {
   static const String passwordResetSendOtpEndpoint = 'auth/password-reset/send-otp/';
   static const String passwordResetConfirmEndpoint = 'auth/password-reset/confirm/';
   static const String changePasswordEndpoint = 'auth/change-password/';
+  static const String deleteAccountEndpoint = 'auth/delete-account/';
   static const String buyerPaymentMethodsEndpoint = 'auth/buyer/payment-methods/';
   static const String sellerPayoutMethodsEndpoint = 'auth/seller/payout-methods/';
   static const String paymentsInitiateEndpoint = 'payments/initiate/';

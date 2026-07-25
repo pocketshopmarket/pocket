@@ -514,6 +514,16 @@ class AuthService {
   }
 
   // Logout
+  Future<void> deleteAccount() async {
+    await _ensureInitialized();
+    // Best-effort: the account is deactivated server-side regardless of
+    // whether we manage to clear local session state afterward.
+    await _apiService.post(AppConstants.deleteAccountEndpoint);
+    await _storage.delete(key: AppConstants.accessTokenKey);
+    await _storage.delete(key: AppConstants.refreshTokenKey);
+    await _storage.delete(key: AppConstants.userKey);
+  }
+
   Future<void> logout() async {
     final refresh = await _storage.read(key: AppConstants.refreshTokenKey);
     if (refresh != null && refresh.isNotEmpty) {

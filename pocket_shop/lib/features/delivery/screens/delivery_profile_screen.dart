@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/qr_identity_sheet.dart';
+import '../../shared/delete_account_flow.dart';
 
 class DeliveryProfileScreen extends ConsumerStatefulWidget {
   const DeliveryProfileScreen({super.key});
@@ -289,6 +290,16 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
               backgroundColor: AppTheme.error,
               foregroundColor: Colors.white,
               elevation: 0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: () => showDeleteAccountFlow(context, ref),
+            child: Text(
+              'Delete My Account',
+              style: TextStyle(color: AppTheme.error.withValues(alpha: 0.7)),
             ),
           ),
         ),

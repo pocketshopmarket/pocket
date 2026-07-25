@@ -56,6 +56,8 @@ class User(AbstractUser):
     fcm_token = models.CharField(max_length=255, blank=True, default='')
     qr_secret = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     date_joined = models.DateTimeField(auto_now_add=True)
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     objects = CustomUserManager()
 

@@ -9,6 +9,7 @@ import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/delivery_provider.dart';
 import '../../../../providers/payment_methods_provider.dart';
+import '../../shared/delete_account_flow.dart';
 import 'add_payment_method_screen.dart';
 
 class BuyerProfileScreen extends ConsumerStatefulWidget {
@@ -805,6 +806,16 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                   backgroundColor: AppTheme.error,
                   foregroundColor: Colors.white,
                   elevation: 0,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: () => showDeleteAccountFlow(context, ref),
+                child: Text(
+                  'Delete My Account',
+                  style: TextStyle(color: AppTheme.error.withValues(alpha: 0.7)),
                 ),
               ),
             ),

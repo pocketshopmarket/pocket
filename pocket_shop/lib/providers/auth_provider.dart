@@ -258,6 +258,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<bool> deleteAccount() async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      await _authService.deleteAccount();
+      clearAuth();
+      return true;
+    } catch (e) {
+      final message = _authService.extractFriendlyMessage(
+        e,
+        defaultMessage: 'Could not delete your account. Please try again.',
+      );
+      state = state.copyWith(
+        error: message,
+        isLoading: false,
+        isInitialized: true,
+      );
+      return false;
+    }
+  }
+
   // Called when the refresh token is rejected by the server (token expired/revoked).
   void handleSessionExpired() {
     state = AuthState(

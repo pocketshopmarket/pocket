@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/delivery_provider.dart';
+import '../../shared/delete_account_flow.dart';
 
 /// Shop summary + account actions for sellers (parity with buyer/delivery).
 class SellerProfileScreen extends ConsumerStatefulWidget {
@@ -479,6 +480,16 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
               backgroundColor: AppTheme.error,
               foregroundColor: Colors.white,
               elevation: 0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: () => showDeleteAccountFlow(context, ref),
+            child: Text(
+              'Delete My Account',
+              style: TextStyle(color: AppTheme.error.withValues(alpha: 0.7)),
             ),
           ),
         ),

@@ -337,6 +337,85 @@ class ChangePasswordView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class DeleteAccountView(APIView):
+    """
+    Buyer/seller/delivery self-service account deletion (required by App
+    Store Guideline 5.1.1(v) and promised by our own privacy policy).
+
+    Deactivates the account and anonymises personal info instead of a hard
+    delete, so order/transaction history stays intact for legal and
+    accounting purposes. The phone number is freed up for reuse by
+    randomising it rather than just clearing it (phone_number is unique).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        import uuid
+        from django.db import transaction as db_transaction
+        from django.utils import timezone
+
+        user = request.user
+        anon_suffix = uuid.uuid4().hex[:10]
+
+        with db_transaction.atomic():
+            user.full_name = 'Deleted User'
+            user.phone_number = f'deleted_{anon_suffix}'
+            user.email = None
+            user.gender = None
+            user.date_of_birth = None
+            user.fcm_token = ''
+            if user.profile_photo:
+                user.profile_photo.delete(save=False)
+            user.is_active = False
+            user.is_deleted = True
+            user.deleted_at = timezone.now()
+            user.set_unusable_password()
+            user.save()
+
+            # Sensitive identity documents are the highest-risk PII on
+            # file — scrub them even though the profile row itself stays
+            # (order history references it).
+            try:
+                profile = user.seller_profile
+                profile.nrc_number = ''
+                if profile.nrc_front_image:
+                    profile.nrc_front_image.delete(save=False)
+                if profile.nrc_back_image:
+                    profile.nrc_back_image.delete(save=False)
+                if profile.live_verification_photo:
+                    profile.live_verification_photo.delete(save=False)
+                if profile.business_license:
+                    profile.business_license.delete(save=False)
+                profile.save()
+            except SellerProfile.DoesNotExist:
+                pass
+
+            try:
+                profile = user.delivery_profile
+                profile.license_number = ''
+                if profile.license_front_image:
+                    profile.license_front_image.delete(save=False)
+                if profile.license_back_image:
+                    profile.license_back_image.delete(save=False)
+                if profile.live_verification_photo:
+                    profile.live_verification_photo.delete(save=False)
+                if profile.profile_photo:
+                    profile.profile_photo.delete(save=False)
+                profile.is_available = False
+                profile.save()
+            except DeliveryProfile.DoesNotExist:
+                pass
+
+            from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+            for token in OutstandingToken.objects.filter(user=user):
+                BlacklistedToken.objects.get_or_create(token=token)
+
+        return Response({
+            'success': True,
+            'message': 'Your account has been deleted.',
+        }, status=status.HTTP_200_OK)
+
+
 class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]

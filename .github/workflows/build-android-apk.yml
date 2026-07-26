@@ -91,7 +91,9 @@ jobs:
             API_URL="https://mypocketshop.store/api/"
           fi
           echo "Building with API_BASE_URL=$API_URL"
-          flutter build apk --release --dart-define=API_BASE_URL="$API_URL"
+          flutter build apk --release \
+            --build-number="${{ github.run_number }}" \
+            --dart-define=API_BASE_URL="$API_URL"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -151,7 +153,12 @@ jobs:
             API_URL="https://mypocketshop.store/api/"
           fi
           echo "Building with API_BASE_URL=$API_URL"
-          flutter build appbundle --release --dart-define=API_BASE_URL="$API_URL"
+          # Play Console rejects re-uploading a version code it has
+          # already seen, so derive a unique, always-increasing one from
+          # this workflow run instead of the static value in pubspec.yaml.
+          flutter build appbundle --release \
+            --build-number="${{ github.run_number }}" \
+            --dart-define=API_BASE_URL="$API_URL"
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4

@@ -176,6 +176,8 @@ class ProductFilterSet(django_filters.FilterSet):
     # Accept either category ID (integer) or slug (string)
     category = django_filters.CharFilter(method='filter_category')
     quality = django_filters.CharFilter(field_name='quality', lookup_expr='iexact')
+    seller = django_filters.NumberFilter(field_name='seller_id')
+    exclude = django_filters.NumberFilter(method='filter_exclude')
 
     class Meta:
         model = Product
@@ -199,6 +201,9 @@ class ProductFilterSet(django_filters.FilterSet):
         if value is False:
             return queryset.filter(Q(stock_quantity__lte=0) | Q(is_available=False))
         return queryset
+
+    def filter_exclude(self, queryset, name, value):
+        return queryset.exclude(pk=value)
 
 
 class ProductViewSet(viewsets.ModelViewSet):

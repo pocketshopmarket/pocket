@@ -198,6 +198,39 @@ class ProductService {
     return [];
   }
 
+  /// Other in-stock products from the same seller — used to suggest
+  /// cross-sells right after adding to an empty cart, since checkout only
+  /// allows one seller per order.
+  Future<List<Product>> fetchBySeller(
+    int sellerId, {
+    int? excludeProductId,
+    int pageSize = 10,
+  }) async {
+    final params = <String, dynamic>{
+      'seller': sellerId,
+      'in_stock': true,
+      'page_size': pageSize,
+      if (excludeProductId != null) 'exclude': excludeProductId,
+    };
+    try {
+      final response = await _apiService.get(
+        AppConstants.productsEndpoint,
+        queryParameters: params,
+      );
+      if (response.data is Map<String, dynamic>) {
+        final results = (response.data as Map<String, dynamic>)['results'];
+        if (results is List) {
+          return results
+              .map((item) => Product.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<Product>> fetchRelated(int productId) async {
     final response =
         await _apiService.get('${AppConstants.productsEndpoint}$productId/related/');

@@ -7,6 +7,7 @@ import '../../../../providers/cart_provider.dart';
 import '../../../../providers/delivery_provider.dart';
 import '../../../../providers/review_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
+import '../../../../widgets/seller_suggestions_sheet.dart';
 
 class BuyerProductDetailsScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -633,6 +634,7 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                 onPressed: inStock
                     ? () async {
                         final cartNotifier = ref.read(cartProvider.notifier);
+                        final wasEmpty = ref.read(cartProvider).items.isEmpty;
                         final err = await cartNotifier.addProduct(
                           product,
                           quantity: _quantity,
@@ -645,12 +647,23 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                               backgroundColor: AppTheme.error,
                             ),
                           );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${product.name} added to cart'),
-                              duration: const Duration(seconds: 1),
-                            ),
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${product.name} added to cart'),
+                            duration: const Duration(seconds: 1),
+                          ),
+                        );
+                        // First item in a previously-empty cart is the
+                        // highest-leverage moment to suggest more from this
+                        // seller, since checkout only allows one seller.
+                        if (wasEmpty) {
+                          await SellerSuggestionsSheet.showIfAvailable(
+                            context,
+                            sellerId: product.sellerId,
+                            excludeProductId: product.id,
+                            sellerName: product.sellerName ?? 'this seller',
                           );
                         }
                       }

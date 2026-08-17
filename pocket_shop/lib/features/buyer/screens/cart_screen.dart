@@ -13,6 +13,7 @@ import '../../../../providers/delivery_provider.dart';
 import '../../../../models/order.dart';
 import '../../../../providers/orders_provider.dart';
 import '../../../../providers/payment_methods_provider.dart';
+import '../../../../providers/platform_settings_provider.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -1120,6 +1121,22 @@ class CartScreen extends ConsumerWidget {
                               ],
                             ),
                           ],
+                          if ((ref.read(cartProvider).totalAmount * ref.read(buyerServiceFeeRateProvider)) > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Service fee',
+                                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                                ),
+                                Text(
+                                  'ZMW ${(ref.read(cartProvider).totalAmount * ref.read(buyerServiceFeeRateProvider)).toStringAsFixed(2)}',
+                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ],
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Divider(height: 1),
@@ -1136,7 +1153,7 @@ class CartScreen extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                'ZMW ${(ref.read(cartProvider).totalAmount + (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0)).toStringAsFixed(2)}',
+                                'ZMW ${(ref.read(cartProvider).totalAmount + (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0) + (ref.read(cartProvider).totalAmount * ref.read(buyerServiceFeeRateProvider))).toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,

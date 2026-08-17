@@ -19,6 +19,9 @@ final orderTimeoutMinutesProvider = Provider<int>((ref) {
 final commissionRateProvider = Provider<double>((ref) =>
     _val(ref.watch(platformSettingsProvider), 'commission_rate', 0.05));
 
+final buyerServiceFeeRateProvider = Provider<double>((ref) =>
+    _val(ref.watch(platformSettingsProvider), 'buyer_service_fee_rate', 0.0));
+
 final deliveryPerKmRateProvider = Provider<double>((ref) =>
     _val(ref.watch(platformSettingsProvider), 'delivery_per_km_rate', 8.0));
 

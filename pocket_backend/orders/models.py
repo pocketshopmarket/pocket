@@ -62,6 +62,10 @@ class Order(models.Model):
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales')
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    service_fee = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text='Buyer service fee, snapshotted from PlatformSettings.buyer_service_fee_rate at order creation time.',
+    )
     fulfillment_type = models.CharField(
         max_length=10, choices=FULFILLMENT_CHOICES, default='delivery',
     )
@@ -87,9 +91,13 @@ class Order(models.Model):
 
     @property
     def grand_total(self):
-        """Items + delivery fee — the actual amount the buyer is charged."""
+        """Items + delivery fee + service fee — the actual amount the buyer is charged."""
         from decimal import Decimal
-        return self.total_price + (self.delivery_fee or Decimal('0'))
+        return (
+            self.total_price
+            + (self.delivery_fee or Decimal('0'))
+            + (self.service_fee or Decimal('0'))
+        )
     
     class Meta:
         ordering = ['-created_at']

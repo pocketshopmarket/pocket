@@ -79,6 +79,8 @@ class OrderSerializer(serializers.ModelSerializer):
     quoted_delivery_fee = serializers.DecimalField(
         source='delivery_fee', max_digits=10, decimal_places=2, read_only=True
     )
+    service_fee = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    grand_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     refund_request_status = serializers.SerializerMethodField()
     cancellation_refund = serializers.SerializerMethodField()
 
@@ -87,7 +89,7 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['id', 'order_number', 'buyer', 'buyer_name', 'seller', 'seller_name',
                  'total_price', 'fulfillment_type', 'status',
                  'delivery_address', 'delivery_lat', 'delivery_lng',
-                 'quoted_delivery_fee',
+                 'quoted_delivery_fee', 'service_fee', 'grand_total',
                  'pickup_time_slot', 'quoted_distance_km', 'quoted_eta_minutes',
                  'special_instructions', 'payment_method_id',
                  'delivery_assignment_id',

@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from .earnings import earnings_breakdown
 from .models import Transaction
 from .services.pawapay import PawaPayService
-from .staff_views import notify_staff_new_withdrawal
+from .staff_views import notify_staff_new_withdrawal, notify_staff_payout_failed
 from accounts.models import BuyerPaymentMethod
 from accounts.phone_utils import normalize_zambia_phone_to_e164
 from notifications.signals import (
@@ -323,13 +323,21 @@ class PawaPayWebhookView(APIView):
 
         elif status_value in ('FAILED', 'TERMINATED'):
             transaction.status = 'failed'
-            if transaction.transaction_type == 'payout':
-                transaction.payout_stage = 'payout_failed'
             reason = data.get('failureReason', {})
             transaction.failure_message = reason.get(
                 'failureMessage',
                 'Payment was terminated by user' if status_value == 'TERMINATED' else 'Unknown failure',
             )
+
+            if transaction.transaction_type == 'payout':
+                transaction.payout_stage = 'payout_failed'
+                try:
+                    notify_staff_payout_failed(transaction)
+                except Exception:
+                    logger.exception(
+                        'Staff payout-failed notification failed for tx %s',
+                        transaction.transaction_id,
+                    )
 
             if transaction.transaction_type == 'deposit':
                 # Restore stock and cancel the order properly via the service.
@@ -391,6 +399,7 @@ def create_payout_rows_for_deposit(deposit_tx):
     _ps = PlatformSettings.get()
     seller_commission_rate = Decimal(str(_ps.seller_commission_rate))
     rider_commission_rate = Decimal(str(_ps.rider_commission_rate))
+    payout_fee_rate = Decimal(str(_ps.payout_fee_rate))
 
     # Use the server-validated delivery fee from the Order model.
     delivery_fee = Decimal(str(order.delivery_fee or 0))
@@ -398,6 +407,12 @@ def create_payout_rows_for_deposit(deposit_tx):
 
     platform_cut = (item_total * seller_commission_rate).quantize(Decimal('0.01'))
     seller_share = item_total - platform_cut
+
+    # Payout fee — a second, optional deduction on top of commission, taken
+    # on the act of paying out rather than on the sale itself. Defaults to
+    # 0.00 in PlatformSettings, so this has no effect until deliberately set.
+    seller_payout_fee = (seller_share * payout_fee_rate).quantize(Decimal('0.01'))
+    seller_share = seller_share - seller_payout_fee
 
     # ── FIX #6: Use seller's OWN registered payment method ──
     seller_provider, seller_phone = _resolve_payout_provider(order.seller)
@@ -442,6 +457,8 @@ def create_payout_rows_for_deposit(deposit_tx):
             ).exists():
                 rider_cut = (delivery_fee * rider_commission_rate).quantize(Decimal('0.01'))
                 rider_share = delivery_fee - rider_cut
+                rider_payout_fee = (rider_share * payout_fee_rate).quantize(Decimal('0.01'))
+                rider_share = rider_share - rider_payout_fee
                 Transaction.objects.create(
                     order=order,
                     transaction_type='payout',
@@ -743,6 +760,13 @@ class RequestPayoutView(APIView):
                 tx.failure_message = str(exc)
                 tx.payout_stage = 'payout_failed'
                 tx.save()
+                try:
+                    notify_staff_payout_failed(tx)
+                except Exception:
+                    logger.exception(
+                        'Staff payout-failed notification failed for tx %s',
+                        tx.transaction_id,
+                    )
                 return Response(
                     {'error': 'Payout initiation failed. Please try again.'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -1176,6 +1176,7 @@ class DeliveryQuoteView(APIView):
     def post(self, request):
         from .models import DeliveryPricingConfig
         from .coordinates import resolve_pickup_coordinates
+        from portal.models import PlatformSettings
 
         # --- Resolve delivery (buyer) coordinates ---
         try:
@@ -1237,6 +1238,7 @@ class DeliveryQuoteView(APIView):
                 'short_distance_threshold_km': float(config.short_distance_threshold_km),
                 'short_distance_flat_rate': float(config.short_distance_flat_rate),
                 'per_km_rate': float(config.per_km_rate),
+                'buyer_service_fee_rate': float(PlatformSettings.get().buyer_service_fee_rate),
             }
         )
 

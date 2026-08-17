@@ -85,6 +85,26 @@ def notify_staff_new_refund(refund_tx):
     )
 
 
+def notify_staff_payout_failed(transaction):
+    """Called when a gateway payout to a seller/rider fails or is terminated
+    by PawaPay — either at initiation or via the webhook."""
+    _notify_staff(
+        title='Payout Failed',
+        message=(
+            f'Automatic payout of ZMW {transaction.amount} to '
+            f'{transaction.recipient.full_name if transaction.recipient else transaction.payer_number} '
+            f'failed: {transaction.failure_message or "Unknown error"}'
+        ),
+        data_payload={
+            'type': 'payout_failed',
+            'transaction_id': str(transaction.transaction_id),
+            'order_number': transaction.order.order_number,
+            'amount': str(transaction.amount),
+            'recipient_role': transaction.recipient_role,
+        },
+    )
+
+
 def notify_staff_new_verification(verification_request):
     """Called when a seller/rider submits verification documents."""
     _notify_staff(

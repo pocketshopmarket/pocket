@@ -133,18 +133,12 @@ class RevenueSnapshot(models.Model):
                 count=Count('id'),
                 gmv=Sum('total_price'),
                 delivery=Sum('delivery_fee'),
+                service=Sum('service_fee'),
             )
             order_count = agg['count'] or 0
             gmv = Decimal(str(agg['gmv'] or 0))
             delivery_collected = Decimal(str(agg['delivery'] or 0))
-
-            # Deposits from buyers
-            buyer_deposits = Transaction.objects.filter(
-                transaction_type='deposit',
-                status='completed',
-                created_at__range=(month_start, month_end),
-            ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
-            buyer_deposits = Decimal(str(buyer_deposits))
+            service_fee_collected = Decimal(str(agg['service'] or 0))
 
             # Seller payouts
             seller_payouts = Transaction.objects.filter(
@@ -172,10 +166,14 @@ class RevenueSnapshot(models.Model):
             ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
             refunds = Decimal(str(refunds))
 
-            # Platform kept = what came in minus what went out
-            seller_commission = buyer_deposits - seller_payouts
+            # Platform kept = what came in minus what went out, per component.
+            # gmv and delivery_collected are disjoint parts of the same deposit,
+            # so each commission is computed against its own slice only —
+            # summing buyer_deposits (the whole grand_total) against a single
+            # payout would double-count whichever slice the other payout covers.
+            seller_commission = gmv - seller_payouts
             rider_commission = delivery_collected - rider_payouts
-            buyer_fees = Decimal('0')  # placeholder until buyer_service_fee_rate > 0
+            buyer_fees = service_fee_collected
 
             total_revenue = seller_commission + rider_commission + buyer_fees
             total_payouts = seller_payouts + rider_payouts

@@ -50,9 +50,9 @@ class RevenueSnapshotAdmin(admin.ModelAdmin):
         'order_count',
         'col_gmv',
         'col_delivery',
-        'col_seller_commission',
-        'col_rider_commission',
-        'col_buyer_fees',
+        'col_collected_from_buyer',
+        'col_collected_from_seller',
+        'col_collected_from_rider',
         'col_total_revenue',
         'col_payouts',
         'col_refunds',
@@ -92,17 +92,17 @@ class RevenueSnapshotAdmin(admin.ModelAdmin):
     def col_delivery(self, obj):
         return _zmw(obj.delivery_collected)
 
-    @admin.display(description='Seller commission')
-    def col_seller_commission(self, obj):
+    @admin.display(description='Collected from buyer')
+    def col_collected_from_buyer(self, obj):
+        return _zmw(obj.buyer_fees)
+
+    @admin.display(description='Collected from seller')
+    def col_collected_from_seller(self, obj):
         return _zmw(obj.seller_commission)
 
-    @admin.display(description='Rider commission')
-    def col_rider_commission(self, obj):
+    @admin.display(description='Collected from rider')
+    def col_collected_from_rider(self, obj):
         return _zmw(obj.rider_commission)
-
-    @admin.display(description='Buyer fees')
-    def col_buyer_fees(self, obj):
-        return _zmw(obj.buyer_fees)
 
     @admin.display(description='Total revenue')
     def col_total_revenue(self, obj):

@@ -40,8 +40,8 @@ class StaffUserCreationForm(forms.ModelForm):
 class UserAdmin(BaseUserAdmin):
     add_form = StaffUserCreationForm
 
-    list_display = ['full_name', 'phone_number', 'email', 'role', 'gender', 'is_verified', 'is_phone_verified', 'total_paid_out', 'date_joined', 'is_active']
-    list_filter = ['role', 'gender', 'is_verified', 'is_phone_verified', 'is_active', 'date_joined']
+    list_display = ['full_name', 'phone_number', 'email', 'role', 'gender', 'is_verified', 'is_phone_verified', 'total_paid_out', 'date_joined', 'is_active', 'is_deleted']
+    list_filter = ['role', 'gender', 'is_verified', 'is_phone_verified', 'is_active', 'is_deleted', 'date_joined']
     search_fields = ['full_name', 'phone_number', 'email']
     ordering = ['-date_joined']
     readonly_fields = ['date_joined', 'last_login']

@@ -15,7 +15,11 @@ class CartItemAdmin(admin.ModelAdmin):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['order_number', 'buyer', 'seller', 'total_price', 'status', 'created_at']
+    list_display = [
+        'order_number', 'buyer', 'seller',
+        'total_price', 'delivery_fee', 'service_fee', 'grand_total',
+        'status', 'created_at',
+    ]
     list_filter = ['status', 'created_at']
     search_fields = ['order_number', 'buyer__phone_number', 'seller__phone_number']
     readonly_fields = ['order_number', 'created_at', 'updated_at']

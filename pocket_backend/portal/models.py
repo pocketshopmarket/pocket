@@ -140,25 +140,45 @@ class RevenueSnapshot(models.Model):
             delivery_collected = Decimal(str(agg['delivery'] or 0))
             service_fee_collected = Decimal(str(agg['service'] or 0))
 
-            # Seller payouts
-            seller_payouts = Transaction.objects.filter(
+            # Seller payouts — scoped to *this month's delivered orders*
+            # (order__in=orders), not the payout transaction's own created_at.
+            # A payout can be created in a different month than the order was
+            # delivered in, so filtering independently by date mixed unrelated
+            # orders into the subtraction. Only orders whose payout has
+            # actually completed count toward commission — one still sitting
+            # pending hasn't generated commission yet, it's just unpaid.
+            completed_seller_payouts = Transaction.objects.filter(
                 transaction_type='payout',
                 recipient_role='seller',
                 status='completed',
-                created_at__range=(month_start, month_end),
-            ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+                order__in=orders,
+            )
+            seller_payouts = completed_seller_payouts.aggregate(s=Sum('amount'))['s'] or Decimal('0')
             seller_payouts = Decimal(str(seller_payouts))
+            seller_gmv_paid = orders.filter(
+                id__in=completed_seller_payouts.values_list('order_id', flat=True)
+            ).aggregate(s=Sum('total_price'))['s'] or Decimal('0')
+            seller_gmv_paid = Decimal(str(seller_gmv_paid))
 
-            # Rider payouts
-            rider_payouts = Transaction.objects.filter(
+            # Rider payouts — same scoping and same-order logic, against
+            # delivery_fee instead of total_price.
+            completed_rider_payouts = Transaction.objects.filter(
                 transaction_type='payout',
                 recipient_role='delivery',
                 status='completed',
-                created_at__range=(month_start, month_end),
-            ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
+                order__in=orders,
+            )
+            rider_payouts = completed_rider_payouts.aggregate(s=Sum('amount'))['s'] or Decimal('0')
             rider_payouts = Decimal(str(rider_payouts))
+            rider_delivery_paid = orders.filter(
+                id__in=completed_rider_payouts.values_list('order_id', flat=True)
+            ).aggregate(s=Sum('delivery_fee'))['s'] or Decimal('0')
+            rider_delivery_paid = Decimal(str(rider_delivery_paid))
 
-            # Refunds
+            # Refunds — deliberately NOT scoped to this month's delivered
+            # orders. A refund can belong to an order that was never
+            # delivered at all (e.g. a failed-payment auto-cancel), so it's
+            # counted by when the refund itself happened instead.
             refunds = Transaction.objects.filter(
                 transaction_type='refund',
                 status='completed',
@@ -166,13 +186,12 @@ class RevenueSnapshot(models.Model):
             ).aggregate(s=Sum('amount'))['s'] or Decimal('0')
             refunds = Decimal(str(refunds))
 
-            # Platform kept = what came in minus what went out, per component.
-            # gmv and delivery_collected are disjoint parts of the same deposit,
-            # so each commission is computed against its own slice only —
-            # summing buyer_deposits (the whole grand_total) against a single
-            # payout would double-count whichever slice the other payout covers.
-            seller_commission = gmv - seller_payouts
-            rider_commission = delivery_collected - rider_payouts
+            # Platform kept = what came in minus what went out, computed only
+            # against orders whose payout has actually completed. buyer_fees
+            # is realized immediately at deposit time (nothing further has to
+            # happen), so unlike commission it isn't gated on payout status.
+            seller_commission = seller_gmv_paid - seller_payouts
+            rider_commission = rider_delivery_paid - rider_payouts
             buyer_fees = service_fee_collected
 
             total_revenue = seller_commission + rider_commission + buyer_fees

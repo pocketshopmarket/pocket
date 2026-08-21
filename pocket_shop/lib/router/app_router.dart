@@ -97,6 +97,20 @@ final routerRefreshProvider = Provider<RouterRefresh>((ref) {
   return refresh;
 });
 
+// Buyer routes a guest (no account) can browse without signing in.
+// Apple 5.1.1 requires that product browsing never be gated behind login.
+// Add to this set only after confirming the screen has no auth-dependent
+// code paths (see buyer_home_screen.dart, buyer_product_details_screen.dart
+// for the guest-safety pattern: null-safe user, guest-local cart/wishlist).
+const _guestBrowsableBuyerPaths = <String>{
+  '/buyer/home',
+  '/buyer/product-details',
+  '/buyer/search',
+  '/buyer/shop',
+  '/buyer/wishlist',
+  '/buyer/cart',
+};
+
 String? _authRedirect(Ref ref, GoRouterState state) {
   final authState = ref.read(authProvider);
   final isAuthenticated = authState.isAuthenticated;
@@ -130,10 +144,14 @@ String? _authRedirect(Ref ref, GoRouterState state) {
           return '/buyer/home';
       }
     }
-    return '/phone';
+    // Guests browse first; /phone is opt-in via the Profile tab.
+    return '/buyer/home';
   }
 
   if (!isAuthenticated && !isSplash && !isAuthRoute) {
+    if (_guestBrowsableBuyerPaths.contains(state.uri.path)) {
+      return null;
+    }
     return '/phone';
   }
 

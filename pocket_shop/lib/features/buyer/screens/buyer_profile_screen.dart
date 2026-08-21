@@ -9,6 +9,7 @@ import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/delivery_provider.dart';
 import '../../../../providers/payment_methods_provider.dart';
+import '../../../../widgets/sign_in_prompt.dart';
 import '../../shared/delete_account_flow.dart';
 import 'add_payment_method_screen.dart';
 
@@ -363,8 +364,15 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
     if (user == null) {
       return Scaffold(
         backgroundColor: AppTheme.surfaceWhite,
-        body: const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryCyan),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: SignInPrompt(
+              message: 'Sign in to view your profile, orders, and saved details.',
+              onSignIn: () => context.go('/phone'),
+              showRoleSwitchLink: true,
+            ),
+          ),
         ),
       );
     }

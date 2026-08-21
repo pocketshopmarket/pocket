@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../models/product.dart';
+import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/delivery_provider.dart';
 import '../../../../providers/review_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../widgets/seller_suggestions_sheet.dart';
+import '../../../../widgets/sign_in_prompt.dart';
 
 class BuyerProductDetailsScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -556,7 +558,16 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: () => _openReviewSheet(context, product.id),
+                      onPressed: () {
+                        if (ref.read(userProvider) == null) {
+                          SignInPrompt.showSheet(
+                            context,
+                            message: 'Sign in to write a review.',
+                          );
+                          return;
+                        }
+                        _openReviewSheet(context, product.id);
+                      },
                       child: const Text('Write review'),
                     ),
                   ],

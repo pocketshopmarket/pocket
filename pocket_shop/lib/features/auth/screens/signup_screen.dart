@@ -33,7 +33,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       TextEditingController();
 
   String? _gender;
-  String? _genderError;
   DateTime? _dateOfBirth;
   int _pageIndex = 0;
   bool _isLoading = false;
@@ -83,13 +82,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   void _onNextFromStep1() {
-    if (_gender == null || _gender!.isEmpty) {
-      setState(() => _genderError = 'Please select your gender');
-    } else {
-      setState(() => _genderError = null);
-    }
     if (!(_step1FormKey.currentState?.validate() ?? false)) return;
-    if (_gender == null || _gender!.isEmpty) return;
     _goToStep(1);
   }
 
@@ -272,7 +265,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 onSelectionChanged: (Set<String> selection) {
                   setState(() {
                     _gender = selection.isEmpty ? null : selection.first;
-                    _genderError = null;
                   });
                 },
                 style: ButtonStyle(
@@ -281,13 +273,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
               ),
             ),
-            if (_genderError != null) ...[
-              SizedBox(height: 6.h),
-              Text(
-                _genderError!,
-                style: TextStyle(color: AppTheme.error, fontSize: 12.sp),
-              ),
-            ],
             SizedBox(height: AppSizes.spacingMedium.h),
             FormField<DateTime>(
               validator: _validateDateOfBirth,

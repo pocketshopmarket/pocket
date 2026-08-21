@@ -203,6 +203,28 @@ class Command(BaseCommand):
         action = 'Created' if created else 'Updated'
         self.stdout.write(self.style.SUCCESS(f'  {action} rider: {rider_phone}'))
 
+        # ── Buyer ────────────────────────────────────────────────────────────
+        # No verification/approval needed for buyers — used for Apple/Google
+        # App Review, since reviewers can't receive Zambian SMS OTP and must
+        # log in with phone + password instead.
+        self.stdout.write('Creating buyer account...')
+        buyer_phone = _normalize('0977000111')
+        buyer, created = User.objects.get_or_create(
+            phone_number=buyer_phone,
+            defaults={
+                'full_name': 'Demo Buyer',
+                'role': 'buyer',
+                'is_active': True,
+                'is_phone_verified': True,
+            },
+        )
+        buyer.set_password('demo2006')
+        buyer.is_phone_verified = True
+        buyer.save()
+
+        action = 'Created' if created else 'Updated'
+        self.stdout.write(self.style.SUCCESS(f'  {action} buyer: {buyer_phone}'))
+
         # ── Clear dead file references from previous deploys ─────────────────
         self.stdout.write('Clearing dead media file references...')
         from products.models import ProductImage

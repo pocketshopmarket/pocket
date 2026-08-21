@@ -11,7 +11,13 @@ from .serializers import ProductReviewSerializer
 
 
 class ProductReviewListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        # Reading reviews is part of browsing a product and must stay open
+        # to guests (Apple Guideline 5.1.1); only submitting one requires
+        # an account.
+        if self.request.method == 'POST':
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
 
     def get(self, request, product_id):
         product = get_object_or_404(Product, id=product_id)

@@ -997,6 +997,11 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 ),
                 const SizedBox(height: 18),
               ],
+              // Recommendations require an account (backend is IsAuthenticated,
+              // no anonymous fallback) — omit the section entirely for a guest
+              // rather than show an error state with a retry that can never
+              // succeed.
+              if (user != null)
               ref.watch(recommendedProvider).when(
                 data: (recommendedProducts) {
                   if (recommendedProducts.isEmpty) return const SizedBox.shrink();

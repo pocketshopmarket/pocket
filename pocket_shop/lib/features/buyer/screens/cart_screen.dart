@@ -14,17 +14,25 @@ import '../../../../models/order.dart';
 import '../../../../providers/orders_provider.dart';
 import '../../../../providers/payment_methods_provider.dart';
 import '../../../../providers/platform_settings_provider.dart';
+import '../../../../widgets/sign_in_prompt.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
 
   Future<void> _openCheckout(BuildContext context, WidgetRef ref) async {
     final user = ref.read(userProvider);
+    if (user == null) {
+      await SignInPrompt.showSheet(
+        context,
+        message: 'Sign in to complete checkout and track your delivery.',
+      );
+      return;
+    }
     final cartItems = ref.read(cartProvider).items;
     final defaultStore = cartItems.isNotEmpty
         ? (cartItems.first.product.sellerName ?? 'Seller store')
         : 'Seller store';
-    final savedDefault = (user?.buyerProfile?.defaultAddress ?? '').trim();
+    final savedDefault = (user.buyerProfile?.defaultAddress ?? '').trim();
     final hasDefault = savedDefault.isNotEmpty;
     final addressController = TextEditingController(
       text: savedDefault,

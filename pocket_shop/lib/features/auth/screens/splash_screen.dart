@@ -53,9 +53,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         }
       },
       error: (error, stackTrace) {
-        // Error during initialization - navigate to login
+        // Error during initialization - browse as a guest rather than
+        // forcing login (Apple 5.1.1: browsing must not require an account).
         if (mounted) {
-          GoRouter.of(context).go('/phone');
+          GoRouter.of(context).go('/buyer/home');
         }
       },
       loading: () {
@@ -89,8 +90,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           if (mounted) GoRouter.of(context).go('/buyer/home');
       }
     } else {
+      // No account yet — browse as a guest rather than forcing login.
       if (mounted) {
-        GoRouter.of(context).go('/phone');
+        GoRouter.of(context).go('/buyer/home');
       }
     }
   }

@@ -18,6 +18,7 @@ import '../../../../providers/auth_provider.dart';
 import '../../../../models/category.dart';
 import '../../../../widgets/notification_bell.dart';
 import '../../../../widgets/qr_identity_sheet.dart';
+import '../../../../widgets/sign_in_prompt.dart';
 
 class BuyerHomeScreen extends ConsumerStatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -405,7 +406,16 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   const Spacer(),
                   IconButton(
                     tooltip: 'My QR code',
-                    onPressed: () => QrIdentitySheet.show(context),
+                    onPressed: () {
+                      if (user == null) {
+                        SignInPrompt.showSheet(
+                          context,
+                          message: 'Sign in to get your identity QR code.',
+                        );
+                        return;
+                      }
+                      QrIdentitySheet.show(context);
+                    },
                     icon: const Icon(
                       Icons.qr_code_rounded,
                       color: AppTheme.textPrimary,

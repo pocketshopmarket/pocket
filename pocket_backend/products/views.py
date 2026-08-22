@@ -237,6 +237,11 @@ class ProductViewSet(viewsets.ModelViewSet):
             review_avg=Avg('reviews__rating'),
             review_count=Count('reviews', distinct=True),
         )
+        # Guests browsing without an account (Apple Guideline 5.1.1) see the
+        # same catalog a buyer would — AnonymousUser has no .role attribute,
+        # so this must be checked before the role branches below.
+        if not user.is_authenticated:
+            return qs.filter(is_available=True)
         if user.role == 'seller':
             qs = qs.filter(seller=user)
         elif user.role in ['buyer', 'delivery', 'admin']:
@@ -248,6 +253,8 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsApprovedSeller()]
+        if self.action in ['list', 'retrieve', 'trending', 'related']:
+            return [permissions.AllowAny()]
         return super().get_permissions()
 
     def get_serializer_context(self):

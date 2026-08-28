@@ -23,6 +23,9 @@ def privacy(request):
 def manual(request):
     return render(request, 'portal/manual.html')
 
+def partner_api_docs(request):
+    return render(request, 'portal/partner_api.html')
+
 
 def delete_account(request):
     """

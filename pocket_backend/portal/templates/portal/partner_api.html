@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pocket Shop — Partner API</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root {
+    --cyan: #06b6d4;
+    --dark-cyan: #0891b2;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --text-sec: #475569;
+    --border: #e2e8f0;
+    --green: #16a34a;
+    --orange: #ea580c;
+    --red: #dc2626;
+    --blue: #2563eb;
+    --purple: #7c3aed;
+    --sidebar-w: 260px;
+    --console-bg: #0f172a;
+    --console-line: #1e293b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+
+  /* ── Layout ── */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: var(--sidebar-w); background: #0f172a; color: #cbd5e1;
+    position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto;
+    padding: 0 0 40px;
+    scrollbar-width: thin; scrollbar-color: #334155 transparent;
+  }
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sidebar-logo .dot { width: 32px; height: 32px; background: var(--cyan); border-radius: 8px; display:flex; align-items:center; justify-content:center; font-weight:800; color:#0f172a; font-size:14px; flex-shrink:0; }
+  .sidebar-logo span { font-weight: 700; color: #f1f5f9; font-size: 15px; }
+  .sidebar-logo small { display: block; font-size: 11px; color: #64748b; font-weight: 400; }
+  .nav-section { padding: 20px 12px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #475569; }
+  .nav-item {
+    display: block; padding: 9px 16px; font-size: 13px; color: #94a3b8; text-decoration: none;
+    border-radius: 8px; margin: 2px 8px; transition: all .15s;
+  }
+  .nav-item:hover, .nav-item.active { background: #1e293b; color: #e2e8f0; }
+  .nav-item.active { color: var(--cyan); }
+  .main { margin-left: var(--sidebar-w); flex: 1; padding: 0; }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: #0f172a; color: white; padding: 20px 40px;
+    border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar h1 { font-size: 18px; font-weight: 700; }
+  .topbar small { font-size: 12px; color: #64748b; }
+  .badge-version { background: var(--cyan); color: #0f172a; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+
+  /* ── Content ── */
+  .content { padding: 40px; max-width: 900px; }
+  section { margin-bottom: 60px; scroll-margin-top: 80px; }
+  h2 { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 6px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 16px; font-weight: 700; color: var(--text); margin: 28px 0 10px; }
+  p { color: var(--text-sec); font-size: 14px; margin-bottom: 10px; max-width: 68ch; }
+  ul, ol { padding-left: 20px; color: var(--text-sec); font-size: 14px; }
+  li { margin-bottom: 5px; }
+  strong { color: var(--text); }
+  a { color: var(--dark-cyan); }
+
+  /* ── Cards ── */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin: 16px 0; }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--border); border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { background: #f1f5f9; padding: 10px 14px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-sec); border-bottom: 2px solid var(--border); }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-sec); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f8fafc; }
+  .code { font-family: 'SF Mono', 'Consolas', monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--dark-cyan); }
+  td .code { background: transparent; padding: 0; }
+
+  /* ── Status badges ── */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-orange { background: #ffedd5; color: #c2410c; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-red { background: #fee2e2; color: #b91c1c; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+  .badge-cyan { background: #cffafe; color: #0e7490; }
+
+  /* ── Terminal / code blocks ── */
+  .terminal { background: var(--console-bg); border-radius: 12px; overflow: hidden; margin: 16px 0; border: 1px solid var(--console-line); }
+  .terminal-bar { background: var(--console-line); padding: 8px 16px; display: flex; align-items: center; gap: 8px; }
+  .terminal-dot { width: 9px; height: 9px; border-radius: 50%; background: #475569; }
+  .terminal-label { font-family: 'SF Mono', Consolas, monospace; font-size: 11px; color: #64748b; margin-left: 4px; }
+  .terminal pre { margin: 0; padding: 16px 18px; overflow-x: auto; font-family: 'SF Mono', Consolas, monospace; font-size: 13px; line-height: 1.65; color: #e2e8f0; white-space: pre; }
+  .terminal .hl { color: var(--cyan); }
+  .terminal .dim { color: #64748b; }
+
+  /* ── Flow diagram ── */
+  .flow { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 16px 0; }
+  .flow-step { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: var(--text); }
+  .flow-step.hot { background: #cffafe; color: #0e7490; }
+  .flow-arrow { color: #94a3b8; font-size: 16px; }
+
+  /* ── Field reference ── */
+  .field-list { margin: 0; padding: 0; list-style: none; }
+  .field-list li { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; gap: 12px; align-items: flex-start; }
+  .field-list li:last-child { border-bottom: none; }
+  .field-name { font-family: 'SF Mono', monospace; background: #f1f5f9; padding: 2px 7px; border-radius: 4px; font-size: 11px; color: var(--dark-cyan); flex-shrink: 0; margin-top: 1px; min-width: 150px; }
+  .field-desc { color: var(--text-sec); }
+
+  /* ── Warning / info boxes ── */
+  .box { padding: 14px 18px; border-radius: 10px; margin: 16px 0; font-size: 13px; }
+  .box-warning { background: #fffbeb; border-left: 4px solid #f59e0b; color: #78350f; }
+  .box-info { background: #eff6ff; border-left: 4px solid var(--blue); color: #1e3a5f; }
+  .box-danger { background: #fef2f2; border-left: 4px solid var(--red); color: #7f1d1d; }
+  .box strong { display: block; margin-bottom: 4px; }
+
+  /* ── Problem/fix ── */
+  .problem-list { list-style: none; padding: 0; }
+  .problem-list li { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .problem-list .q { font-weight: 700; color: var(--dark-cyan); font-size: 13px; margin-bottom: 4px; }
+  .problem-list .a { font-size: 13px; color: var(--text-sec); }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; }
+    .content { padding: 24px 16px; }
+    .topbar { padding: 16px 20px; }
+    .field-name { min-width: 120px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="dot">P</div>
+    <div>
+      <span>Pocket Shop</span>
+      <small>Partner API</small>
+    </div>
+  </div>
+
+  <div class="nav-section">Getting Started</div>
+  <a class="nav-item" href="#quickstart"><i class="fa-solid fa-rocket fa-fw" style="margin-right:7px;"></i>Quickstart</a>
+  <a class="nav-item" href="#auth"><i class="fa-solid fa-key fa-fw" style="margin-right:7px;"></i>Getting a Key</a>
+
+  <div class="nav-section">Reference</div>
+  <a class="nav-item" href="#endpoint"><i class="fa-solid fa-plug fa-fw" style="margin-right:7px;"></i>The Endpoint</a>
+  <a class="nav-item" href="#fields"><i class="fa-solid fa-list fa-fw" style="margin-right:7px;"></i>Request Fields</a>
+  <a class="nav-item" href="#sync"><i class="fa-solid fa-arrows-rotate fa-fw" style="margin-right:7px;"></i>Sync Behaviour</a>
+  <a class="nav-item" href="#categories"><i class="fa-solid fa-tags fa-fw" style="margin-right:7px;"></i>Categories</a>
+  <a class="nav-item" href="#responses"><i class="fa-solid fa-reply fa-fw" style="margin-right:7px;"></i>Responses</a>
+  <a class="nav-item" href="#errors"><i class="fa-solid fa-triangle-exclamation fa-fw" style="margin-right:7px;"></i>Errors</a>
+  <a class="nav-item" href="#limits"><i class="fa-solid fa-gauge-high fa-fw" style="margin-right:7px;"></i>Rate Limits</a>
+
+  <div class="nav-section">Help</div>
+  <a class="nav-item" href="#faq"><i class="fa-solid fa-circle-question fa-fw" style="margin-right:7px;"></i>FAQ</a>
+  <a class="nav-item" href="/"><i class="fa-solid fa-arrow-left fa-fw" style="margin-right:7px;"></i>Back to Pocket Shop</a>
+</nav>
+
+<!-- ── Main ── -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Pocket Shop — Partner API</h1>
+      <small>Sync your inventory into the Pocket Shop marketplace</small>
+    </div>
+    <span class="badge-version">v1</span>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="quickstart">
+      <h2><i class="fa-solid fa-rocket" style="margin-right:10px;color:var(--dark-cyan);"></i>Quickstart</h2>
+      <p>One endpoint, one call per product. Send it your catalogue and it stays in sync — call it again with the same reference and it updates instead of duplicating. This exact call works today.</p>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="terminal-dot"></span><span class="terminal-label">create a product</span></div>
+        <pre>$ curl -X POST https://mypocketshop.store/api/partner/v1/products/ \
+  -H <span class="hl">"Authorization: Api-Key psk_your_key_here"</span> \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id": "SKU-001",
+    "name": "Wireless Mouse",
+    "price": "149.99",
+    "category_slug": "electronics",
+    "stock_quantity": 25
+  }'</pre>
+      </div>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="terminal-dot"></span><span class="terminal-label">201 Created</span></div>
+        <pre>{
+  "id": 347,
+  "external_id": "SKU-001",
+  "name": "Wireless Mouse",
+  "price": "149.99",
+  "category": { "id": 4, "name": "Electronics", "slug": "electronics" },
+  "quality": "new",
+  "stock_quantity": 25,
+  "is_available": true,
+  "image_url": null,
+  "created_at": "2026-08-28T22:52:59Z",
+  "updated_at": "2026-08-28T22:52:59Z",
+  <span class="hl">"created": true</span>
+}</pre>
+      </div>
+
+      <p>Run the same call again with a different <span class="code">stock_quantity</span> and you'll get <span class="code">200</span> back with <span class="code">"created": false</span> — same product, updated in place. <strong>One call per SKU, safe to repeat forever.</strong></p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="auth">
+      <h2><i class="fa-solid fa-key" style="margin-right:10px;color:var(--dark-cyan);"></i>Getting a Key</h2>
+      <p>Keys aren't self-served yet — a Pocket Shop admin issues one directly to an approved seller account.</p>
+
+      <div class="flow">
+        <span class="flow-step">You're an approved seller</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Contact Pocket Shop</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step hot">Key issued, shown once</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Use it in every request</span>
+      </div>
+
+      <p>Every request needs the key in the <span class="code">Authorization</span> header, using the <span class="code">Api-Key</span> scheme — not <span class="code">Bearer</span>, which is reserved for the mobile app's login sessions:</p>
+
+      <div class="terminal">
+        <pre style="padding:14px 18px;">Authorization: Api-Key psk_your_key_here</pre>
+      </div>
+
+      <div class="box box-info"><strong>Approval is inherited automatically.</strong> A key is tied to one seller account. If that account's approval is ever revoked, the key stops working immediately — nothing to do on your end, and nothing you can do to work around it.</div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="endpoint">
+      <h2><i class="fa-solid fa-plug" style="margin-right:10px;color:var(--dark-cyan);"></i>The Endpoint</h2>
+      <p>There's exactly one endpoint. It creates or updates depending on whether <span class="code">external_id</span> has been seen before for your account.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="badge badge-green">POST</span></td>
+              <td><span class="code">/api/partner/v1/products/</span></td>
+              <td>Create a product, or update it if <span class="code">external_id</span> already exists for your account</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="box box-warning"><strong>No bulk endpoint yet.</strong> Call it once per product. For a full catalogue sync, loop over your inventory and fire one request per SKU — each call is independently safe to retry, which keeps a first integration simple.</div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="fields">
+      <h2><i class="fa-solid fa-list" style="margin-right:10px;color:var(--dark-cyan);"></i>Request Fields</h2>
+      <ul class="field-list">
+        <li><span class="field-name">external_id <span class="badge badge-red" style="margin-left:4px;">required</span></span><span class="field-desc">Your own SKU or product ID. This is the sync key — see Sync Behaviour below.</span></li>
+        <li><span class="field-name">name <span class="badge badge-red" style="margin-left:4px;">required</span></span><span class="field-desc">Product name shown to buyers.</span></li>
+        <li><span class="field-name">price <span class="badge badge-red" style="margin-left:4px;">required</span></span><span class="field-desc">Decimal string in ZMW, e.g. <span class="code">"149.99"</span>.</span></li>
+        <li><span class="field-name">description</span><span class="field-desc">Optional. Defaults to empty.</span></li>
+        <li><span class="field-name">category_slug</span><span class="field-desc">Optional. Must match an existing Pocket Shop category — see Categories below.</span></li>
+        <li><span class="field-name">quality</span><span class="field-desc">Optional. <span class="code">new</span> · <span class="code">like_new</span> · <span class="code">good</span> · <span class="code">fair</span> · <span class="code">used</span> — defaults to <span class="code">new</span>.</span></li>
+        <li><span class="field-name">stock_quantity</span><span class="field-desc">Optional integer. Defaults to <span class="code">0</span>.</span></li>
+        <li><span class="field-name">is_available</span><span class="field-desc">Optional boolean. Defaults to <span class="code">true</span>.</span></li>
+        <li><span class="field-name">image_url</span><span class="field-desc">Optional. A hosted image URL — no file upload needed.</span></li>
+        <li><span class="field-name">variants</span><span class="field-desc">Optional array. Each item needs <span class="code">name</span>, <span class="code">value</span>, <span class="code">sku</span>; optional <span class="code">stock_quantity</span>, <span class="code">is_active</span>.</span></li>
+      </ul>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="sync">
+      <h2><i class="fa-solid fa-arrows-rotate" style="margin-right:10px;color:var(--dark-cyan);"></i>Sync Behaviour</h2>
+      <p><span class="code">external_id</span> is scoped to your seller account, not global — use whatever numbering your own inventory system already has.</p>
+
+      <div class="field-grid">
+        <div class="card">
+          <div class="card-title">First call for a SKU</div>
+          <p style="margin:0;">Product created. Response is <span class="badge badge-green">201</span>, <span class="code">"created": true</span>.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Every later call, same SKU</div>
+          <p style="margin:0;">Product updated in place — same <span class="code">id</span>, no duplicate. Response is <span class="badge badge-blue">200</span>, <span class="code">"created": false</span>.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Every field is replaced</div>
+          <p style="margin:0;">An update is a full replace, not a patch — omit a field and it resets to its default. Always send the complete current state of the product.</p>
+        </div>
+      </div>
+
+      <div class="box box-info"><strong>One exception:</strong> <span class="code">variants</span>. Omit it entirely and existing variants are left untouched; send <span class="code">[]</span> to clear them.</div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="categories">
+      <h2><i class="fa-solid fa-tags" style="margin-right:10px;color:var(--dark-cyan);"></i>Categories</h2>
+      <p>Categories are curated by Pocket Shop, not partner-defined — <span class="code">category_slug</span> has to match one that already exists.</p>
+
+      <div class="terminal">
+        <div class="terminal-bar"><span class="terminal-dot"></span><span class="terminal-label">no auth needed</span></div>
+        <pre>$ curl https://mypocketshop.store/api/products/categories/</pre>
+      </div>
+
+      <p>Fetch this once, map your own categories onto the closest match, and cache the result — it changes rarely. Leave <span class="code">category_slug</span> out entirely if a product doesn't fit anything existing; it'll simply be uncategorised on Pocket Shop rather than rejected.</p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="responses">
+      <h2><i class="fa-solid fa-reply" style="margin-right:10px;color:var(--dark-cyan);"></i>Responses</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-green">201 Created</span></td><td>New product — first time this <span class="code">external_id</span> has been seen</td></tr>
+            <tr><td><span class="badge badge-blue">200 OK</span></td><td>Existing product updated — check <span class="code">"created": false</span> in the body to confirm</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Both return the same shape: the full product record plus a <span class="code">created</span> boolean, so your integration can log which happened without a second lookup.</p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="errors">
+      <h2><i class="fa-solid fa-triangle-exclamation" style="margin-right:10px;color:var(--dark-cyan);"></i>Errors</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Cause</th><th>Body</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-orange">400</span></td><td>Missing required field, or an unrecognised <span class="code">category_slug</span></td><td><span class="code">errors.category_slug</span> lists valid slugs directly in the message</td></tr>
+            <tr><td><span class="badge badge-red">401</span></td><td>Key missing, invalid, revoked, or the seller's approval has lapsed</td><td><span class="code">detail</span> names the specific reason</td></tr>
+            <tr><td><span class="badge badge-red">429</span></td><td>Rate limit exceeded — see Rate Limits below</td><td>Standard throttle response</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="box box-danger"><strong>A 401 on a key you know is correct</strong> almost always means the seller account it belongs to isn't approved (or was un-approved). It's not something to retry — contact Pocket Shop to resolve the account, not the request.</div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="limits">
+      <h2><i class="fa-solid fa-gauge-high" style="margin-right:10px;color:var(--dark-cyan);"></i>Rate Limits</h2>
+      <p><strong>60 requests per minute</strong>, tracked per API key — not per seller account, so a second key for the same account (e.g. a staging key) has its own separate budget.</p>
+      <p>Syncing a full catalogue of a few hundred SKUs comfortably fits in a couple of minutes at this rate. If you're hitting the ceiling on routine syncs rather than a one-off backfill, get in touch — the limit is a starting point, not a hard ceiling.</p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <section id="faq">
+      <h2><i class="fa-solid fa-circle-question" style="margin-right:10px;color:var(--dark-cyan);"></i>FAQ</h2>
+      <ul class="problem-list">
+        <li>
+          <div class="q">Can I delete a product?</div>
+          <div class="a">Not yet via the API — set <span class="code">is_available: false</span> on your next sync to hide it from buyers without losing its order history.</div>
+        </li>
+        <li>
+          <div class="q">Can I sync many products in one call?</div>
+          <div class="a">Not yet — one request per product. It's a deliberate first version: simpler to integrate against and to retry safely. A batch endpoint is a natural next step once this is proven with real partners.</div>
+        </li>
+        <li>
+          <div class="q">What happens to a product I stop syncing?</div>
+          <div class="a">Nothing automatically — Pocket Shop never deletes a product just because it stopped appearing in your feed. Set <span class="code">is_available: false</span> explicitly if you want it hidden.</div>
+        </li>
+        <li>
+          <div class="q">My key stopped working with no code changes on my end.</div>
+          <div class="a">Check with Pocket Shop whether the key was revoked or the seller account's approval status changed — both take effect immediately and aren't visible from your side until the next call fails.</div>
+        </li>
+      </ul>
+    </section>
+
+  </div>
+</div>
+</div>
+</body>
+</html>

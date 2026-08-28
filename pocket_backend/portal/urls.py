@@ -9,6 +9,7 @@ urlpatterns = [
     path('privacy/', views.privacy, name='privacy'),
     path('delete-account/', views.delete_account, name='delete-account'),
     path('manual/', views.manual, name='manual'),
+    path('partner-api/', views.partner_api_docs, name='partner-api'),
     path('sitemap.xml', views.sitemap, name='sitemap'),
     path('robots.txt', views.robots, name='robots'),
 ]

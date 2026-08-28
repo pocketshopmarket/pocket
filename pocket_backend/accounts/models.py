@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
+import hashlib
 import secrets
 import uuid
 
@@ -169,6 +170,61 @@ class SellerProfile(models.Model):
     @property
     def can_sell(self):
         return self.is_approved or self.tier1_status == 'approved'
+
+
+class SellerApiKey(models.Model):
+    """
+    Admin-issued bearer credential for partner/third-party product sync.
+    No self-service issuance — a staff member creates one for an already
+    -approved seller via Django admin and hands it to the partner directly.
+
+    The raw key is shown exactly once at creation (see accounts/admin.py)
+    and never stored — only its SHA-256 digest is kept, which is safe for a
+    high-entropy (256-bit) bearer token even unsalted: unlike a human
+    password, brute-forcing the digest is infeasible regardless of hash
+    speed, and a deterministic digest is what lets a single indexed lookup
+    resolve a key on every request instead of checking it against every
+    active key one by one (the trade-off PBKDF2-style password hashing
+    would force here).
+    """
+    seller = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='api_keys',
+        limit_choices_to={'role': 'seller'},
+    )
+    label = models.CharField(
+        max_length=100, blank=True,
+        help_text='e.g. "Staging" or "ERP production sync" — lets a seller with multiple keys tell them apart.',
+    )
+    prefix = models.CharField(max_length=12, editable=False)
+    hashed_key = models.CharField(max_length=64, unique=True, editable=False, db_index=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='issued_api_keys',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Seller API key'
+        verbose_name_plural = 'Seller API keys'
+
+    def __str__(self):
+        return f"{self.seller.phone_number} · {self.label or 'API key'} ({self.prefix}…)"
+
+    @staticmethod
+    def generate_key():
+        """New raw bearer token. Caller must hash_key() before storing — never persisted raw."""
+        return f"psk_{secrets.token_urlsafe(32)}"
+
+    @staticmethod
+    def hash_key(raw_key):
+        return hashlib.sha256(raw_key.encode('utf-8')).hexdigest()
 
 
 class DeliveryProfile(models.Model):

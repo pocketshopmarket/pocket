@@ -138,6 +138,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'login': '5/minute',
         'qr_verify': '10/minute',
+        'partner_api': '60/minute',
     },
 }
 
@@ -177,6 +178,7 @@ INSTALLED_APPS = [
     'django_filters',
     'accounts',
     'products',
+    'partner_api',
     'orders',
     'delivery',
     'reviews',

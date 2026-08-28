@@ -41,6 +41,7 @@ def _api_root(_request):
             'prefixes': [
                 '/api/auth/',
                 '/api/products/',
+                '/api/partner/v1/',
                 '/api/orders/',
                 '/api/delivery/',
                 '/api/reviews/',
@@ -57,6 +58,7 @@ urlpatterns = [
     path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/', include('accounts.urls')),
     path('api/products/', include('products.urls')),
+    path('api/partner/v1/', include('partner_api.urls')),
     path('api/orders/', include('orders.urls')),
     path('api/delivery/', include('delivery.urls')),
     path('api/reviews/', include('reviews.urls')),

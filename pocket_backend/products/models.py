@@ -53,6 +53,12 @@ class Product(models.Model):
     is_available = models.BooleanField(default=True)
     views_count = models.PositiveIntegerField(default=0)
     purchases_count = models.PositiveIntegerField(default=0)
+    external_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text='Partner-supplied SKU/ID for idempotent partner-API sync (unique per seller).',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,6 +70,12 @@ class Product(models.Model):
             models.Index(fields=['is_available']),
             models.Index(fields=['created_at']),
             models.Index(fields=['seller', 'is_available']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['seller', 'external_id'],
+                name='uniq_product_seller_external_id',
+            ),
         ]
 
     def __str__(self):

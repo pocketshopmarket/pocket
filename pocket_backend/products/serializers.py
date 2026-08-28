@@ -58,6 +58,38 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ['id', 'name', 'slug', 'icon_name', 'parent']
 
+
+def replace_variants(product, payload):
+    """
+    Full-replace a product's variants from a variant_payload-shaped list.
+    Module-level so it can be shared by ProductSerializer (mobile app,
+    multipart) and PartnerProductSerializer (external API, JSON) without
+    duplicating the validation rules.
+    """
+    product.variants.all().delete()
+    for index, row in enumerate(payload):
+        name = str(row.get('name', '')).strip()
+        value = str(row.get('value', '')).strip()
+        sku = str(row.get('sku', '')).strip()
+        stock = row.get('stock_quantity', 0)
+        if not name or not value or not sku:
+            raise serializers.ValidationError(
+                {
+                    'variant_payload': [
+                        f'Variant #{index + 1} requires name, value, and sku.'
+                    ]
+                }
+            )
+        ProductVariant.objects.create(
+            product=product,
+            name=name,
+            value=value,
+            sku=sku,
+            stock_quantity=max(int(stock), 0),
+            is_active=bool(row.get('is_active', True)),
+        )
+
+
 class ProductSerializer(serializers.ModelSerializer):
     seller_name = serializers.CharField(source='seller.full_name', read_only=True)
     seller_phone = serializers.CharField(source='seller.phone_number', read_only=True)
@@ -134,28 +166,7 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
 
     def _replace_variants(self, product, payload):
-        product.variants.all().delete()
-        for index, row in enumerate(payload):
-            name = str(row.get('name', '')).strip()
-            value = str(row.get('value', '')).strip()
-            sku = str(row.get('sku', '')).strip()
-            stock = row.get('stock_quantity', 0)
-            if not name or not value or not sku:
-                raise serializers.ValidationError(
-                    {
-                        'variant_payload': [
-                            f'Variant #{index + 1} requires name, value, and sku.'
-                        ]
-                    }
-                )
-            ProductVariant.objects.create(
-                product=product,
-                name=name,
-                value=value,
-                sku=sku,
-                stock_quantity=max(int(stock), 0),
-                is_active=bool(row.get('is_active', True)),
-            )
+        replace_variants(product, payload)
 
     def create(self, validated_data):
         variant_payload = validated_data.pop('variant_payload', None)

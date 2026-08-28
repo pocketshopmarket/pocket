@@ -11,6 +11,7 @@ from .models import (
     DeliveryProfile,
     ErrorLog,
     PhoneOTP,
+    SellerApiKey,
     SellerProfile,
     User,
     VerificationRequest,
@@ -94,6 +95,46 @@ class UserAdmin(BaseUserAdmin):
         if total == 0:
             return '—'
         return f'ZMW {total:,.2f}'
+
+
+@admin.register(SellerApiKey)
+class SellerApiKeyAdmin(admin.ModelAdmin):
+    """
+    Admin-only issuance for the partner product-sync API — no self-service.
+    The raw key is generated and shown exactly once, in a warning banner
+    right after creation; it's never stored and can't be recovered after
+    that, so list/detail views only ever show `prefix`.
+    """
+    list_display = ['seller', 'label', 'prefix', 'is_active', 'created_at', 'last_used_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['seller__phone_number', 'seller__full_name', 'label', 'prefix']
+    readonly_fields = ['prefix', 'created_by', 'created_at', 'last_used_at']
+    fields = ['seller', 'label', 'is_active', 'prefix', 'created_by', 'created_at', 'last_used_at']
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'seller':
+            kwargs['queryset'] = User.objects.filter(role='seller').order_by('full_name')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            raw_key = SellerApiKey.generate_key()
+            obj.prefix = raw_key[:12]
+            obj.hashed_key = SellerApiKey.hash_key(raw_key)
+            obj.created_by = request.user
+            request._generated_api_key = raw_key
+        super().save_model(request, obj, form, change)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        response = super().response_add(request, obj, post_url_continue)
+        raw_key = getattr(request, '_generated_api_key', None)
+        if raw_key:
+            self.message_user(
+                request,
+                f'API key created for {obj.seller}. Key: {raw_key} — copy this now, it cannot be recovered.',
+                level='warning',
+            )
+        return response
 
 
 @admin.register(BuyerProfile)

@@ -5,6 +5,7 @@ import django_filters
 from django.db.models import Avg, Count, F, Prefetch, Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -17,7 +18,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from accounts.permissions import IsApprovedSeller
-from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction, PromoBanner
+from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction, PromoBanner, exclude_restricted_for_user
 from .pagination import ProductPagination
 from .serializers import ProductSerializer, CategorySerializer, PromoBannerSerializer
 
@@ -40,7 +41,7 @@ class RecommendedProductsView(APIView):
         # Make sure user has a buyer profile for advanced recommendations
         if not hasattr(user, 'buyer_profile'):
             # Cold start fallback for non-buyers
-            qs = Product.objects.filter(is_available=True)
+            qs = exclude_restricted_for_user(Product.objects.filter(is_available=True), user)
             if category_filter and category_filter.lower() != 'all':
                 try:
                     qs = qs.filter(category_id=int(category_filter))
@@ -85,7 +86,9 @@ class RecommendedProductsView(APIView):
                 interacted_categories[i.product.category_id] = interacted_categories.get(i.product.category_id, 0) + weight
 
         # Base Query
-        products = Product.objects.filter(is_available=True, stock_quantity__gt=0)
+        products = exclude_restricted_for_user(
+            Product.objects.filter(is_available=True, stock_quantity__gt=0), user,
+        )
         if category_filter and category_filter.lower() != 'all':
             try:
                 products = products.filter(category_id=int(category_filter))
@@ -241,11 +244,11 @@ class ProductViewSet(viewsets.ModelViewSet):
         # same catalog a buyer would — AnonymousUser has no .role attribute,
         # so this must be checked before the role branches below.
         if not user.is_authenticated:
-            return qs.filter(is_available=True)
+            return exclude_restricted_for_user(qs.filter(is_available=True), user)
         if user.role == 'seller':
             qs = qs.filter(seller=user)
         elif user.role in ['buyer', 'delivery', 'admin']:
-            qs = qs.filter(is_available=True)
+            qs = exclude_restricted_for_user(qs.filter(is_available=True), user)
         else:
             return Product.objects.none()
         return qs
@@ -374,7 +377,12 @@ class ProductViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You can only delete your own products.')
         instance.delete()
 
+    # Results are now filtered per-user (age restriction), so the cache
+    # must be partitioned per caller — vary_on_headers ensures a guest's
+    # or one buyer's cached response can never be served to a different
+    # buyer (critically, an adult's response is never served to a minor).
     @method_decorator(cache_page(30))
+    @method_decorator(vary_on_headers('Authorization'))
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
@@ -387,6 +395,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     @method_decorator(cache_page(30))
+    @method_decorator(vary_on_headers('Authorization'))
     def trending(self, request):
         queryset = self.filter_queryset(self.get_queryset()).order_by(
             '-purchases_count',
@@ -402,6 +411,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     @method_decorator(cache_page(30))
+    @method_decorator(vary_on_headers('Authorization'))
     def related(self, request, pk=None):
         product = self.get_object()
         queryset = self.get_queryset().exclude(pk=product.pk).filter(

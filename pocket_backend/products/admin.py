@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Product, ProductImage, ProductVariant, PromoBanner
+from .models import Category, Product, ProductImage, ProductVariant, PromoBanner
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'slug', 'parent', 'is_age_restricted']
+    list_filter = ['is_age_restricted', 'parent']
+    list_editable = ['is_age_restricted']
+    search_fields = ['name', 'slug']
 
 
 class ProductImageInline(admin.TabularInline):

@@ -24,7 +24,7 @@ from .serializers import (
     SellerRespondCancellationSerializer,
     AdminRespondCancellationSerializer,
 )
-from products.models import Product, ProductImage, ProductVariant
+from products.models import Product, ProductImage, ProductVariant, product_blocked_for_user
 from delivery.coordinates import resolve_delivery_coordinates
 from delivery.utils import create_delivery_offers_for_order
 from delivery.models import DeliveryAssignment
@@ -69,7 +69,14 @@ class CartView(APIView):
             quantity = serializer.validated_data['quantity']
             
             try:
-                product = Product.objects.get(id=product_id, is_available=True)
+                product = Product.objects.select_related('category').get(
+                    id=product_id, is_available=True,
+                )
+                if product_blocked_for_user(product, request.user):
+                    return Response(
+                        {'error': 'You must be 18+ to purchase this item.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
                 cart, created = Cart.objects.get_or_create(user=request.user)
                 variant = None
                 if variant_id:
@@ -167,11 +174,16 @@ class CreateOrderView(APIView):
 
             with transaction.atomic():
                 # Lock products to prevent concurrent overselling.
+                # of=('self',) is required here: category is a nullable FK
+                # (SET_NULL), so select_related('category') generates a LEFT
+                # OUTER JOIN, and PostgreSQL rejects FOR UPDATE on the
+                # nullable side of an outer join unless locking is scoped
+                # to just the Product table.
                 locked_products = {
                     p.id: p
-                    for p in Product.objects.select_for_update().filter(
-                        id__in=[item.product_id for item in cart_items]
-                    )
+                    for p in Product.objects.select_for_update(of=('self',))
+                    .select_related('category')
+                    .filter(id__in=[item.product_id for item in cart_items])
                 }
                 # Lock variants to prevent concurrent overselling of the same variant.
                 variant_ids = [item.variant_id for item in cart_items if item.variant_id]
@@ -189,6 +201,11 @@ class CreateOrderView(APIView):
                         return Response(
                             {'error': f'Product {cart_item.product_id} is not available'},
                             status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    if product_blocked_for_user(product, request.user):
+                        return Response(
+                            {'error': f'{product.name} requires the buyer to be 18+.'},
+                            status=status.HTTP_403_FORBIDDEN,
                         )
                     if product.stock_quantity < cart_item.quantity:
                         return Response(

@@ -354,6 +354,45 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
     }
   }
 
+  /// Date of birth isn't free text, so it gets its own picker-based save
+  /// path rather than going through _editField's text-entry sheet — but
+  /// reuses the exact same save/refresh/error tail. Unlike the signup
+  /// picker (which enforces a 16+ minimum for registration eligibility),
+  /// this just disallows future dates: it's for fixing/adding what's
+  /// already true, not re-gating who can sign up.
+  Future<void> _editDateOfBirth(String? currentIso) async {
+    final current = currentIso != null ? DateTime.tryParse(currentIso) : null;
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? DateTime(now.year - 25, now.month, now.day),
+      firstDate: DateTime(1900),
+      lastDate: now,
+      helpText: 'Date of birth',
+    );
+    if (picked == null || !mounted) return;
+    final iso = '${picked.year.toString().padLeft(4, '0')}-'
+        '${picked.month.toString().padLeft(2, '0')}-'
+        '${picked.day.toString().padLeft(2, '0')}';
+
+    setState(() => _isSavingProfile = true);
+    try {
+      final result = await ref
+          .read(authServiceProvider)
+          .updateProfile(dateOfBirth: iso);
+      if (!mounted) return;
+      if (result['success'] == true) {
+        await ref.read(authProvider.notifier).refreshUser();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Could not save')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingProfile = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
@@ -537,6 +576,13 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                                 .read(authServiceProvider)
                                 .updateProfile(defaultAddress: v),
                           ),
+                        ),
+                        const Divider(height: 1),
+                        _EditableTile(
+                          icon: Icons.cake_outlined,
+                          label: 'Date of birth',
+                          value: user.dateOfBirth ?? 'Not set — add to unlock 18+ items',
+                          onTap: () => _editDateOfBirth(user.dateOfBirth),
                         ),
                       ],
                     ),

@@ -557,12 +557,14 @@ class AuthService {
   Future<Map<String, dynamic>> updateProfile({
     String? fullName,
     String? defaultAddress,
+    String? dateOfBirth,
   }) async {
     await _ensureInitialized();
     try {
       final body = <String, dynamic>{
         if (fullName != null) 'full_name': fullName.trim(),
         if (defaultAddress != null) 'default_address': defaultAddress.trim(),
+        if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
       };
       final response = await _apiService.put(
         AppConstants.profileEndpoint,

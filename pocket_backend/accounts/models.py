@@ -68,6 +68,21 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.full_name} ({self.phone_number}) - {self.role}"
 
+    @property
+    def is_adult(self):
+        """
+        Computed, not stored. Missing date_of_birth is never treated as
+        adult — this is the safe default the age-restriction feature
+        (products.models.exclude_restricted_for_user /
+        product_blocked_for_user) relies on.
+        """
+        if not self.date_of_birth:
+            return False
+        today = timezone.now().date()
+        dob = self.date_of_birth
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        return age >= 18
+
 
 class BuyerProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='buyer_profile')

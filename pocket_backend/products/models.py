@@ -9,13 +9,48 @@ class Category(models.Model):
     slug = models.SlugField(unique=True)
     icon_name = models.CharField(max_length=50, blank=True, null=True)
     parent = models.ForeignKey('self', null=True, blank=True, related_name='subcategories', on_delete=models.CASCADE)
-    
+    is_age_restricted = models.BooleanField(
+        default=False,
+        help_text='Buyers under 18 (or with no date of birth on file) never see or can buy products in this category.',
+    )
+
     class Meta:
         verbose_name_plural = 'Categories'
         ordering = ['name']
-        
+
     def __str__(self):
         return self.name
+
+
+def exclude_restricted_for_user(queryset, user):
+    """
+    Hide age-restricted-category products from anyone who isn't a
+    confirmed 18+ buyer. getattr() is deliberate: AnonymousUser has no
+    is_adult attribute, so guests safely fall through to the exclude.
+    Checks one level up the category's parent too, so a forgotten
+    subcategory flag (e.g. "Wine" under an unflagged "Alcohol & Spirits")
+    doesn't leak restricted products through.
+    """
+    if getattr(user, 'is_adult', False):
+        return queryset
+    return queryset.exclude(
+        models.Q(category__is_age_restricted=True) |
+        models.Q(category__parent__is_age_restricted=True)
+    )
+
+
+def product_blocked_for_user(product, user):
+    """
+    Point-check counterpart of exclude_restricted_for_user, for
+    add-to-cart / checkout where a single Product instance is already
+    fetched rather than a queryset.
+    """
+    if getattr(user, 'is_adult', False):
+        return False
+    category = product.category
+    if not category:
+        return False
+    return bool(category.is_age_restricted or (category.parent_id and category.parent.is_age_restricted))
 
 
 class Product(models.Model):

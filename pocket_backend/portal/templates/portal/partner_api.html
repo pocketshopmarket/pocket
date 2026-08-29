@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,8 +8,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
   :root {
-    --cyan: #06b6d4;
-    --dark-cyan: #0891b2;
+    --cyan: #1f2937;
+    --dark-cyan: #475569;
     --bg: #f8fafc;
     --card: #ffffff;
     --text: #0f172a;
@@ -39,7 +40,7 @@
     border-bottom: 1px solid #1e293b;
     display: flex; align-items: center; gap: 10px;
   }
-  .sidebar-logo .dot { width: 32px; height: 32px; background: var(--cyan); border-radius: 8px; display:flex; align-items:center; justify-content:center; font-weight:800; color:#0f172a; font-size:14px; flex-shrink:0; }
+  .sidebar-logo img { width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0; object-fit: cover; }
   .sidebar-logo span { font-weight: 700; color: #f1f5f9; font-size: 15px; }
   .sidebar-logo small { display: block; font-size: 11px; color: #64748b; font-weight: 400; }
   .nav-section { padding: 20px 12px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #475569; }
@@ -148,7 +149,7 @@
 <!-- ── Sidebar ── -->
 <nav class="sidebar">
   <div class="sidebar-logo">
-    <div class="dot">P</div>
+    <img src="{% static 'portal/images/logo.jpg' %}" alt="Pocket Shop">
     <div>
       <span>Pocket Shop</span>
       <small>Partner API</small>

@@ -42,6 +42,7 @@ class User(AbstractUser):
     GENDER_CHOICES = [
         ('male', 'Male'),
         ('female', 'Female'),
+        ('prefer_not_to_say', 'Prefer not to say'),
     ]
 
     username = None  # Disable username
@@ -142,6 +143,8 @@ class SellerProfile(models.Model):
     shop_location = models.TextField()
     shop_lat = models.FloatField(null=True, blank=True)
     shop_lng = models.FloatField(null=True, blank=True)
+    shop_logo = models.ImageField(upload_to='shop_logos/', blank=True, null=True)
+    shop_description = models.TextField(blank=True, default='')
     business_license = models.ImageField(upload_to='licenses/', blank=True, null=True)
     business_name = models.CharField(max_length=200, blank=True)
     business_registration_number = models.CharField(max_length=80, blank=True)

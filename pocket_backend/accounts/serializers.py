@@ -132,10 +132,11 @@ class VerificationRequestSerializer(serializers.ModelSerializer):
 class SellerProfileSerializer(serializers.ModelSerializer):
     user = UserProfileSerializer(read_only=True)
     verification_requests = VerificationRequestSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = SellerProfile
-        fields = ['user', 'shop_name', 'shop_location', 'shop_lat', 'shop_lng', 'business_license',
+        fields = ['user', 'shop_name', 'shop_location', 'shop_lat', 'shop_lng',
+                  'shop_logo', 'shop_description', 'business_license',
                   'business_name', 'business_registration_number', 'nrc_number', 'nrc_front_image',
                   'nrc_back_image', 'live_verification_photo', 'tier1_status', 'tier2_status',
                   'verification_rejection_reason', 'submitted_at', 'reviewed_at',
@@ -147,6 +148,45 @@ class SellerProfileSerializer(serializers.ModelSerializer):
             'is_approved', 'approval_date', 'verification_requests',
             'created_at', 'updated_at',
         ]
+
+
+class ShopPublicSerializer(serializers.ModelSerializer):
+    """
+    Public-safe view of a SellerProfile for buyer-facing shop discovery.
+    Deliberately excludes every verification/identity field that
+    SellerProfileSerializer exposes (NRC images, business license, business
+    registration number, verification photo) — none of that belongs in a
+    response guest/buyer traffic can read with no auth.
+    """
+    id = serializers.IntegerField(source='user_id', read_only=True)
+    shop_logo = serializers.SerializerMethodField()
+    distance_km = serializers.SerializerMethodField()
+    product_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = SellerProfile
+        fields = [
+            'id', 'shop_name', 'shop_logo', 'shop_description',
+            'shop_location', 'shop_lat', 'shop_lng', 'distance_km', 'product_count',
+        ]
+
+    def get_shop_logo(self, obj):
+        if not obj.shop_logo:
+            return None
+        url = obj.shop_logo.url
+        if url.startswith(('http://', 'https://')):
+            return url
+        from django.conf import settings as _s
+        base = getattr(_s, 'PUBLIC_BACKEND_URL', '').rstrip('/')
+        if base:
+            return f"{base}{url}"
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
+    def get_distance_km(self, obj):
+        return getattr(obj, '_distance_km', None)
 
 
 class DeliveryProfileSerializer(serializers.ModelSerializer):

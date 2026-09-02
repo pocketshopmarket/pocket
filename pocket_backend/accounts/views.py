@@ -1,5 +1,8 @@
 import logging
 
+from django.db.models import Count, Q
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -14,6 +17,7 @@ from .models import (
     SellerProfile,
     User,
 )
+from .pagination import ShopPagination
 from .serializers import (
     SendOTPSerializer, VerifyOTPSerializer, UserProfileSerializer,
     BuyerProfileSerializer, SellerProfileSerializer, DeliveryProfileSerializer,
@@ -21,6 +25,7 @@ from .serializers import (
     PasswordResetSendSerializer, PasswordResetConfirmSerializer,
     ChangePasswordSerializer,
     BuyerPaymentMethodSerializer,
+    ShopPublicSerializer,
 )
 from .otp_utils import assert_phone_otp_valid
 from .throttles import LoginRateThrottle
@@ -558,6 +563,90 @@ class SellerApplicationView(APIView):
             }, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ShopListView(APIView):
+    """
+    Public shop directory for buyer-facing discovery (guest-browsable, no
+    auth required — mirrors the AllowAny pattern used for product browsing).
+
+    GET /api/auth/shops/?lat=&lng=&max_km=&search=&page=
+
+    With lat/lng: sorted nearest-first (Haversine, computed in Python since
+    there's no PostGIS backing). Without lat/lng: sorted alphabetically.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from delivery.utils import LocationService
+
+        qs = SellerProfile.objects.filter(
+            Q(is_approved=True) | Q(tier1_status='approved')
+        ).select_related('user').annotate(
+            product_count=Count(
+                'user__products',
+                filter=Q(user__products__is_available=True),
+                distinct=True,
+            )
+        )
+
+        search = request.query_params.get('search')
+        if search:
+            qs = qs.filter(shop_name__icontains=search)
+
+        shops = list(qs)
+
+        lat = request.query_params.get('lat')
+        lng = request.query_params.get('lng')
+        if lat and lng:
+            try:
+                lat_f, lng_f = float(lat), float(lng)
+            except (TypeError, ValueError):
+                lat_f = lng_f = None
+            if lat_f is not None:
+                for shop in shops:
+                    if shop.shop_lat is not None and shop.shop_lng is not None:
+                        shop._distance_km = LocationService.calculate_distance(
+                            lat_f, lng_f, shop.shop_lat, shop.shop_lng
+                        )
+                    else:
+                        shop._distance_km = None
+                shops.sort(key=lambda s: (s._distance_km is None, s._distance_km))
+
+                max_km = request.query_params.get('max_km')
+                if max_km:
+                    try:
+                        max_km_f = float(max_km)
+                        shops = [
+                            s for s in shops
+                            if s._distance_km is not None and s._distance_km <= max_km_f
+                        ]
+                    except (TypeError, ValueError):
+                        pass
+        else:
+            shops.sort(key=lambda s: s.shop_name.lower())
+
+        paginator = ShopPagination()
+        page = paginator.paginate_queryset(shops, request, view=self)
+        serializer = ShopPublicSerializer(page, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+
+class ShopDetailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, user_id):
+        profile = get_object_or_404(
+            SellerProfile.objects.select_related('user'), user_id=user_id
+        )
+        if not profile.can_sell:
+            raise Http404
+        from products.models import Product
+        profile.product_count = Product.objects.filter(
+            seller_id=user_id, is_available=True
+        ).count()
+        serializer = ShopPublicSerializer(profile, context={'request': request})
+        return Response(serializer.data)
 
 
 class DeliveryApplicationView(APIView):

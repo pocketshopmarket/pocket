@@ -1,10 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/location_helper.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/delivery_provider.dart';
@@ -188,8 +188,8 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
               locationDetected = false;
             });
             try {
-              final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-              if (!serviceEnabled) {
+              final result = await LocationHelper.getCurrentPositionOrFallback();
+              if (result.status == LocationStatus.servicesDisabled) {
                 if (ctx.mounted) {
                   ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
                     content: Text('Location services are off. Enter your address manually.'),
@@ -197,12 +197,7 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                 }
                 return;
               }
-              var permission = await Geolocator.checkPermission();
-              if (permission == LocationPermission.denied) {
-                permission = await Geolocator.requestPermission();
-              }
-              if (permission == LocationPermission.denied ||
-                  permission == LocationPermission.deniedForever) {
+              if (result.status == LocationStatus.permissionDenied) {
                 if (ctx.mounted) {
                   ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
                     content: Text('Location permission denied. Enter your address manually.'),
@@ -210,13 +205,16 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                 }
                 return;
               }
-              final pos = await Geolocator.getCurrentPosition();
-              String resolved =
-                  '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+              if (result.status == LocationStatus.error) {
+                return;
+              }
+              final lat = result.lat!;
+              final lng = result.lng!;
+              String resolved = '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
               try {
                 final reverse = await ref
                     .read(deliveryServiceProvider)
-                    .reverseGeocode(lat: pos.latitude, lng: pos.longitude);
+                    .reverseGeocode(lat: lat, lng: lng);
                 final display = reverse?['display_name']?.toString().trim();
                 if (display != null && display.isNotEmpty) resolved = display;
               } catch (_) {}

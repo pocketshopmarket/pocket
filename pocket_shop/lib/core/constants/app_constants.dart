@@ -34,6 +34,7 @@ class AppConstants {
   static const String loginEndpoint = 'auth/login/';
   static const String logoutEndpoint = 'auth/logout/';
   static const String sellerApplyEndpoint = 'auth/seller-apply/';
+  static const String shopsEndpoint = 'auth/shops/';
   static const String deliveryApplyEndpoint = 'auth/delivery-apply/';
   static const String passwordResetSendOtpEndpoint = 'auth/password-reset/send-otp/';
   static const String passwordResetConfirmEndpoint = 'auth/password-reset/confirm/';

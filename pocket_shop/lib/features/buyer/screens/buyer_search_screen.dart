@@ -6,10 +6,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../models/product.dart';
+import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/category_provider.dart';
+import '../../../../providers/product_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../services/product_service.dart';
+import '../../../../widgets/product_card.dart';
 import '../../../../widgets/product_list_thumbnail.dart';
 
 class BuyerSearchScreen extends ConsumerStatefulWidget {
@@ -129,6 +132,9 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
     final wishlistNotifier = ref.read(wishlistProvider.notifier);
     final cartNotifier = ref.read(cartProvider.notifier);
     final cartCount = ref.watch(cartProvider).items.length;
+    final trendingProducts = ref.watch(productProvider).trendingProducts;
+    final currentUser = ref.watch(userProvider);
+    final recommendedAsync = currentUser != null ? ref.watch(recommendedProvider) : null;
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
@@ -278,6 +284,109 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
             ),
           ),
           const SizedBox(height: 10),
+          if (trendingProducts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Trending now',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: isCompact ? 230 : 248,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: trendingProducts.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (_, index) {
+                        final product = trendingProducts[index];
+                        final inStock = product.isAvailable && product.isInStock;
+                        return SizedBox(
+                          width: isCompact ? 156 : 170,
+                          child: ProductCard(
+                            product: product,
+                            inStock: inStock,
+                            isFavorite: wishlist.contains(product.id),
+                            onToggleFavorite: () => wishlistNotifier.toggle(product.id),
+                            onCardTap: () => context.push('/buyer/product-details', extra: product),
+                            onAdd: () async {
+                              final err = await cartNotifier.addProduct(product);
+                              if (!context.mounted || err == null) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(err), backgroundColor: AppTheme.error),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Recommendations require an account (backend is IsAuthenticated,
+          // no anonymous fallback) — omit the section entirely for a guest.
+          if (recommendedAsync != null)
+            recommendedAsync.when(
+              data: (recommendedProducts) {
+                if (recommendedProducts.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Recommended for you',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: isCompact ? 230 : 248,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          scrollDirection: Axis.horizontal,
+                          itemCount: recommendedProducts.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 10),
+                          itemBuilder: (_, index) {
+                            final product = recommendedProducts[index];
+                            final inStock = product.isAvailable && product.isInStock;
+                            return SizedBox(
+                              width: isCompact ? 156 : 170,
+                              child: ProductCard(
+                                product: product,
+                                inStock: inStock,
+                                isFavorite: wishlist.contains(product.id),
+                                onToggleFavorite: () => wishlistNotifier.toggle(product.id),
+                                onCardTap: () => context.push('/buyer/product-details', extra: product),
+                                onAdd: () async {
+                                  final err = await cartNotifier.addProduct(product);
+                                  if (!context.mounted || err == null) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(err), backgroundColor: AppTheme.error),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
+            ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => _fetch(reset: true),

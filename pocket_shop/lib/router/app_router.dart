@@ -22,6 +22,8 @@ import '../features/buyer/screens/buyer_wishlist_screen.dart';
 import '../features/buyer/screens/cart_screen.dart';
 import '../features/buyer/screens/order_tracking_screen.dart';
 import '../features/buyer/screens/payment_pending_screen.dart';
+import '../features/buyer/screens/shop_storefront_screen.dart';
+import '../models/shop.dart';
 import '../features/delivery/screens/active_delivery_screen.dart';
 import '../features/delivery/screens/delivery_home_screen.dart';
 import '../features/delivery/screens/delivery_main_screen.dart';
@@ -107,6 +109,7 @@ const _guestBrowsableBuyerPaths = <String>{
   '/buyer/product-details',
   '/buyer/search',
   '/buyer/shop',
+  '/buyer/shop-details',
   '/buyer/wishlist',
   '/buyer/cart',
 };
@@ -322,6 +325,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) {
                   final product = state.extra as Product;
                   return BuyerProductDetailsScreen(product: product);
+                },
+              ),
+              GoRoute(
+                path: '/buyer/shop-details',
+                builder: (context, state) {
+                  final extra = state.extra;
+                  if (extra is Shop) {
+                    return ShopStorefrontScreen(shop: extra);
+                  }
+                  final id = int.tryParse(state.uri.queryParameters['id'] ?? '');
+                  return ShopStorefrontScreen(shopId: id);
                 },
               ),
               GoRoute(

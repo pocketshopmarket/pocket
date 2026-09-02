@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/location_helper.dart';
 import '../../../../widgets/product_list_thumbnail.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
@@ -119,67 +119,40 @@ class CartScreen extends ConsumerWidget {
                 setModalState(() {
                   locating = true;
                 });
-                try {
-                  final serviceEnabled =
-                      await Geolocator.isLocationServiceEnabled();
-                  if (!serviceEnabled) {
-                    setModalState(() {
-                      locating = false;
-                    });
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Location services are off. Enter your address manually.',
-                          ),
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                    return;
-                  }
-                  var permission = await Geolocator.checkPermission();
-                  if (permission == LocationPermission.denied) {
-                    permission = await Geolocator.requestPermission();
-                  }
-                  if (permission == LocationPermission.denied ||
-                      permission == LocationPermission.deniedForever) {
-                    setModalState(() {
-                      locating = false;
-                    });
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Location permission denied. Enter your address manually.',
-                          ),
-                          duration: Duration(seconds: 3),
-                        ),
-                      );
-                    }
-                    return;
-                  }
-                  final pos = await Geolocator.getCurrentPosition();
-                  final svc = ref.read(deliveryServiceProvider);
-                  String resolvedName =
-                      '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
-                  try {
-                    final reverse = await svc.reverseGeocode(
-                      lat: pos.latitude,
-                      lng: pos.longitude,
-                    );
-                    final display = reverse?['display_name']?.toString().trim();
-                    if (display != null && display.isNotEmpty) {
-                      resolvedName = display;
-                    }
-                  } catch (_) {}
+                final result = await LocationHelper.getCurrentPositionOrFallback();
+                if (result.status == LocationStatus.servicesDisabled) {
                   setModalState(() {
-                    selectedLat = pos.latitude;
-                    selectedLng = pos.longitude;
-                    locationLabel = resolvedName;
                     locating = false;
                   });
-                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Location services are off. Enter your address manually.',
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                  return;
+                }
+                if (result.status == LocationStatus.permissionDenied) {
+                  setModalState(() {
+                    locating = false;
+                  });
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Location permission denied. Enter your address manually.',
+                        ),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                  return;
+                }
+                if (result.status == LocationStatus.error) {
                   setModalState(() {
                     locating = false;
                   });
@@ -193,7 +166,26 @@ class CartScreen extends ConsumerWidget {
                       ),
                     );
                   }
+                  return;
                 }
+                final lat = result.lat!;
+                final lng = result.lng!;
+                final svc = ref.read(deliveryServiceProvider);
+                String resolvedName =
+                    '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+                try {
+                  final reverse = await svc.reverseGeocode(lat: lat, lng: lng);
+                  final display = reverse?['display_name']?.toString().trim();
+                  if (display != null && display.isNotEmpty) {
+                    resolvedName = display;
+                  }
+                } catch (_) {}
+                setModalState(() {
+                  selectedLat = lat;
+                  selectedLng = lng;
+                  locationLabel = resolvedName;
+                  locating = false;
+                });
               });
             }
 
@@ -339,9 +331,10 @@ class CartScreen extends ConsumerWidget {
                                       setModalState(() {
                                         locating = true;
                                       });
-                                      final serviceEnabled =
-                                          await Geolocator.isLocationServiceEnabled();
-                                      if (!serviceEnabled) {
+                                      final result = await LocationHelper
+                                          .getCurrentPositionOrFallback();
+                                      if (result.status ==
+                                          LocationStatus.servicesDisabled) {
                                         if (!context.mounted) return;
                                         ScaffoldMessenger.of(
                                           context,
@@ -357,18 +350,8 @@ class CartScreen extends ConsumerWidget {
                                         });
                                         return;
                                       }
-                                      var permission =
-                                          await Geolocator.checkPermission();
-                                      if (permission ==
-                                          LocationPermission.denied) {
-                                        permission =
-                                            await Geolocator.requestPermission();
-                                      }
-                                      if (permission ==
-                                              LocationPermission.denied ||
-                                          permission ==
-                                              LocationPermission
-                                                  .deniedForever) {
+                                      if (result.status ==
+                                          LocationStatus.permissionDenied) {
                                         if (!context.mounted) return;
                                         ScaffoldMessenger.of(
                                           context,
@@ -384,19 +367,25 @@ class CartScreen extends ConsumerWidget {
                                         });
                                         return;
                                       }
+                                      if (result.status == LocationStatus.error) {
+                                        setModalState(() {
+                                          locating = false;
+                                        });
+                                        return;
+                                      }
 
-                                      final pos =
-                                          await Geolocator.getCurrentPosition();
+                                      final lat = result.lat!;
+                                      final lng = result.lng!;
                                       final svc = ref.read(
                                         deliveryServiceProvider,
                                       );
                                       String resolvedName =
-                                          '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+                                          '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
                                       try {
                                         final reverse = await svc
                                             .reverseGeocode(
-                                              lat: pos.latitude,
-                                              lng: pos.longitude,
+                                              lat: lat,
+                                              lng: lng,
                                             );
                                         final display = reverse?['display_name']
                                             ?.toString()
@@ -408,8 +397,8 @@ class CartScreen extends ConsumerWidget {
                                       } catch (_) {}
                                       if (!context.mounted) return;
                                       setModalState(() {
-                                        selectedLat = pos.latitude;
-                                        selectedLng = pos.longitude;
+                                        selectedLat = lat;
+                                        selectedLng = lng;
                                         locationLabel = resolvedName;
                                         addressSuggestions = [];
                                         locating = false;

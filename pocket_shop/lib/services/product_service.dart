@@ -19,6 +19,7 @@ class ProductQuery {
     this.minPrice,
     this.maxPrice,
     this.quality,
+    this.sellerId,
   });
 
   final String? search;
@@ -30,6 +31,8 @@ class ProductQuery {
   final double? minPrice;
   final double? maxPrice;
   final String? quality;
+  /// Scopes results to one seller's catalog — used by the shop storefront screen.
+  final int? sellerId;
 }
 
 class ProductPage {
@@ -83,6 +86,7 @@ class ProductService {
       if (query.minPrice != null) 'min_price': query.minPrice,
       if (query.maxPrice != null) 'max_price': query.maxPrice,
       if (query.quality != null && query.quality!.isNotEmpty) 'quality': query.quality,
+      if (query.sellerId != null) 'seller': query.sellerId,
     };
     try {
       final response = await _apiService.get(

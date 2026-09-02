@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/location_helper.dart';
 import '../../../providers/delivery_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/notification_bell.dart';
@@ -45,19 +45,21 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
   }
 
   Future<void> _ensureLocation() async {
-    final enabled = await Geolocator.isLocationServiceEnabled();
-    if (!enabled) {
-      setState(() { _locationNote = 'Turn on location for distance estimates.'; _lat = 0; _lng = 0; });
-      return;
+    final result = await LocationHelper.getCurrentPositionOrFallback();
+    switch (result.status) {
+      case LocationStatus.servicesDisabled:
+        setState(() { _locationNote = 'Turn on location for distance estimates.'; _lat = 0; _lng = 0; });
+        return;
+      case LocationStatus.permissionDenied:
+        setState(() { _locationNote = 'Location permission denied — distances may be hidden.'; _lat = 0; _lng = 0; });
+        return;
+      case LocationStatus.error:
+        setState(() { _locationNote = 'Could not determine your location.'; _lat = 0; _lng = 0; });
+        return;
+      case LocationStatus.success:
+        setState(() { _lat = result.lat!; _lng = result.lng!; _locationNote = null; });
+        return;
     }
-    var perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-    if (perm == LocationPermission.deniedForever || perm == LocationPermission.denied) {
-      setState(() { _locationNote = 'Location permission denied — distances may be hidden.'; _lat = 0; _lng = 0; });
-      return;
-    }
-    final pos = await Geolocator.getCurrentPosition();
-    setState(() { _lat = pos.latitude; _lng = pos.longitude; _locationNote = null; });
   }
 
   Future<void> _setOnlineStatus(bool value) async {

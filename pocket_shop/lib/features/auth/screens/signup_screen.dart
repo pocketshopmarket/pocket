@@ -254,12 +254,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             ),
             SizedBox(height: 8.h),
             Semantics(
-              label: 'Gender, select Male or Female',
+              label: 'Gender, select Male, Female, or Prefer not to say',
               child: SegmentedButton<String>(
                 segments: const [
                   ButtonSegment<String>(value: 'male', label: Text('Male')),
                   ButtonSegment<String>(value: 'female', label: Text('Female')),
+                  ButtonSegment<String>(
+                    value: 'prefer_not_to_say',
+                    label: Text('Prefer not to say'),
+                  ),
                 ],
+                showSelectedIcon: false,
                 emptySelectionAllowed: true,
                 selected: _gender != null ? {_gender!} : <String>{},
                 onSelectionChanged: (Set<String> selection) {
@@ -270,7 +275,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 style: ButtonStyle(
                   visualDensity: VisualDensity.compact,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12.sp)),
                 ),
+              ),
+            ),
+            SizedBox(height: 6.h),
+            Text(
+              'Used to personalize your experience — optional.',
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: AppTheme.textSecondary,
               ),
             ),
             SizedBox(height: AppSizes.spacingMedium.h),

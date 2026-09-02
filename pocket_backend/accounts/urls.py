@@ -11,6 +11,8 @@ from .views import (
     RegisterFCMTokenView,
     MyQRView,
     ATSmsCallbackView,
+    ShopListView,
+    ShopDetailView,
 )
 
 urlpatterns = [
@@ -23,6 +25,8 @@ urlpatterns = [
     path('delete-account/', DeleteAccountView.as_view(), name='delete-account'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('seller-apply/', SellerApplicationView.as_view(), name='seller-apply'),
+    path('shops/', ShopListView.as_view(), name='shop-list'),
+    path('shops/<int:user_id>/', ShopDetailView.as_view(), name='shop-detail'),
     path('delivery-apply/', DeliveryApplicationView.as_view(), name='delivery-apply'),
     path('buyer/payment-methods/', BuyerPaymentMethodsView.as_view(), name='buyer-payment-methods'),
     path(

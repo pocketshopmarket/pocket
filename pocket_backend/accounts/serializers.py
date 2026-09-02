@@ -171,19 +171,36 @@ class ShopPublicSerializer(serializers.ModelSerializer):
         ]
 
     def get_shop_logo(self, obj):
-        if not obj.shop_logo:
-            return None
-        url = obj.shop_logo.url
-        if url.startswith(('http://', 'https://')):
-            return url
-        from django.conf import settings as _s
-        base = getattr(_s, 'PUBLIC_BACKEND_URL', '').rstrip('/')
-        if base:
-            return f"{base}{url}"
         request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(url)
-        return url
+        if obj.shop_logo:
+            url = obj.shop_logo.url
+            if url.startswith(('http://', 'https://')):
+                return url
+            from django.conf import settings as _s
+            base = getattr(_s, 'PUBLIC_BACKEND_URL', '').rstrip('/')
+            if base:
+                return f"{base}{url}"
+            if request:
+                return request.build_absolute_uri(url)
+            return url
+        # No dedicated shop photo set — fall back to one of the seller's
+        # own product photos rather than showing a bare icon. Sellers
+        # already have these uploaded; asking for a second, separate shop
+        # photo is friction most won't bother with.
+        from products.models import Product
+        from products.serializers import first_image_url_for_product
+        # A handful of recent candidates, not just the single latest one —
+        # a product's photo can live on the legacy `image`/`image_url`
+        # fields or in its ProductImage gallery, and the newest product
+        # might have neither while an older one does.
+        candidates = Product.objects.filter(
+            seller_id=obj.user_id, is_available=True
+        ).order_by('-created_at')[:5]
+        for candidate in candidates:
+            url = first_image_url_for_product(candidate, request)
+            if url:
+                return url
+        return None
 
     def get_distance_km(self, obj):
         return getattr(obj, '_distance_km', None)

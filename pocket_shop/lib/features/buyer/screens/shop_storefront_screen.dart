@@ -32,6 +32,8 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
   final ScrollController _scrollController = ScrollController();
   final ProductService _productService = ProductService();
   final ShopService _shopService = ShopService();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
 
   Shop? _shop;
   bool _loadingShop = false;
@@ -62,7 +64,17 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {}); // refresh the clear (x) button's visibility
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _fetchProducts(reset: true);
+    });
   }
 
   Future<void> _loadShop() async {
@@ -115,6 +127,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
           page: currentPage,
           inStockOnly: true,
           sortBy: 'latest',
+          search: _searchController.text.trim(),
         ),
       );
       if (!mounted) return;
@@ -163,6 +176,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                     controller: _scrollController,
                     slivers: [
                       SliverToBoxAdapter(child: _buildHeader()),
+                      SliverToBoxAdapter(child: _buildSearchBar()),
                       if (_loading)
                         const SliverFillRemaining(
                           hasScrollBody: false,
@@ -179,15 +193,17 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                           ),
                         )
                       else if (_items.isEmpty)
-                        const SliverFillRemaining(
+                        SliverFillRemaining(
                           hasScrollBody: false,
                           child: Center(
                             child: Padding(
-                              padding: EdgeInsets.all(24),
+                              padding: const EdgeInsets.all(24),
                               child: Text(
-                                'This shop has no items in stock right now.',
+                                _searchController.text.trim().isNotEmpty
+                                    ? 'No products match "${_searchController.text.trim()}" in this shop.'
+                                    : 'This shop has no items in stock right now.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: AppTheme.textSecondary),
+                                style: const TextStyle(color: AppTheme.textSecondary),
                               ),
                             ),
                           ),
@@ -261,10 +277,36 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  shop.shopName,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        shop.shopName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                      ),
+                    ),
+                    if (shop.isVerified) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.verified_rounded, size: 16, color: AppTheme.success),
+                    ],
+                  ],
                 ),
+                if (shop.topCategory != null) ...[
+                  const SizedBox(height: 3),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      shop.topCategory!,
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppTheme.darkCyan),
+                    ),
+                  ),
+                ],
                 if (shop.shopDescription.trim().isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(
@@ -295,6 +337,48 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEEEEEE),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                style: const TextStyle(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Search this shop',
+                  hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                            _fetchProducts(reset: true);
+                          },
+                          child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

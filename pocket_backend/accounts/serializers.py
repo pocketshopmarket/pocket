@@ -162,13 +162,36 @@ class ShopPublicSerializer(serializers.ModelSerializer):
     shop_logo = serializers.SerializerMethodField()
     distance_km = serializers.SerializerMethodField()
     product_count = serializers.IntegerField(read_only=True)
+    top_category = serializers.SerializerMethodField()
+    is_verified = serializers.BooleanField(source='is_approved', read_only=True)
 
     class Meta:
         model = SellerProfile
         fields = [
             'id', 'shop_name', 'shop_logo', 'shop_description',
             'shop_location', 'shop_lat', 'shop_lng', 'distance_km', 'product_count',
+            'top_category', 'is_verified',
         ]
+
+    def get_top_category(self, obj):
+        """
+        Shops have no category field of their own — derive one from
+        whatever category most of their available products actually sit
+        in, so a shop tile can carry a "Groceries" / "Electronics" tag
+        without sellers having to set anything.
+        """
+        from django.db.models import Count
+        from products.models import Product
+        row = (
+            Product.objects.filter(
+                seller_id=obj.user_id, is_available=True, category__isnull=False
+            )
+            .values('category__name')
+            .annotate(n=Count('id'))
+            .order_by('-n')
+            .first()
+        )
+        return row['category__name'] if row else None
 
     def get_shop_logo(self, obj):
         request = self.context.get('request')

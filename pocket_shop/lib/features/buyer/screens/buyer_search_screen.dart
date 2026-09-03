@@ -554,19 +554,29 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                                     ),
                                     if (product.sellerName != null) ...[
                                       const SizedBox(height: 2),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
-                                          const SizedBox(width: 3),
-                                          Expanded(
-                                            child: Text(
-                                              product.sellerName!,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                                      InkWell(
+                                        onTap: () => context.push(
+                                          '/buyer/shop-details?id=${product.sellerId}',
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
+                                            const SizedBox(width: 3),
+                                            Expanded(
+                                              child: Text(
+                                                product.sellerName!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppTheme.textSecondary,
+                                                  decoration: TextDecoration.underline,
+                                                  decorationColor: AppTheme.textSecondary,
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                     const SizedBox(height: 4),

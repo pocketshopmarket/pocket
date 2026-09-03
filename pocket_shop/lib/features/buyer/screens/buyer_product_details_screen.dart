@@ -356,11 +356,29 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  'by ${product.sellerName ?? 'Unknown seller'}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
+                InkWell(
+                  onTap: () => context.push(
+                    '/buyer/shop-details?id=${product.sellerId}',
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'by ${product.sellerName ?? 'Unknown seller'}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 16,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ],
                   ),
                 ),
                 if (product.variants.isNotEmpty) ...[

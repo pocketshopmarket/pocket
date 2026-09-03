@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/product.dart';
@@ -125,19 +126,29 @@ class ProductCard extends StatelessWidget {
                         ),
                         if (product.sellerName != null) ...[
                           const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
-                              const SizedBox(width: 3),
-                              Expanded(
-                                child: Text(
-                                  product.sellerName!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                          InkWell(
+                            onTap: () => context.push(
+                              '/buyer/shop-details?id=${product.sellerId}',
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
+                                const SizedBox(width: 3),
+                                Expanded(
+                                  child: Text(
+                                    product.sellerName!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.textSecondary,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: AppTheme.textSecondary,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                         const SizedBox(height: 2),

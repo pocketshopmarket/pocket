@@ -15,7 +15,7 @@ import '../../../services/shop_service.dart';
 import '../../../widgets/product_list_thumbnail.dart';
 
 /// A single seller's public storefront: header + their full in-stock catalog.
-/// Reached from a `ShopCard` tap on Home (Near Me / All Shops) — the `Shop`
+/// Reached from a `ShopSectionCard` tap on Home (Near Me / All Shops) — the `Shop`
 /// is usually passed via `extra`; `shopId` is a fallback for a direct link
 /// (deep link, or a search result) that only has the id.
 class ShopStorefrontScreen extends ConsumerStatefulWidget {

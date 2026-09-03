@@ -164,14 +164,30 @@ class ShopPublicSerializer(serializers.ModelSerializer):
     product_count = serializers.IntegerField(read_only=True)
     top_category = serializers.SerializerMethodField()
     is_verified = serializers.BooleanField(source='is_approved', read_only=True)
+    products_preview = serializers.SerializerMethodField()
 
     class Meta:
         model = SellerProfile
         fields = [
             'id', 'shop_name', 'shop_logo', 'shop_description',
             'shop_location', 'shop_lat', 'shop_lng', 'distance_km', 'product_count',
-            'top_category', 'is_verified',
+            'top_category', 'is_verified', 'products_preview',
         ]
+
+    def get_products_preview(self, obj):
+        """
+        A handful of the seller's own recent in-stock products, in the same
+        shape ProductSerializer already produces everywhere else in the app
+        — so the buyer app can reuse its existing Product model/widgets to
+        render these as a real photo strip under the shop's name, instead
+        of one guessed shop-level image.
+        """
+        from products.models import Product
+        from products.serializers import ProductSerializer
+        products = Product.objects.filter(
+            seller_id=obj.user_id, is_available=True
+        ).order_by('-created_at')[:4]
+        return ProductSerializer(products, many=True, context=self.context).data
 
     def get_top_category(self, obj):
         """

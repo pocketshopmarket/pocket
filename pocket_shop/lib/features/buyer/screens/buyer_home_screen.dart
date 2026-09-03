@@ -12,7 +12,7 @@ import '../../../../providers/category_provider.dart';
 import '../../../../providers/banner_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import '../../../../services/product_service.dart';
-import '../../../../widgets/shop_card.dart';
+import '../../../../widgets/shop_section_card.dart';
 import 'dart:async';
 import '../../../../models/category.dart';
 import '../../../../providers/auth_provider.dart';
@@ -334,9 +334,6 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 360;
     final horizontalPadding = isCompact ? 12.0 : 16.0;
-    final gridSpacing = isCompact ? 8.0 : 10.0;
-    final gridCardWidth =
-        (screenWidth - (horizontalPadding * 2) - gridSpacing) / 2;
     final shopState = ref.watch(shopProvider);
     final user = ref.watch(userProvider);
     final firstName = user?.displayName.split(' ').first ?? 'Shopper';
@@ -841,58 +838,38 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   'Shops near you',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 150,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: shopState.nearbyShops.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (_, index) {
-                      final shop = shopState.nearbyShops[index];
-                      return SizedBox(
-                        width: 150,
-                        child: ShopCard(
-                          shop: shop,
-                          onTap: () => context.push('/buyer/shop-details', extra: shop),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 10),
+                ...shopState.nearbyShops.expand((shop) => [
+                      ShopSectionCard(
+                        shop: shop,
+                        onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
+                        onProductTap: (product) => context.push('/buyer/product-details', extra: product),
+                      ),
+                      const SizedBox(height: 12),
+                    ]),
+                const SizedBox(height: 6),
               ],
               if (shopState.allShops.isNotEmpty) ...[
                 const Text(
                   'All shops',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                 ),
-                const SizedBox(height: 8),
-                GridView.builder(
-                  itemCount: shopState.allShops.length,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: gridSpacing,
-                    childAspectRatio: gridCardWidth / 150,
-                  ),
-                  itemBuilder: (_, i) {
-                    final shop = shopState.allShops[i];
-                    return ShopCard(
-                      shop: shop,
-                      onTap: () => context.push('/buyer/shop-details', extra: shop),
-                    );
-                  },
-                ),
+                const SizedBox(height: 10),
+                ...shopState.allShops.expand((shop) => [
+                      ShopSectionCard(
+                        shop: shop,
+                        onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
+                        onProductTap: (product) => context.push('/buyer/product-details', extra: product),
+                      ),
+                      const SizedBox(height: 12),
+                    ]),
                 if (shopState.isLoadingMoreAllShops) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                   const Center(
                     child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryCyan),
                   ),
                 ],
-                const SizedBox(height: 18),
+                const SizedBox(height: 6),
               ] else if (shopState.isLoadingAllShops) ...[
                 const Center(
                   child: CircularProgressIndicator(color: AppTheme.primaryCyan),

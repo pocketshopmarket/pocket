@@ -1,3 +1,5 @@
+import 'product.dart';
+
 String? _parseTrimmedString(dynamic raw) {
   if (raw == null) return null;
   final s = raw.toString().trim();
@@ -20,6 +22,7 @@ class Shop {
   final int productCount;
   final String? topCategory;
   final bool isVerified;
+  final List<Product> productsPreview;
 
   Shop({
     required this.id,
@@ -33,6 +36,7 @@ class Shop {
     this.productCount = 0,
     this.topCategory,
     this.isVerified = false,
+    this.productsPreview = const [],
   });
 
   factory Shop.fromJson(Map<String, dynamic> json) {
@@ -50,6 +54,12 @@ class Shop {
           : int.tryParse('${json['product_count']}') ?? 0,
       topCategory: _parseTrimmedString(json['top_category']),
       isVerified: json['is_verified'] == true,
+      productsPreview: (json['products_preview'] is List)
+          ? (json['products_preview'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map(Product.fromJson)
+              .toList()
+          : const [],
     );
   }
 }

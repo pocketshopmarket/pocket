@@ -590,6 +590,21 @@ class ShopListView(APIView):
             )
         )
 
+        # A shop with nothing in stock is a dead end for a buyer — hide it.
+        # Exception: while the platform is genuinely young and few real
+        # (product-having) shops exist yet, don't hide the empty ones too —
+        # a near-bare "All Shops" list reads as an abandoned app. Once real
+        # supply crosses the threshold, revert to only showing shops that
+        # actually have something to sell. Fully automatic either way.
+        REAL_SHOP_THRESHOLD = 5
+        real_shop_count = SellerProfile.objects.filter(
+            Q(is_approved=True) | Q(tier1_status='approved')
+        ).annotate(
+            pc=Count('user__products', filter=Q(user__products__is_available=True), distinct=True)
+        ).filter(pc__gt=0).count()
+        if real_shop_count >= REAL_SHOP_THRESHOLD:
+            qs = qs.filter(product_count__gt=0)
+
         search = request.query_params.get('search')
         if search:
             qs = qs.filter(shop_name__icontains=search)

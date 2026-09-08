@@ -184,9 +184,10 @@ class ShopPublicSerializer(serializers.ModelSerializer):
         """
         from products.models import Product
         from products.serializers import ProductSerializer
+        preview_size = self.context.get('preview_size', 4)
         products = Product.objects.filter(
             seller_id=obj.user_id, is_available=True
-        ).order_by('-created_at')[:4]
+        ).order_by('-created_at')[:preview_size]
         return ProductSerializer(products, many=True, context=self.context).data
 
     def get_top_category(self, obj):

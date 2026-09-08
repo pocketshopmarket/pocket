@@ -605,6 +605,13 @@ class ShopListView(APIView):
         if real_shop_count >= REAL_SHOP_THRESHOLD:
             qs = qs.filter(product_count__gt=0)
 
+        # Same cold-start logic, applied to how much of each shop we show
+        # rather than which shops we show: with only a handful of real
+        # shops, give each one a bigger product strip so the page doesn't
+        # look bare. Once there's enough supply to fill the page with shop
+        # cards alone, pull each one back to a normal-sized preview.
+        preview_size = 4 if real_shop_count >= REAL_SHOP_THRESHOLD else 10
+
         search = request.query_params.get('search')
         if search:
             qs = qs.filter(shop_name__icontains=search)
@@ -643,7 +650,9 @@ class ShopListView(APIView):
 
         paginator = ShopPagination()
         page = paginator.paginate_queryset(shops, request, view=self)
-        serializer = ShopPublicSerializer(page, many=True, context={'request': request})
+        serializer = ShopPublicSerializer(
+            page, many=True, context={'request': request, 'preview_size': preview_size}
+        )
         return paginator.get_paginated_response(serializer.data)
 
 

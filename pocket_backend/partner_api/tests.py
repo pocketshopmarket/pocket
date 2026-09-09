@@ -3,7 +3,7 @@ from unittest.mock import patch
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import SellerApiKey, SellerProfile, User
+from accounts.models import Country, SellerApiKey, SellerProfile, User
 from partner_api.throttles import PartnerAPIThrottle
 from products.models import Category, Product
 
@@ -20,6 +20,7 @@ class PartnerProductUpsertApiTests(APITestCase):
         )
         SellerProfile.objects.create(
             user=self.seller,
+            country=Country.default(),
             shop_name='Partner Shop',
             shop_location='Lusaka',
             tier1_status='approved',
@@ -99,6 +100,7 @@ class PartnerProductUpsertApiTests(APITestCase):
         )
         SellerProfile.objects.create(
             user=unapproved_seller,
+            country=Country.default(),
             shop_name='Pending Shop',
             shop_location='Lusaka',
         )

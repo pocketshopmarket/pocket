@@ -8,6 +8,7 @@ from django.db.models import Sum
 from django.utils.html import format_html
 from .models import (
     BuyerProfile,
+    Country,
     DeliveryProfile,
     ErrorLog,
     PhoneOTP,
@@ -16,6 +17,14 @@ from .models import (
     User,
     VerificationRequest,
 )
+
+
+@admin.register(Country)
+class CountryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'currency_code', 'calling_code', 'is_active']
+    list_filter = ['is_active']
+    list_editable = ['is_active']
+    search_fields = ['name', 'code']
 
 
 def _generate_staff_password(length=8):

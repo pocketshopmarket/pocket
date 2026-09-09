@@ -4,6 +4,7 @@ from django.utils import timezone
 from .models import (
     BuyerPaymentMethod,
     BuyerProfile,
+    Country,
     DeliveryProfile,
     SellerProfile,
     User,
@@ -443,9 +444,14 @@ class SellerApplicationSerializer(serializers.ModelSerializer):
         else:
             defaults['tier1_status'] = 'submitted'
             defaults['is_approved'] = False
+        # create_defaults only applies on the create path — an existing
+        # seller's real country is never overwritten by a later Tier
+        # 1/2 submission, this only covers the (today, purely defensive)
+        # case of a SellerProfile not already existing by this point.
         seller_profile, created = SellerProfile.objects.update_or_create(
             user=user,
             defaults=defaults,
+            create_defaults={**defaults, 'country': Country.default()},
         )
         VerificationRequest.objects.update_or_create(
             user=user,

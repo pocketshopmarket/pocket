@@ -130,6 +130,48 @@ class BuyerPaymentMethod(models.Model):
         return f"{self.user_id} {self.provider} {self.account_phone}"
 
 
+class Country(models.Model):
+    """
+    The shared reference point for multi-country support — every place that
+    currently hardcodes Zambia (phone validation, PawaPay calling codes,
+    delivery pricing) points here instead, so adding a market is a new row,
+    not a new deploy. See the "Country Model Architecture" plan.
+    """
+    code = models.CharField(
+        max_length=2,
+        unique=True,
+        help_text="Short stable identifier, e.g. ZM, RW, ZW — what a foreign key actually stores.",
+    )
+    name = models.CharField(max_length=100, help_text="e.g. Zambia, Rwanda, Zimbabwe")
+    currency_code = models.CharField(max_length=3, help_text="e.g. ZMW, RWF, USD")
+    calling_code = models.CharField(max_length=5, help_text="e.g. 260, 250, 263 — no leading +")
+    is_active = models.BooleanField(
+        default=False,
+        help_text="A country can exist (be configured) before it's opened to buyers/sellers.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Countries'
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+    @classmethod
+    def default(cls):
+        """
+        The country a new account belongs to before real multi-country
+        signup exists — Zambia, for as long as this remains a single-market
+        app. Centralized here so "ZM" isn't a string literal scattered
+        across every SellerProfile-creation call site; once a real
+        country-selection flow exists, callers switch to that instead of
+        this classmethod, not to a different hardcoded string.
+        """
+        return cls.objects.get(code='ZM')
+
+
 class SellerProfile(models.Model):
     VERIFICATION_STATUS_CHOICES = [
         ('not_started', 'Not Started'),
@@ -139,6 +181,9 @@ class SellerProfile(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='seller_profile')
+    # Required — every row was backfilled to Zambia before this field
+    # became non-nullable (see 0025_backfill_sellerprofile_country).
+    country = models.ForeignKey(Country, on_delete=models.PROTECT, related_name='sellers')
     shop_name = models.CharField(max_length=200)
     shop_location = models.TextField()
     shop_lat = models.FloatField(null=True, blank=True)

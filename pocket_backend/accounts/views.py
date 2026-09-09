@@ -12,6 +12,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import (
     BuyerPaymentMethod,
     BuyerProfile,
+    Country,
     DeliveryProfile,
     PhoneOTP,
     SellerProfile,
@@ -183,6 +184,7 @@ class VerifyOTPView(APIView):
                 elif role == 'seller':
                     SellerProfile.objects.create(
                         user=user,
+                        country=Country.default(),
                         shop_name='Pending setup',
                         shop_location='Pending setup',
                     )

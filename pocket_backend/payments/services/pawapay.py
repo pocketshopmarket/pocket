@@ -2,6 +2,8 @@ import requests
 from django.conf import settings
 import logging
 
+from accounts.models import Country
+
 logger = logging.getLogger(__name__)
 
 class PawaPayService:
@@ -11,6 +13,27 @@ class PawaPayService:
             'Authorization': f'Bearer {settings.PAWAPAY_JWT_TOKEN}',
             'Content-Type': 'application/json'
         }
+
+    @staticmethod
+    def _to_pawapay_msisdn(raw_number: str) -> str:
+        """
+        PawaPay strictly requires no '+' sign, leading '0', or whitespace
+        (e.g. '260973714666'). Was hardcoded to '260' regardless of whose
+        number it was — every transaction today really is Zambian, so this
+        is Country.default().calling_code rather than a bare literal.
+        Once transactions carry their own country context (Workstream 2:
+        payments generalization), this becomes a real per-transaction
+        lookup instead of the platform-wide default.
+        """
+        calling_code = Country.default().calling_code
+        phone = str(raw_number).strip().replace(" ", "").replace("-", "")
+        if phone.startswith("+"):
+            phone = phone[1:]
+        if phone.startswith("0"):
+            phone = calling_code + phone[1:]
+        elif not phone.startswith(calling_code) and len(phone) == 9:
+            phone = calling_code + phone
+        return phone
 
     @staticmethod
     def get_deposit_status(deposit_id: str) -> dict | None:
@@ -37,16 +60,9 @@ class PawaPayService:
         Takes a Transaction model instance.
         """
         url = f"{settings.PAWAPAY_BASE_URL}/deposits"
-        
-        # PawaPay strictly requires no '+' sign, leading '0', or whitespace (e.g. '260973714666')
-        raw_phone = str(transaction.payer_number).strip().replace(" ", "").replace("-", "")
-        if raw_phone.startswith("+"):
-            raw_phone = raw_phone[1:]
-        if raw_phone.startswith("0"):
-            raw_phone = "260" + raw_phone[1:]
-        elif not raw_phone.startswith("260") and len(raw_phone) == 9:
-            raw_phone = "260" + raw_phone
-        
+
+        raw_phone = PawaPayService._to_pawapay_msisdn(transaction.payer_number)
+
         payload = {
             "depositId": str(transaction.transaction_id),
             "amount": str(transaction.amount),
@@ -126,16 +142,9 @@ class PawaPayService:
         Uses transaction.payer_number as beneficiary account number.
         """
         url = f"{settings.PAWAPAY_BASE_URL}/payouts"
-        
-        # PawaPay strictly requires no '+' sign, leading '0', or whitespace (e.g. '260973714666')
-        raw_phone = str(transaction.payer_number).strip().replace(" ", "").replace("-", "")
-        if raw_phone.startswith("+"):
-            raw_phone = raw_phone[1:]
-        if raw_phone.startswith("0"):
-            raw_phone = "260" + raw_phone[1:]
-        elif not raw_phone.startswith("260") and len(raw_phone) == 9:
-            raw_phone = "260" + raw_phone
-        
+
+        raw_phone = PawaPayService._to_pawapay_msisdn(transaction.payer_number)
+
         payload = {
             "payoutId": str(transaction.transaction_id),
             "amount": str(transaction.amount),

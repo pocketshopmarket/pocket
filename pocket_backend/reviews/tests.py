@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import SellerProfile, User
+from accounts.models import Country, SellerProfile, User
 from orders.models import Order, OrderItem
 from products.models import Product
 
@@ -22,6 +22,7 @@ class ProductReviewTests(APITestCase):
         )
         SellerProfile.objects.create(
             user=self.seller,
+            country=Country.default(),
             shop_name='Store',
             shop_location='Lusaka',
             is_approved=True,

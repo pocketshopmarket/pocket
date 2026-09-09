@@ -3,7 +3,7 @@ import datetime
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import SellerProfile, User
+from accounts.models import Country, SellerProfile, User
 from products.models import Category, Product
 from .models import Cart, CartItem, Order
 
@@ -24,6 +24,7 @@ class BuyerRoleCheckoutTests(APITestCase):
         )
         SellerProfile.objects.create(
             user=self.seller_user,
+            country=Country.default(),
             shop_name='Approved Shop',
             shop_location='Lusaka',
             is_approved=True,
@@ -67,6 +68,7 @@ class AgeRestrictedProductCheckoutTests(APITestCase):
         )
         SellerProfile.objects.create(
             user=self.seller_user,
+            country=Country.default(),
             shop_name='Bottle Store',
             shop_location='Lusaka',
             is_approved=True,

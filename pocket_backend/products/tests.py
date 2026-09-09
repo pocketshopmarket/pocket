@@ -2,7 +2,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import SellerProfile, User
+from accounts.models import Country, SellerProfile, User
 from products.models import Product
 
 
@@ -22,6 +22,7 @@ class ProductCatalogApiTests(APITestCase):
         )
         SellerProfile.objects.create(
             user=self.seller,
+            country=Country.default(),
             shop_name='Tech Hub',
             shop_location='Lusaka',
             is_approved=True,

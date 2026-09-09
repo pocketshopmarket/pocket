@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 import secrets
-from accounts.models import User
+from accounts.models import Country, User
 from orders.models import Order
 
 # Create your models here.
@@ -18,6 +18,14 @@ class DeliveryPricingConfig(models.Model):
       else:
           fee = distance_km * per_km_rate         (e.g. 12 km × ZMW 5 = ZMW 60)
     """
+    # Required — the one existing row was backfilled to Zambia before this
+    # field became non-nullable (see 0011_backfill_deliverypricingconfig_country).
+    # get_config() still takes no arguments and still resolves the single
+    # pk=1 row — becoming properly per-country is a separate, call-site-
+    # touching step, not bundled into this schema change.
+    country = models.ForeignKey(
+        Country, on_delete=models.PROTECT, related_name='delivery_pricing_configs',
+    )
     per_km_rate = models.DecimalField(
         max_digits=6,
         decimal_places=2,

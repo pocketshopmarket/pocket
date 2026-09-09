@@ -45,8 +45,20 @@ class _SellerProductsScreenState extends ConsumerState<SellerProductsScreen> {
     });
     try {
       final svc = ref.read(productServiceProvider);
-      final page = await svc.getProductsPage(ProductQuery(pageSize: 200));
-      if (mounted) setState(() => _products = page.items);
+      // The backend caps page_size at 50 regardless of what's requested
+      // here, so a seller with more than one page of products (this is a
+      // "manage my inventory" screen, not a browse feed) needs every page
+      // fetched up front — otherwise search/stock-filter would silently
+      // only cover whatever page happened to load first.
+      final all = <Product>[];
+      int page = 1;
+      while (true) {
+        final result = await svc.getProductsPage(ProductQuery(page: page, pageSize: 50));
+        all.addAll(result.items);
+        if (result.nextPage == null || result.items.isEmpty || page > 100) break;
+        page = result.nextPage!;
+      }
+      if (mounted) setState(() => _products = all);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {

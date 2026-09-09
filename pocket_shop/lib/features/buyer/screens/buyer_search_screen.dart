@@ -134,7 +134,9 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
     final cartCount = ref.watch(cartProvider).items.length;
     final trendingProducts = ref.watch(productProvider).trendingProducts;
     final currentUser = ref.watch(userProvider);
-    final recommendedAsync = currentUser != null ? ref.watch(recommendedProvider) : null;
+    final recommendedAsync = currentUser != null
+        ? ref.watch(recommendedProvider)
+        : null;
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
@@ -262,7 +264,9 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, index) {
                 final isAll = index == 0;
-                final catId = isAll ? 'all' : allCategories[index - 1].id.toString();
+                final catId = isAll
+                    ? 'all'
+                    : allCategories[index - 1].id.toString();
                 final catName = isAll ? 'All' : allCategories[index - 1].name;
                 final selected = _selectedCategory == catId;
                 return ChoiceChip(
@@ -284,122 +288,178 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          if (trendingProducts.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'Trending now',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: isCompact ? 230 : 248,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: trendingProducts.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 10),
-                      itemBuilder: (_, index) {
-                        final product = trendingProducts[index];
-                        final inStock = product.isAvailable && product.isInStock;
-                        return SizedBox(
-                          width: isCompact ? 156 : 170,
-                          child: ProductCard(
-                            product: product,
-                            inStock: inStock,
-                            isFavorite: wishlist.contains(product.id),
-                            onToggleFavorite: () => wishlistNotifier.toggle(product.id),
-                            onCardTap: () => context.push('/buyer/product-details', extra: product),
-                            onAdd: () async {
-                              final err = await cartNotifier.addProduct(product);
-                              if (!context.mounted || err == null) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(err), backgroundColor: AppTheme.error),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          // Recommendations require an account (backend is IsAuthenticated,
-          // no anonymous fallback) — omit the section entirely for a guest.
-          if (recommendedAsync != null)
-            recommendedAsync.when(
-              data: (recommendedProducts) {
-                if (recommendedProducts.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Recommended for you',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: isCompact ? 230 : 248,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: recommendedProducts.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 10),
-                          itemBuilder: (_, index) {
-                            final product = recommendedProducts[index];
-                            final inStock = product.isAvailable && product.isInStock;
-                            return SizedBox(
-                              width: isCompact ? 156 : 170,
-                              child: ProductCard(
-                                product: product,
-                                inStock: inStock,
-                                isFavorite: wishlist.contains(product.id),
-                                onToggleFavorite: () => wishlistNotifier.toggle(product.id),
-                                onCardTap: () => context.push('/buyer/product-details', extra: product),
-                                onAdd: () async {
-                                  final err = await cartNotifier.addProduct(product);
-                                  if (!context.mounted || err == null) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(err), backgroundColor: AppTheme.error),
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              loading: () => const SizedBox.shrink(),
-              error: (_, _) => const SizedBox.shrink(),
-            ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => _fetch(reset: true),
-              child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.primaryCyan,
+              child: CustomScrollView(
+                controller: _scrollController,
+                slivers: [
+                  if (trendingProducts.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'Trending now',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: isCompact ? 230 : 248,
+                              child: ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                scrollDirection: Axis.horizontal,
+                                itemCount: trendingProducts.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 10),
+                                itemBuilder: (_, index) {
+                                  final product = trendingProducts[index];
+                                  final inStock =
+                                      product.isAvailable && product.isInStock;
+                                  return SizedBox(
+                                    width: isCompact ? 156 : 170,
+                                    child: ProductCard(
+                                      product: product,
+                                      inStock: inStock,
+                                      isFavorite: wishlist.contains(product.id),
+                                      onToggleFavorite: () =>
+                                          wishlistNotifier.toggle(product.id),
+                                      onCardTap: () => context.push(
+                                        '/buyer/product-details',
+                                        extra: product,
+                                      ),
+                                      onAdd: () async {
+                                        final err = await cartNotifier
+                                            .addProduct(product);
+                                        if (!context.mounted || err == null)
+                                          return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(err),
+                                            backgroundColor: AppTheme.error,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Recommendations require an account (backend is IsAuthenticated,
+                  // no anonymous fallback) — omit the section entirely for a guest.
+                  if (recommendedAsync != null)
+                    SliverToBoxAdapter(
+                      child: recommendedAsync.when(
+                        data: (recommendedProducts) {
+                          if (recommendedProducts.isEmpty)
+                            return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text(
+                                    'Recommended for you',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  height: isCompact ? 230 : 248,
+                                  child: ListView.separated(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: recommendedProducts.length,
+                                    separatorBuilder: (_, _) =>
+                                        const SizedBox(width: 10),
+                                    itemBuilder: (_, index) {
+                                      final product =
+                                          recommendedProducts[index];
+                                      final inStock =
+                                          product.isAvailable &&
+                                          product.isInStock;
+                                      return SizedBox(
+                                        width: isCompact ? 156 : 170,
+                                        child: ProductCard(
+                                          product: product,
+                                          inStock: inStock,
+                                          isFavorite: wishlist.contains(
+                                            product.id,
+                                          ),
+                                          onToggleFavorite: () =>
+                                              wishlistNotifier.toggle(
+                                                product.id,
+                                              ),
+                                          onCardTap: () => context.push(
+                                            '/buyer/product-details',
+                                            extra: product,
+                                          ),
+                                          onAdd: () async {
+                                            final err = await cartNotifier
+                                                .addProduct(product);
+                                            if (!context.mounted || err == null)
+                                              return;
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(err),
+                                                backgroundColor: AppTheme.error,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  if (_loading)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppTheme.primaryCyan,
+                        ),
                       ),
                     )
-                  : _error != null
-                  ? ListView(
-                      children: [
-                        Padding(
+                  else if (_error != null)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
                             _error!,
@@ -407,12 +467,13 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                             style: const TextStyle(color: AppTheme.error),
                           ),
                         ),
-                      ],
+                      ),
                     )
-                  : _items.isEmpty
-                  ? ListView(
-                      children: [
-                        Padding(
+                  else if (_items.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Container(
                             padding: const EdgeInsets.all(20),
@@ -422,6 +483,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                               border: Border.all(color: AppTheme.divider),
                             ),
                             child: const Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   Icons.search_off_rounded,
@@ -449,199 +511,227 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                             ),
                           ),
                         ),
-                      ],
-                    )
-                  : GridView.builder(
-                      controller: _scrollController,
-                      itemCount: _items.length + (_loadingMore ? 1 : 0),
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: isCompact ? 8 : 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: isCompact ? 0.66 : 0.7,
                       ),
-                      itemBuilder: (context, index) {
-                        if (index >= _items.length) {
-                          return const Padding(
-                            padding: EdgeInsets.all(10),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppTheme.primaryCyan,
-                              ),
-                            ),
-                          );
-                        }
-                        final product = _items[index];
-                        final inStock =
-                            product.isAvailable && product.isInStock;
-                        final isFavorite = wishlist.contains(product.id);
-                        return Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppTheme.divider),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x0D000000),
-                                blurRadius: 10,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: InkWell(
-                            onTap: () => context.push(
-                              '/buyer/product-details',
-                              extra: product,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Stack(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: SizedBox(
-                                          width: double.infinity,
-                                          child: ProductListThumbnail(
-                                            product: product,
-                                            compactPlaceholder: true,
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        right: 6,
-                                        top: 6,
-                                        child: _ActionIconButton(
-                                          icon: isFavorite
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          color: isFavorite
-                                              ? AppTheme.error
-                                              : AppTheme.textSecondary,
-                                          onTap: () => wishlistNotifier.toggle(
-                                            product.id,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: isCompact ? 8 : 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: isCompact ? 0.66 : 0.7,
+                        ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          if (index >= _items.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppTheme.primaryCyan,
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  product.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      product.qualityDisplayLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                    if (product.sellerName != null) ...[
-                                      const SizedBox(height: 2),
-                                      InkWell(
-                                        onTap: () => context.push(
-                                          '/buyer/shop-details?id=${product.sellerId}',
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
-                                            const SizedBox(width: 3),
-                                            Expanded(
-                                              child: Text(
-                                                product.sellerName!,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color: AppTheme.textSecondary,
-                                                  decoration: TextDecoration.underline,
-                                                  decorationColor: AppTheme.textSecondary,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'ZMW ${product.price.toStringAsFixed(2)}',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  color: AppTheme.textPrimary,
-                                                ),
-                                              ),
-                                              if (product.reviewCount > 0)
-                                                Row(
-                                                  children: [
-                                                    const Icon(Icons.star_rounded, size: 11, color: Color(0xFFF59E0B)),
-                                                    const SizedBox(width: 2),
-                                                    Text(
-                                                      '${product.reviewAverage.toStringAsFixed(1)} (${product.reviewCount})',
-                                                      style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
-                                                    ),
-                                                  ],
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                        _ActionIconButton(
-                                          icon: Icons.add_shopping_cart_rounded,
-                                          color: inStock
-                                              ? AppTheme.darkCyan
-                                              : AppTheme.textSecondary,
-                                          onTap: inStock
-                                              ? () async {
-                                                  final err = await cartNotifier
-                                                      .addProduct(product);
-                                                  if (!context.mounted ||
-                                                      err == null) {
-                                                    return;
-                                                  }
-                                                  ScaffoldMessenger.of(
-                                                    context,
-                                                  ).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(err),
-                                                      backgroundColor:
-                                                          AppTheme.error,
-                                                    ),
-                                                  );
-                                                }
-                                              : null,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                              ),
+                            );
+                          }
+                          final product = _items[index];
+                          final inStock =
+                              product.isAvailable && product.isInStock;
+                          final isFavorite = wishlist.contains(product.id);
+                          return Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppTheme.divider),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x0D000000),
+                                  blurRadius: 10,
+                                  offset: Offset(0, 4),
                                 ),
                               ],
                             ),
-                          ),
-                        );
-                      },
+                            child: InkWell(
+                              onTap: () => context.push(
+                                '/buyer/product-details',
+                                extra: product,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: ProductListThumbnail(
+                                              product: product,
+                                              compactPlaceholder: true,
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          right: 6,
+                                          top: 6,
+                                          child: _ActionIconButton(
+                                            icon: isFavorite
+                                                ? Icons.favorite
+                                                : Icons.favorite_border,
+                                            color: isFavorite
+                                                ? AppTheme.error
+                                                : AppTheme.textSecondary,
+                                            onTap: () => wishlistNotifier
+                                                .toggle(product.id),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    product.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        product.qualityDisplayLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                      if (product.sellerName != null) ...[
+                                        const SizedBox(height: 2),
+                                        InkWell(
+                                          onTap: () => context.push(
+                                            '/buyer/shop-details?id=${product.sellerId}',
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.storefront_outlined,
+                                                size: 10,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                              const SizedBox(width: 3),
+                                              Expanded(
+                                                child: Text(
+                                                  product.sellerName!,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color:
+                                                        AppTheme.textSecondary,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                    decorationColor:
+                                                        AppTheme.textSecondary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'ZMW ${product.price.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    color: AppTheme.textPrimary,
+                                                  ),
+                                                ),
+                                                if (product.reviewCount > 0)
+                                                  Row(
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.star_rounded,
+                                                        size: 11,
+                                                        color: Color(
+                                                          0xFFF59E0B,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 2),
+                                                      Text(
+                                                        '${product.reviewAverage.toStringAsFixed(1)} (${product.reviewCount})',
+                                                        style: const TextStyle(
+                                                          fontSize: 10,
+                                                          color: AppTheme
+                                                              .textSecondary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          _ActionIconButton(
+                                            icon:
+                                                Icons.add_shopping_cart_rounded,
+                                            color: inStock
+                                                ? AppTheme.darkCyan
+                                                : AppTheme.textSecondary,
+                                            onTap: inStock
+                                                ? () async {
+                                                    final err =
+                                                        await cartNotifier
+                                                            .addProduct(
+                                                              product,
+                                                            );
+                                                    if (!context.mounted ||
+                                                        err == null) {
+                                                      return;
+                                                    }
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(err),
+                                                        backgroundColor:
+                                                            AppTheme.error,
+                                                      ),
+                                                    );
+                                                  }
+                                                : null,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }, childCount: _items.length + (_loadingMore ? 1 : 0)),
+                      ),
                     ),
+                ],
+              ),
             ),
           ),
         ],
@@ -670,7 +760,12 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,10 +780,12 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                 decoration: const InputDecoration(labelText: 'Category'),
                 items: [
                   const DropdownMenuItem(value: 'all', child: Text('All')),
-                  ...categories.map((c) => DropdownMenuItem(
-                    value: c.id.toString(),
-                    child: Text(c.name),
-                  )),
+                  ...categories.map(
+                    (c) => DropdownMenuItem(
+                      value: c.id.toString(),
+                      child: Text(c.name),
+                    ),
+                  ),
                 ],
                 onChanged: (v) {
                   if (v != null) setModalState(() => tempCategory = v);
@@ -747,9 +844,18 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                 decoration: const InputDecoration(labelText: 'Sort'),
                 items: const [
                   DropdownMenuItem(value: 'latest', child: Text('Latest')),
-                  DropdownMenuItem(value: 'popular', child: Text('Most popular')),
-                  DropdownMenuItem(value: 'price_low', child: Text('Price: low to high')),
-                  DropdownMenuItem(value: 'price_high', child: Text('Price: high to low')),
+                  DropdownMenuItem(
+                    value: 'popular',
+                    child: Text('Most popular'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'price_low',
+                    child: Text('Price: low to high'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'price_high',
+                    child: Text('Price: high to low'),
+                  ),
                   DropdownMenuItem(value: 'name_az', child: Text('Name: A-Z')),
                 ],
                 onChanged: (v) {
@@ -782,8 +888,12 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                   Expanded(
                     child: FilledButton(
                       onPressed: () {
-                        final minVal = double.tryParse(minController.text.trim());
-                        final maxVal = double.tryParse(maxController.text.trim());
+                        final minVal = double.tryParse(
+                          minController.text.trim(),
+                        );
+                        final maxVal = double.tryParse(
+                          maxController.text.trim(),
+                        );
                         minController.dispose();
                         maxController.dispose();
                         setState(() {

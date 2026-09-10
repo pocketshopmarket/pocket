@@ -595,6 +595,66 @@ footer {
     flex-wrap: wrap;
 }
 
+/* App / Play Store badges */
+.store-badges {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
+.store-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem;
+    background-color: var(--text-primary);
+    color: white;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: var(--transition-speed);
+}
+
+.store-badge:hover {
+    background-color: #000;
+}
+
+.store-badge i {
+    font-size: 1.75rem;
+}
+
+.store-badge span {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.store-badge small {
+    font-size: 0.65rem;
+    font-weight: 400;
+    color: #D1D5DB;
+}
+
+.store-badge strong {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.footer-store-badges {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 1.5rem;
+}
+
+.footer-store-badges .store-badge {
+    padding: 0.5rem 1rem;
+}
+
+.footer-store-badges .store-badge i {
+    font-size: 1.5rem;
+}
+
 /* CTA Section */
 .cta-section {
     padding: 100px 5%;

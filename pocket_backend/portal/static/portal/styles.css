@@ -838,6 +838,10 @@ header.scrolled {
         justify-content: center;
     }
 
+    .store-badges {
+        justify-content: center;
+    }
+
     .nav-links {
         position: fixed;
         top: 0;
@@ -889,6 +893,20 @@ header.scrolled {
 
     .btn {
         width: 100%;
+        justify-content: center;
+    }
+
+    .store-badges {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .store-badge {
+        justify-content: center;
+    }
+
+    .footer-store-badges {
         justify-content: center;
     }
 }

@@ -60,60 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
         icon.className = navLinks.classList.contains('open') ? 'fas fa-xmark' : 'fas fa-bars';
     });
 
-    // ─── Modal Logic ───
-    const modal = document.getElementById('modal');
-    const openModalBtns = document.querySelectorAll('.open-modal');
-    const closeModalBtn = document.getElementById('close-modal');
-    const form = document.getElementById('early-access-form');
-    const successMsg = document.getElementById('success-msg');
-
-    const openModal = (e) => {
-        if (e) e.preventDefault();
-        modal.classList.add('visible');
-        document.body.style.overflow = 'hidden';
-    };
-
-    const closeModal = () => {
-        modal.classList.remove('visible');
-        document.body.style.overflow = 'auto';
-    };
-
-    openModalBtns.forEach(btn => btn.addEventListener('click', openModal));
-    closeModalBtn.addEventListener('click', closeModal);
-
-    window.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal();
-    });
-
-    // ─── Form Submission ───
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        const btn = form.querySelector('button[type="submit"]');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        btn.disabled = true;
-
-        setTimeout(() => {
-            form.style.display = 'none';
-            successMsg.style.display = 'block';
-
-            setTimeout(() => {
-                closeModal();
-                setTimeout(() => {
-                    form.style.display = 'block';
-                    successMsg.style.display = 'none';
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    form.reset();
-                }, 400);
-            }, 2500);
-        }, 1200);
-    });
     // ─── Hero Slideshow ───
     const slides = document.querySelectorAll('.slide');
     const dots = document.querySelectorAll('.dot');

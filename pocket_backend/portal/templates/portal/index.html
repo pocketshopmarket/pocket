@@ -374,19 +374,16 @@
             </div>
             <div class="footer-col">
                 <h4>Company</h4>
-                <a href="#">About Us</a>
-                <a href="#">Careers</a>
-                <a href="#">Blog</a>
-                <a href="#">Contact</a>
-            </div>
-            <div class="footer-col">
-                <h4>Legal</h4>
                 <a href="{% url 'portal:privacy' %}">Privacy Policy</a>
                 <a href="{% url 'portal:terms' %}">Terms of Service</a>
             </div>
+            <div class="footer-col">
+                <h4>Contact</h4>
+                {% include 'portal/_footer_contact.html' %}
+            </div>
         </div>
         <div class="footer-bottom">
-            <span>&copy; 2026 Pocket Shop. All rights reserved.</span>
+            <span>&copy; 2026 Pocketshop Market Limited. All rights reserved.</span>
             <div class="social-links">
                 <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
                 <a href="#" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>

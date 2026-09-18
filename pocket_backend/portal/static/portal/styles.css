@@ -550,6 +550,32 @@ footer {
     max-width: 300px;
 }
 
+.footer-contact {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.footer-contact a,
+.footer-contact span {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.footer-contact a:hover {
+    color: var(--primary);
+}
+
+.footer-contact i {
+    width: 1rem;
+    margin-top: 0.2rem;
+    color: var(--primary);
+}
+
 .footer-col h4 {
     margin-bottom: 1.5rem;
     font-size: 1rem;

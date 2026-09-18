@@ -123,7 +123,7 @@
 
     <div class="legal-wrap">
 
-        <p>This Privacy Policy explains what personal information Pocket Shop collects, why we collect it, and how we use and protect it. It applies to the Pocket Shop website (<a href="https://mypocketshop.store">mypocketshop.store</a>) and the Pocket Shop mobile application.</p>
+        <p>This Privacy Policy explains what personal information Pocket Shop collects, why we collect it, and how we use and protect it. It applies to the Pocket Shop website (<a href="https://mypocketshop.store">mypocketshop.store</a>) and the Pocket Shop mobile application. Pocket Shop is operated by <strong>Pocketshop Market Limited</strong>, registered at 31295 Mwansabombwe Road, Chalala, Lusaka, Zambia.</p>
 
         <div class="highlight-box">
             <p><strong>Short version:</strong> We collect only what is needed to run the marketplace. We do not sell your data. Identity documents submitted for verification are seen only by our admin team. You can contact us at any time to access, correct, or delete your data.</p>
@@ -282,7 +282,10 @@
         <h2>10. Contact Us</h2>
         <p>For any questions, data access requests, or privacy concerns:</p>
         <ul>
+            <li>Company: Pocketshop Market Limited</li>
+            <li>Address: 31295 Mwansabombwe Road, Chalala, Lusaka, Zambia</li>
             <li>Email: <a href="mailto:pocketshopmarket@gmail.com">pocketshopmarket@gmail.com</a></li>
+            <li>Phone: <a href="tel:+260779685867">+260 77 968 5867</a></li>
             <li>Website: <a href="https://mypocketshop.store">mypocketshop.store</a></li>
         </ul>
 
@@ -303,17 +306,16 @@
             </div>
             <div class="footer-col">
                 <h4>Company</h4>
-                <a href="#">About Us</a>
-                <a href="#">Contact</a>
-            </div>
-            <div class="footer-col">
-                <h4>Legal</h4>
                 <a href="{% url 'portal:privacy' %}">Privacy Policy</a>
                 <a href="{% url 'portal:terms' %}">Terms of Service</a>
             </div>
+            <div class="footer-col">
+                <h4>Contact</h4>
+                {% include 'portal/_footer_contact.html' %}
+            </div>
         </div>
         <div class="footer-bottom">
-            <span>&copy; 2026 Pocket Shop. All rights reserved.</span>
+            <span>&copy; 2026 Pocketshop Market Limited. All rights reserved.</span>
             <div class="social-links">
                 <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
                 <a href="#" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>

@@ -18,7 +18,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from accounts.permissions import IsApprovedSeller
-from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction, PromoBanner, exclude_restricted_for_user
+from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction, PromoBanner, exclude_restricted_for_user, category_tree_ids
 from .pagination import ProductPagination
 from .serializers import ProductSerializer, CategorySerializer, PromoBannerSerializer
 
@@ -192,11 +192,14 @@ class ProductFilterSet(django_filters.FilterSet):
         # Try as integer ID first
         try:
             cat_id = int(value)
-            return queryset.filter(category_id=cat_id)
+            return queryset.filter(category_id__in=category_tree_ids(cat_id))
         except (ValueError, TypeError):
             pass
-        # Fall back to slug match
-        return queryset.filter(category__slug__iexact=value)
+        # Fall back to slug match (also includes the category's sub-categories)
+        cat = Category.objects.filter(slug__iexact=value).first()
+        if cat is None:
+            return queryset.none()
+        return queryset.filter(category_id__in=category_tree_ids(cat.id))
 
     def filter_in_stock(self, queryset, name, value):
         if value is True:

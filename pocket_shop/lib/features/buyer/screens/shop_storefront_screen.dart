@@ -39,6 +39,9 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
   bool _loadingShop = false;
   String? _shopError;
 
+  List<ShopCategory> _categories = [];
+  int? _selectedCategoryId; // null = All
+
   List<Product> _items = [];
   bool _loading = false;
   bool _loadingMore = false;
@@ -57,7 +60,26 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
       _loadShop();
     } else {
       _fetchProducts(reset: true);
+      _loadCategories();
     }
+  }
+
+  /// Chips are a nicety — if this fails the storefront still works, just
+  /// without the category row.
+  Future<void> _loadCategories() async {
+    final sellerId = _sellerId;
+    if (sellerId == null) return;
+    try {
+      final cats = await _shopService.getShopCategories(sellerId);
+      if (!mounted) return;
+      setState(() => _categories = cats);
+    } catch (_) {}
+  }
+
+  void _selectCategory(int? id) {
+    if (_selectedCategoryId == id) return;
+    setState(() => _selectedCategoryId = id);
+    _fetchProducts(reset: true);
   }
 
   @override
@@ -87,6 +109,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
         _loadingShop = false;
       });
       _fetchProducts(reset: true);
+      _loadCategories();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -124,6 +147,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
       final page = await _productService.getProductsPage(
         ProductQuery(
           sellerId: sellerId,
+          category: _selectedCategoryId?.toString(),
           page: currentPage,
           inStockOnly: true,
           sortBy: 'latest',
@@ -177,6 +201,8 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                     slivers: [
                       SliverToBoxAdapter(child: _buildHeader()),
                       SliverToBoxAdapter(child: _buildSearchBar()),
+                      if (_categories.length > 1)
+                        SliverToBoxAdapter(child: _buildCategoryChips()),
                       if (_loading)
                         const SliverFillRemaining(
                           hasScrollBody: false,
@@ -379,6 +405,34 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChips() {
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        scrollDirection: Axis.horizontal,
+        itemCount: 1 + _categories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final isAll = index == 0;
+          final cat = isAll ? null : _categories[index - 1];
+          final selected = isAll ? _selectedCategoryId == null : _selectedCategoryId == cat!.id;
+          return ChoiceChip(
+            label: Text(isAll ? 'All' : cat!.name),
+            selected: selected,
+            onSelected: (_) => _selectCategory(cat?.id),
+            selectedColor: AppTheme.primaryCyan.withValues(alpha: 0.15),
+            labelStyle: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: selected ? AppTheme.darkCyan : AppTheme.textSecondary,
+            ),
+          );
+        },
       ),
     );
   }

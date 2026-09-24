@@ -13,6 +13,7 @@ from .views import (
     ATSmsCallbackView,
     ShopListView,
     ShopDetailView,
+    ShopCategoriesView,
 )
 
 urlpatterns = [
@@ -27,6 +28,7 @@ urlpatterns = [
     path('seller-apply/', SellerApplicationView.as_view(), name='seller-apply'),
     path('shops/', ShopListView.as_view(), name='shop-list'),
     path('shops/<int:user_id>/', ShopDetailView.as_view(), name='shop-detail'),
+    path('shops/<int:user_id>/categories/', ShopCategoriesView.as_view(), name='shop-categories'),
     path('delivery-apply/', DeliveryApplicationView.as_view(), name='delivery-apply'),
     path('buyer/payment-methods/', BuyerPaymentMethodsView.as_view(), name='buyer-payment-methods'),
     path(

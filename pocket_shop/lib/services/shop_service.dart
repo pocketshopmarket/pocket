@@ -34,8 +34,38 @@ class ShopPage {
   final int totalCount;
 }
 
+/// A top-level category a shop has in-stock products in, with how many.
+class ShopCategory {
+  ShopCategory({required this.id, required this.name, required this.count});
+
+  factory ShopCategory.fromJson(Map<String, dynamic> json) => ShopCategory(
+        id: json['id'] as int,
+        name: (json['name'] ?? '').toString(),
+        count: (json['count'] as int?) ?? 0,
+      );
+
+  final int id;
+  final String name;
+  final int count;
+}
+
 class ShopService {
   final ApiService _apiService = ApiService();
+
+  Future<List<ShopCategory>> getShopCategories(int shopId) async {
+    try {
+      final response = await _apiService.get('${AppConstants.shopsEndpoint}$shopId/categories/');
+      final data = response.data;
+      if (data is List) {
+        return data
+            .map((item) => ShopCategory.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return const [];
+    } on DioException catch (e) {
+      throw Exception(_extractDioError(e));
+    }
+  }
 
   Future<ShopPage> getShopsPage(ShopQuery query) async {
     final params = <String, dynamic>{

@@ -673,6 +673,63 @@ class ShopDetailView(APIView):
         return Response(serializer.data)
 
 
+class ShopCategoriesView(APIView):
+    """
+    GET /api/auth/shops/<user_id>/categories/
+
+    The top-level categories a shop actually has in-stock products in, with
+    a count each — powers the category chips on the shop storefront. Products
+    filed under a sub-category roll up to their top-level parent (Liquor ->
+    Groceries & Food), and filtering the products endpoint by that parent id
+    already includes the sub-categories. Age-restricted products are left
+    out for anyone who isn't a confirmed 18+ buyer, so a chip never leads
+    to an empty (or restricted) list.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, user_id):
+        from products.models import Category, Product, exclude_restricted_for_user
+
+        profile = get_object_or_404(SellerProfile, user_id=user_id)
+        if not profile.can_sell:
+            raise Http404
+
+        products = exclude_restricted_for_user(
+            Product.objects.filter(
+                seller_id=user_id, is_available=True, stock_quantity__gt=0,
+                category__isnull=False,
+            ),
+            request.user,
+        )
+        per_category = dict(
+            products.values_list('category_id').annotate(n=Count('id'))
+        )
+
+        categories = {c.id: c for c in Category.objects.all()}
+
+        def root_of(category):
+            seen = set()
+            while category.parent_id and category.parent_id in categories and category.id not in seen:
+                seen.add(category.id)
+                category = categories[category.parent_id]
+            return category
+
+        totals = {}
+        for cat_id, n in per_category.items():
+            category = categories.get(cat_id)
+            if category is None:
+                continue
+            root = root_of(category)
+            totals[root.id] = totals.get(root.id, 0) + n
+
+        rows = [
+            {'id': cid, 'name': categories[cid].name, 'count': n}
+            for cid, n in totals.items()
+        ]
+        rows.sort(key=lambda r: (-r['count'], r['name'].lower()))
+        return Response(rows)
+
+
 class DeliveryApplicationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]

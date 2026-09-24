@@ -22,6 +22,26 @@ class Category(models.Model):
         return self.name
 
 
+def category_tree_ids(category_id):
+    """
+    The category id plus every descendant id (any depth), so filtering by a
+    parent like "Groceries & Food" also matches products filed under its
+    sub-categories ("Beverages" -> "Liquor"). One small query over the whole
+    table — the category list is tiny — rather than one query per level.
+    """
+    children = {}
+    for cid, parent_id in Category.objects.values_list('id', 'parent_id'):
+        children.setdefault(parent_id, []).append(cid)
+    ids, stack = set(), [category_id]
+    while stack:
+        current = stack.pop()
+        if current in ids:
+            continue
+        ids.add(current)
+        stack.extend(children.get(current, []))
+    return ids
+
+
 def exclude_restricted_for_user(queryset, user):
     """
     Hide age-restricted-category products from anyone who isn't a

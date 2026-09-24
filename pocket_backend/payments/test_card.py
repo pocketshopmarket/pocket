@@ -226,4 +226,4 @@ class CardRefundRoutingTests(CardTestBase):
             (refund.gateway, refund.payment_method, refund.payout_method, refund.status),
             ('lenco', 'card', 'manual', 'pending'),
         )
-        self.assertIn('Lenco dashboard', refund.payout_notes)
+        self.assertIn('Lenco has no refund API', refund.payout_notes)

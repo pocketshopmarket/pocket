@@ -176,19 +176,49 @@ class ShopPublicSerializer(serializers.ModelSerializer):
 
     def get_products_preview(self, obj):
         """
-        A handful of the seller's own recent in-stock products, in the same
-        shape ProductSerializer already produces everywhere else in the app
-        — so the buyer app can reuse its existing Product model/widgets to
-        render these as a real photo strip under the shop's name, instead
-        of one guessed shop-level image.
+        A few of the seller's in-stock products as a "highlights" strip, in
+        the same shape ProductSerializer already produces everywhere else in
+        the app — so the buyer app can reuse its existing Product model/
+        widgets to render these as a real photo strip under the shop's name.
+
+        The selection is reshuffled on every call so a shop's card looks
+        different each time Home loads, instead of always showing the same
+        newest few. It's a weighted shuffle, not a pure one: recently added
+        and well-selling products are likelier to be picked, so highlights
+        still lean toward what's fresh and proven.
         """
-        from products.models import Product
+        import random
+        from datetime import timedelta
+
+        from django.utils import timezone
+        from products.models import Product, exclude_restricted_for_user
         from products.serializers import ProductSerializer
+
         preview_size = self.context.get('preview_size', 4)
-        products = Product.objects.filter(
-            seller_id=obj.user_id, is_available=True
-        ).order_by('-created_at')[:preview_size]
-        return ProductSerializer(products, many=True, context=self.context).data
+        request = self.context.get('request')
+        pool = list(
+            exclude_restricted_for_user(
+                Product.objects.filter(
+                    seller_id=obj.user_id, is_available=True, stock_quantity__gt=0
+                ),
+                getattr(request, 'user', None),
+            ).order_by('-created_at')[:40]
+        )
+        if len(pool) <= preview_size:
+            random.shuffle(pool)
+            return ProductSerializer(pool, many=True, context=self.context).data
+
+        fresh_after = timezone.now() - timedelta(days=14)
+        weights = [
+            1 + (3 if p.created_at >= fresh_after else 0) + min(p.purchases_count, 5)
+            for p in pool
+        ]
+        picked = []
+        for _ in range(preview_size):
+            choice = random.choices(range(len(pool)), weights=weights, k=1)[0]
+            picked.append(pool.pop(choice))
+            weights.pop(choice)
+        return ProductSerializer(picked, many=True, context=self.context).data
 
     def get_top_category(self, obj):
         """

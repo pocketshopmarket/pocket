@@ -11,6 +11,16 @@ class LoginRateThrottle(SimpleRateThrottle):
         return self.cache_format % {'scope': self.scope, 'ident': ident}
 
 
+class BankResolveThrottle(SimpleRateThrottle):
+    """10 bank-account name lookups per minute per user — each one is a paid-for call to the payment provider."""
+    scope = 'bank_resolve'
+
+    def get_cache_key(self, request, view):
+        user = request.user
+        ident = str(user.id) if user and user.is_authenticated else self.get_ident(request)
+        return self.cache_format % {'scope': self.scope, 'ident': ident}
+
+
 class QRVerifyThrottle(SimpleRateThrottle):
     """10 QR scan attempts per minute per rider (prevents brute-force QR guessing)."""
     scope = 'qr_verify'

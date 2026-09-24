@@ -138,6 +138,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'login': '5/minute',
         'qr_verify': '10/minute',
+        'bank_resolve': '10/minute',
         'partner_api': '60/minute',
     },
 }
@@ -321,6 +322,17 @@ PAWAPAY_BASE_URL = os.environ.get('PAWAPAY_BASE_URL', 'https://api.pawapay.io/v2
 # Webhook signature verification — set this from PawaPay dashboard.
 # In DEBUG mode the webhook handler will skip verification if this is empty.
 PAWAPAY_WEBHOOK_SECRET = os.environ.get('PAWAPAY_WEBHOOK_SECRET', '')
+
+# LENCO CONFIGURATION — card payments (buyers) and bank payouts (sellers/riders).
+# LENCO_API_TOKEN is the secret key (server-side only; also the basis of the
+# webhook signature key). LENCO_PUBLIC_KEY is the publishable key used by the
+# hosted card widget. LENCO_ACCOUNT_ID is the 36-char Lenco account that bank
+# transfers are debited from. Leaving the token empty keeps every Lenco
+# feature switched off, so this is safe to deploy before keys exist.
+LENCO_API_TOKEN = os.environ.get('LENCO_API_TOKEN', '').strip()
+LENCO_PUBLIC_KEY = os.environ.get('LENCO_PUBLIC_KEY', '').strip()
+LENCO_ACCOUNT_ID = os.environ.get('LENCO_ACCOUNT_ID', '').strip()
+LENCO_BASE_URL = os.environ.get('LENCO_BASE_URL', 'https://api.lenco.co/access/v2').rstrip('/')
 
 # Platform commission taken from each order (0.05 = 5%).
 PLATFORM_COMMISSION_RATE = float(os.environ.get('PLATFORM_COMMISSION_RATE', '0.05'))

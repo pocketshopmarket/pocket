@@ -1,6 +1,13 @@
 from django.urls import path
 from django.http import JsonResponse
 from .views import EarningsSummaryView, InitiatePaymentView, PawaPayWebhookView, PaymentStatusView, RequestPayoutView
+from .bank_views import (
+    BankAccountDetailView,
+    BankAccountListCreateView,
+    BankAccountMakeDefaultView,
+    BankAccountResolveView,
+    BankListView,
+)
 from .staff_views import (
     StaffApproveVerificationView,
     StaffMarkPaidView,
@@ -35,6 +42,11 @@ urlpatterns = [
     path('earnings/summary/', EarningsSummaryView.as_view(), name='earnings-summary'),
     path('payout/', RequestPayoutView.as_view(), name='request-payout'),
     path('ping/', _pawapay_ping, name='pawapay-ping'),
+    path('banks/', BankListView.as_view(), name='bank-list'),
+    path('bank-accounts/', BankAccountListCreateView.as_view(), name='bank-accounts'),
+    path('bank-accounts/resolve/', BankAccountResolveView.as_view(), name='bank-account-resolve'),
+    path('bank-accounts/<int:pk>/', BankAccountDetailView.as_view(), name='bank-account-detail'),
+    path('bank-accounts/<int:pk>/default/', BankAccountMakeDefaultView.as_view(), name='bank-account-default'),
 ]
 
 staff_urlpatterns = [

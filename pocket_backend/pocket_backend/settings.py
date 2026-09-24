@@ -333,6 +333,13 @@ LENCO_API_TOKEN = os.environ.get('LENCO_API_TOKEN', '').strip()
 LENCO_PUBLIC_KEY = os.environ.get('LENCO_PUBLIC_KEY', '').strip()
 LENCO_ACCOUNT_ID = os.environ.get('LENCO_ACCOUNT_ID', '').strip()
 LENCO_BASE_URL = os.environ.get('LENCO_BASE_URL', 'https://api.lenco.co/access/v2').rstrip('/')
+# The hosted card widget has separate sandbox and live scripts; follow whichever
+# API the token belongs to so the two can never be mixed by accident.
+LENCO_WIDGET_URL = os.environ.get('LENCO_WIDGET_URL') or (
+    'https://pay.sandbox.lenco.co/js/v1/inline.js'
+    if 'sandbox' in LENCO_BASE_URL
+    else 'https://pay.lenco.co/js/v1/inline.js'
+)
 
 # Platform commission taken from each order (0.05 = 5%).
 PLATFORM_COMMISSION_RATE = float(os.environ.get('PLATFORM_COMMISSION_RATE', '0.05'))

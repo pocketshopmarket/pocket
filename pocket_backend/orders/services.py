@@ -60,6 +60,14 @@ def _create_and_attempt_refund(locked_order, *, trigger_event: str, force_auto_r
     payout_method = PlatformSettings.get().payout_method
     auto_refund = payout_method == 'gateway' or force_auto_refund
 
+    # Lenco has no refund API, so a card payment can only be refunded by
+    # staff from the Lenco dashboard. Never attempt the PawaPay refund for
+    # it (PawaPay has no record of the deposit) — go straight to the staff
+    # queue, flagged with the gateway/method so they know it's a card.
+    is_card_deposit = deposit_tx.gateway == 'lenco'
+    if is_card_deposit:
+        auto_refund = False
+
     refund_tx = Transaction.objects.create(
         order=locked_order,
         transaction_type='refund',
@@ -67,10 +75,13 @@ def _create_and_attempt_refund(locked_order, *, trigger_event: str, force_auto_r
         currency=deposit_tx.currency,
         provider=deposit_tx.provider,
         payer_number=deposit_tx.payer_number,
+        gateway=deposit_tx.gateway,
+        payment_method=deposit_tx.payment_method,
         recipient=locked_order.buyer,
         recipient_role='buyer',
         trigger_event=trigger_event,
         payout_method='gateway' if auto_refund else 'manual',
+        payout_notes='Card payment — refund from the Lenco dashboard.' if is_card_deposit else '',
         status='pending',
     )
 

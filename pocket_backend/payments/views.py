@@ -98,6 +98,40 @@ def _resolve_payout_provider(user):
     return detect_provider_from_phone(phone), phone
 
 
+# ─── Shared deposit outcomes (PawaPay + Lenco) ─────────────────────────
+# One place for "what happens to the order when the buyer's money arrives /
+# doesn't", so mobile money and card can never drift apart.
+
+def apply_deposit_completed(transaction):
+    """Payment confirmed — move the order to pending so the seller can accept it."""
+    transaction.order.status = 'pending'
+    transaction.order.save()
+
+    try:
+        create_payment_notification(transaction.order, 'completed')
+    except Exception:
+        logger.exception('Payment notification failed for order %s', transaction.order.order_number)
+
+    create_payout_rows_for_deposit(transaction)
+
+
+def apply_deposit_failed(transaction, *, word='failed', cancelled_by_user=False):
+    """Payment failed/cancelled — restore stock and cancel the order via the service."""
+    cancel_order_with_refund(
+        transaction.order,
+        reason=f'Payment {word} — order auto-cancelled',
+    )
+
+    try:
+        create_payment_notification(
+            transaction.order,
+            'cancelled' if cancelled_by_user else 'failed',
+            failure_message=transaction.failure_message,
+        )
+    except Exception:
+        logger.exception('Payment failure notification failed for order %s', transaction.order.order_number)
+
+
 # ─── Payment Initiation ────────────────────────────────────────────────
 
 class InitiatePaymentView(APIView):
@@ -294,16 +328,7 @@ class PawaPayWebhookView(APIView):
                 send_payout_completed_notification = True
 
             if transaction.transaction_type == 'deposit':
-                # Payment confirmed — move order to pending so seller can accept it.
-                transaction.order.status = 'pending'
-                transaction.order.save()
-
-                try:
-                    create_payment_notification(transaction.order, 'completed')
-                except Exception:
-                    logger.exception('Payment notification failed for order %s', transaction.order.order_number)
-
-                create_payout_rows_for_deposit(transaction)
+                apply_deposit_completed(transaction)
 
             elif transaction.transaction_type == 'refund':
                 # No-op for post-delivery refund-request approvals (order
@@ -340,20 +365,11 @@ class PawaPayWebhookView(APIView):
                     )
 
             if transaction.transaction_type == 'deposit':
-                # Restore stock and cancel the order properly via the service.
-                cancel_order_with_refund(
-                    transaction.order,
-                    reason=f'Payment {status_value.lower()} — order auto-cancelled',
+                apply_deposit_failed(
+                    transaction,
+                    word=status_value.lower(),
+                    cancelled_by_user=status_value == 'TERMINATED',
                 )
-
-                try:
-                    create_payment_notification(
-                        transaction.order,
-                        'cancelled' if status_value == 'TERMINATED' else 'failed',
-                        failure_message=transaction.failure_message,
-                    )
-                except Exception:
-                    logger.exception('Payment failure notification failed for order %s', transaction.order.order_number)
 
             elif transaction.transaction_type == 'refund':
                 # Gateway refund failed — put it back in the staff manual
@@ -513,6 +529,13 @@ class PaymentStatusView(APIView):
                 'message': 'No payment initiated for this order.',
             })
 
+        if deposit_tx.gateway == 'lenco' and deposit_tx.status in ('pending', 'accepted'):
+            # Card payments: ask Lenco directly instead of waiting on the
+            # webhook, so the buyer isn't left hanging if it's late.
+            from .card_views import sync_lenco_deposit
+            deposit_tx = sync_lenco_deposit(deposit_tx)
+            order.refresh_from_db()
+
         return Response({
             'order_number': order.order_number,
             'order_status': order.status,
@@ -520,6 +543,7 @@ class PaymentStatusView(APIView):
             'transaction_id': str(deposit_tx.transaction_id),
             'amount': str(deposit_tx.amount),
             'currency': deposit_tx.currency,
+            'payment_method': deposit_tx.payment_method,
             'provider': deposit_tx.provider,
             'failure_message': deposit_tx.failure_message or '',
             'created_at': deposit_tx.created_at.isoformat(),

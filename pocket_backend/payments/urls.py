@@ -11,6 +11,8 @@ from .bank_views import (
 )
 from .staff_views import (
     StaffApproveVerificationView,
+    StaffFailedPayoutsView,
+    StaffRequeuePayoutView,
     StaffMarkPaidView,
     StaffMarkRefundedView,
     StaffPayoutQueueView,
@@ -64,6 +66,8 @@ staff_urlpatterns = [
     path('verifications/', StaffVerificationsView.as_view(), name='staff-verifications'),
     path('verifications/<int:pk>/<str:action>/', StaffApproveVerificationView.as_view(), name='staff-verify-action'),
     path('refunds/', StaffRefundsView.as_view(), name='staff-refunds'),
+    path('failed-payouts/', StaffFailedPayoutsView.as_view(), name='staff-failed-payouts'),
+    path('failed-payouts/<uuid:tx_id>/requeue/', StaffRequeuePayoutView.as_view(), name='staff-requeue-payout'),
     path('send-via-lenco/<uuid:tx_id>/', StaffSendViaLencoView.as_view(), name='staff-send-via-lenco'),
 ]
 

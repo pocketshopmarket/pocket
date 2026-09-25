@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/staff_service.dart';
+import '../widgets/staff_widgets.dart';
 
 final _verificationsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   return StaffService().getVerifications();
@@ -27,19 +28,9 @@ class StaffVerificationsScreen extends ConsumerWidget {
       ),
       body: state.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 8),
-              Text(e.toString()),
-              TextButton(
-                onPressed: () => ref.invalidate(_verificationsProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+        error: (e, _) => StaffRetryCenter(
+          message: StaffService.errorMessage(e, fallback: 'Could not load verifications. Check your connection.'),
+          onRetry: () => ref.invalidate(_verificationsProvider),
         ),
         data: (items) {
           if (items.isEmpty) {
@@ -98,21 +89,14 @@ class _VerificationCardState extends State<_VerificationCard> {
   }
 
   Future<void> _approve() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Approve Verification?'),
-        content: Text(
-          'Approve ${widget.item['user_name']} for '
+    final confirm = await askStaffConfirm(
+      context,
+      title: 'Approve verification?',
+      message: 'Approve ${widget.item['user_name']} for '
           '${_typeLabel(widget.item['verification_type'] as String? ?? '')}?',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Approve')),
-        ],
-      ),
+      confirmLabel: 'Approve',
     );
-    if (confirm != true) return;
+    if (!confirm) return;
     setState(() => _loading = true);
     try {
       await StaffService().approveVerification(widget.item['id'] as int);
@@ -125,7 +109,7 @@ class _VerificationCardState extends State<_VerificationCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(StaffService.errorMessage(e)), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -134,43 +118,14 @@ class _VerificationCardState extends State<_VerificationCard> {
   }
 
   Future<void> _reject() async {
-    final reasonController = TextEditingController();
-    final confirm = await showDialog<bool>(
+    final reason = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reject Verification'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Reject ${widget.item['user_name']}?'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
+      builder: (_) => _RejectReasonDialog(userName: '${widget.item['user_name']}'),
     );
-    if (confirm != true) return;
+    if (reason == null) return;
     setState(() => _loading = true);
     try {
-      await StaffService().rejectVerification(
-        widget.item['id'] as int,
-        reason: reasonController.text,
-      );
+      await StaffService().rejectVerification(widget.item['id'] as int, reason: reason);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Rejected'), backgroundColor: Colors.orange),
@@ -180,7 +135,7 @@ class _VerificationCardState extends State<_VerificationCard> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(StaffService.errorMessage(e)), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -293,6 +248,62 @@ class _InfoRow extends StatelessWidget {
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],
       ),
+    );
+  }
+}
+
+
+/// Asks why a verification is being rejected. The applicant reads this, so it
+/// is required. The dialog owns (and disposes) its own text controller.
+class _RejectReasonDialog extends StatefulWidget {
+  final String userName;
+  const _RejectReasonDialog({required this.userName});
+
+  @override
+  State<_RejectReasonDialog> createState() => _RejectReasonDialogState();
+}
+
+class _RejectReasonDialogState extends State<_RejectReasonDialog> {
+  final TextEditingController _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = _reason.text.trim().length >= 3;
+    return AlertDialog(
+      title: const Text('Reject verification'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Reject ${widget.userName}? They will see your reason.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reason,
+            autofocus: true,
+            maxLines: 2,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'Reason (required)',
+              hintText: 'e.g. NRC photo is blurry, please retake it',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: valid ? () => Navigator.pop(context, _reason.text.trim()) : null,
+          child: const Text('Reject'),
+        ),
+      ],
     );
   }
 }

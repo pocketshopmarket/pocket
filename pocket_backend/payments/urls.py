@@ -1,7 +1,7 @@
 from django.urls import path
 from django.http import JsonResponse
 from .views import EarningsSummaryView, InitiatePaymentView, PawaPayWebhookView, PaymentStatusView, RequestPayoutView
-from .card_views import CardInitiateView, LencoWebhookView, card_checkout_page
+from .card_views import CardInitiateView, CardRefundNumberCheckView, LencoWebhookView, card_checkout_page
 from .bank_views import (
     BankAccountDetailView,
     BankAccountListCreateView,
@@ -14,6 +14,7 @@ from .staff_views import (
     StaffMarkPaidView,
     StaffMarkRefundedView,
     StaffPayoutQueueView,
+    StaffSendViaLencoView,
     StaffRefundsView,
     StaffStatsView,
     StaffVerificationsView,
@@ -43,6 +44,7 @@ urlpatterns = [
     path('earnings/summary/', EarningsSummaryView.as_view(), name='earnings-summary'),
     path('payout/', RequestPayoutView.as_view(), name='request-payout'),
     path('ping/', _pawapay_ping, name='pawapay-ping'),
+    path('card/refund-number/check/', CardRefundNumberCheckView.as_view(), name='card-refund-number-check'),
     path('card/initiate/', CardInitiateView.as_view(), name='card-initiate'),
     path('card/checkout/<uuid:tx_id>/', card_checkout_page, name='card-checkout'),
     path('lenco/webhook/', LencoWebhookView.as_view(), name='lenco-webhook'),
@@ -62,5 +64,6 @@ staff_urlpatterns = [
     path('verifications/', StaffVerificationsView.as_view(), name='staff-verifications'),
     path('verifications/<int:pk>/<str:action>/', StaffApproveVerificationView.as_view(), name='staff-verify-action'),
     path('refunds/', StaffRefundsView.as_view(), name='staff-refunds'),
+    path('send-via-lenco/<uuid:tx_id>/', StaffSendViaLencoView.as_view(), name='staff-send-via-lenco'),
 ]
 

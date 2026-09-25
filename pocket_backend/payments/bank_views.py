@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from accounts.throttles import BankResolveThrottle
 
+from .mobile_money import names_match
 from .models import PayoutBankAccount
 from .services.lenco import LencoError, LencoService
 
@@ -31,6 +32,7 @@ def _serialize(account):
         'bank_name': account.bank_name,
         'account_number_masked': account.masked_number,
         'account_name': account.account_name,
+        'name_matches': account.name_matches,
         'is_default': account.is_default,
     }
 
@@ -126,6 +128,13 @@ class BankAccountListCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        seller_profile = getattr(request.user, 'seller_profile', None)
+        name_matches = names_match(
+            resolved['account_name'],
+            request.user.full_name,
+            getattr(seller_profile, 'business_name', ''),
+        )
+
         with db_transaction.atomic():
             first_account = not PayoutBankAccount.objects.filter(user=request.user).exists()
             account = PayoutBankAccount.objects.create(
@@ -134,6 +143,7 @@ class BankAccountListCreateView(APIView):
                 bank_name=(resolved['bank'] or {}).get('name') or bank_id,
                 account_number=account_number,
                 account_name=resolved['account_name'],
+                name_matches=name_matches,
                 is_default=first_account,
             )
         return Response(_serialize(account), status=status.HTTP_201_CREATED)

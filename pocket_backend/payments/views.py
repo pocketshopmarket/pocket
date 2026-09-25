@@ -659,7 +659,139 @@ class RequestPayoutView(APIView):
                 'provider_label': method.get_provider_display() if hasattr(method, 'get_provider_display') else method.provider,
                 'account_phone': method.account_phone,
             } if method else None,
+            **self._bank_options(request.user),
         })
+
+    @staticmethod
+    def _bank_options(user):
+        """What the app needs to offer 'withdraw to bank' - sellers only, and only when switched on."""
+        from portal.models import PlatformSettings
+        from .models import PayoutBankAccount
+        from .services.lenco import LencoService
+        ps = PlatformSettings.get()
+        enabled = bool(user.role == 'seller' and ps.bank_payouts_enabled and LencoService.is_configured())
+        return {
+            'bank_payouts_enabled': enabled,
+            'bank_payout_min_amount': str(ps.bank_payout_min_amount),
+            'bank_payout_fee': str(ps.bank_payout_fee),
+            'bank_accounts': [
+                {
+                    'id': a.id,
+                    'bank_name': a.bank_name,
+                    'account_number_masked': a.masked_number,
+                    'account_name': a.account_name,
+                    'is_default': a.is_default,
+                }
+                for a in PayoutBankAccount.objects.filter(user=user)
+            ] if enabled else [],
+        }
+
+    def _request_bank_payout(self, request, amount):
+        """
+        Withdraw earnings to a saved bank account (sellers only). Lenco charges
+        a flat fee per bank transfer, so there's an admin-set minimum and the
+        fee is deducted from what the seller receives - shown to them up front.
+        """
+        from portal.models import PlatformSettings
+        from .lenco_transfers import CannotSend, send_via_lenco
+        from .models import PayoutBankAccount
+        from .services.lenco import LencoError, LencoService
+
+        def refuse(message):
+            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+
+        if request.user.role != 'seller':
+            return refuse('Bank payouts are for sellers. Riders are paid to mobile money.')
+        ps = PlatformSettings.get()
+        if not (ps.bank_payouts_enabled and LencoService.is_configured()):
+            return refuse('Bank payouts are not available right now.')
+        if amount < ps.bank_payout_min_amount:
+            return refuse(f'The minimum bank payout is ZMW {ps.bank_payout_min_amount}.')
+        fee = Decimal(str(ps.bank_payout_fee))
+        net = amount - fee
+        if net <= 0:
+            return refuse('That amount does not cover the bank transfer fee.')
+
+        accounts = PayoutBankAccount.objects.filter(user=request.user)
+        account_id = request.data.get('bank_account_id')
+        account = accounts.filter(pk=account_id).first() if account_id else accounts.filter(is_default=True).first()
+        if account is None:
+            return refuse('Choose a saved bank account to be paid into.')
+
+        latest_order = Order.objects.filter(seller=request.user).order_by('-created_at').first()
+        if not latest_order:
+            return refuse('No orders found. Complete at least one sale before claiming earnings.')
+
+        from django.db import transaction as db_transaction
+        with db_transaction.atomic():
+            # Same per-user lock as the mobile money path: a double-tap must
+            # not over-withdraw.
+            type(request.user).objects.select_for_update().get(pk=request.user.pk)
+            available = earnings_breakdown(request.user, 'seller')['available']
+            if amount > available:
+                return refuse(f'Amount exceeds available earnings. Available: ZMW {available}')
+            tx = Transaction.objects.create(
+                order=latest_order,
+                transaction_type='payout',
+                amount=net,
+                fee_deducted=fee,
+                currency='ZMW',
+                provider='LENCO_BANK',
+                payer_number='',
+                gateway='lenco',
+                payment_method='bank',
+                bank_account=account,
+                recipient=request.user,
+                recipient_role='seller',
+                trigger_event='manual',
+                payout_stage='ready_for_payout',
+                payout_method='manual',
+                payout_notes='' if account.name_matches else 'Account holder name does not match the seller - review before sending.',
+                status='pending',
+            )
+
+        # Straight to the bank when payouts are automatic and the account is
+        # clearly the seller's; anything else waits for a staff member.
+        if ps.payout_method == 'gateway' and account.name_matches:
+            try:
+                send_via_lenco(tx.pk)
+            except (CannotSend, LencoError) as exc:
+                logger.warning('Automatic bank payout not sent for %s: %s', tx.transaction_id, exc)
+                try:
+                    notify_staff_new_withdrawal(tx)
+                except Exception:
+                    logger.exception('Staff withdrawal notification failed for %s', tx.transaction_id)
+        else:
+            try:
+                notify_staff_new_withdrawal(tx)
+            except Exception as exc:
+                logger.warning('Staff withdrawal notification failed: %s', exc)
+
+        try:
+            _create_notification(
+                recipient=request.user,
+                notification_type='payout_processing',
+                title='Payout Being Processed',
+                message=(
+                    f'Your bank payout of ZMW {net} to {account.bank_name} '
+                    f'{account.masked_number} is being processed (bank fee ZMW {fee} deducted).'
+                ),
+                data_payload={'transaction_id': str(tx.transaction_id), 'amount': str(net)},
+            )
+        except Exception as exc:
+            logger.warning('Payout processing notification failed: %s', exc)
+
+        return Response({
+            'success': True,
+            'message': (
+                f'ZMW {net} will be sent to {account.bank_name} {account.masked_number}. '
+                f'The ZMW {fee} bank transfer fee was deducted.'
+            ),
+            'requested_amount': str(amount),
+            'fee': str(fee),
+            'you_receive': str(net),
+            'transaction_id': str(tx.transaction_id),
+        }, status=status.HTTP_201_CREATED)
 
     def post(self, request):
         """Initiate a manual payout withdrawal."""
@@ -698,6 +830,9 @@ class RequestPayoutView(APIView):
             )
 
         role_key = 'seller' if request.user.role == 'seller' else 'delivery'
+
+        if request.data.get('method') == 'bank':
+            return self._request_bank_payout(request, amount)
 
         # Resolve payout method
         provider_code, phone = _resolve_payout_provider(request.user)

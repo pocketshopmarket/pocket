@@ -76,6 +76,17 @@ class Transaction(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text='Processing fee the provider reported, when it reports one.',
     )
+    fee_deducted = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        help_text=(
+            'Fee taken out of a payout before it is sent (e.g. the bank transfer fee). '
+            '`amount` is what the recipient receives; amount + fee_deducted is what left their earnings.'
+        ),
+    )
+    due_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When a refund was promised to the buyer by (card refunds).',
+    )
     bank_account = models.ForeignKey(
         'payments.PayoutBankAccount', on_delete=models.SET_NULL,
         null=True, blank=True, related_name='transactions',
@@ -157,6 +168,13 @@ class PayoutBankAccount(models.Model):
     account_number = models.CharField(max_length=34)
     account_name = models.CharField(max_length=150)
     country = models.CharField(max_length=2, default='zm')
+    name_matches = models.BooleanField(
+        default=False,
+        help_text=(
+            "The bank's account holder name matches the owner's registered name. "
+            "Accounts that don't match are never paid automatically — staff review first."
+        ),
+    )
     is_default = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

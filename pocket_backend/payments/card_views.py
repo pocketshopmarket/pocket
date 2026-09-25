@@ -17,7 +17,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from orders.models import Order
+from portal.models import PlatformSettings
 
+from .mobile_money import (
+    OPERATOR_LABELS,
+    InvalidMobileNumber,
+    parse_mobile_money_number,
+)
+from .lenco_transfers import sync_lenco_transfer
 from .models import Transaction
 from .services.lenco import LencoError, LencoService
 from .views import apply_deposit_completed, apply_deposit_failed
@@ -38,9 +45,53 @@ def _checkout_url(request, transaction):
     return f'{url}?t={token}'
 
 
+def _cards_available():
+    return bool(
+        LencoService.is_configured()
+        and settings.LENCO_PUBLIC_KEY
+        and PlatformSettings.get().card_payments_enabled
+    )
+
+
+class CardRefundNumberCheckView(APIView):
+    """
+    POST /api/payments/card/refund-number/check/  {phone}
+
+    Card payments can't be reversed to the card, so refunds go to a mobile
+    money number the buyer confirms BEFORE paying. This validates the
+    number and returns the name registered on it, so the buyer can see
+    exactly who a refund would be sent to.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not _cards_available():
+            return Response(
+                {'error': 'Card payments are not available right now.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        try:
+            phone, operator = parse_mobile_money_number(request.data.get('phone'))
+        except InvalidMobileNumber as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            resolved = LencoService.resolve_mobile_money(phone, operator)
+        except LencoError:
+            return Response(
+                {'error': "We couldn't find a mobile money account for that number. Check it and try again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response({
+            'phone': phone,
+            'operator': operator,
+            'network': OPERATOR_LABELS[operator],
+            'account_name': resolved['account_name'],
+        })
+
+
 class CardInitiateView(APIView):
     """
-    POST /api/payments/card/initiate/  {order_number}
+    POST /api/payments/card/initiate/  {order_number, refund_phone, refund_policy_accepted}
 
     Creates (or reuses) a pending card deposit for the buyer's order and
     returns the URL of the hosted checkout page to open in a WebView. The
@@ -50,7 +101,7 @@ class CardInitiateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        if not (LencoService.is_configured() and settings.LENCO_PUBLIC_KEY):
+        if not _cards_available():
             return Response(
                 {'error': 'Card payments are not available right now.'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -58,6 +109,22 @@ class CardInitiateView(APIView):
         order_number = request.data.get('order_number')
         if not order_number:
             return Response({'error': 'order_number is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Card payments can't be reversed to the card, so the buyer must
+        # agree to the refund terms and name the mobile money number any
+        # refund would be paid to — decided now, not after something goes wrong.
+        if request.data.get('refund_policy_accepted') is not True:
+            return Response(
+                {'error': 'Please accept the card refund terms to continue.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            refund_phone, _operator = parse_mobile_money_number(request.data.get('refund_phone'))
+        except InvalidMobileNumber as exc:
+            return Response(
+                {'error': f'A mobile money number for refunds is required. {exc}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         order = get_object_or_404(Order, order_number=order_number, buyer=request.user)
         if order.status not in ('pending', 'payment_pending'):
@@ -93,11 +160,15 @@ class CardInitiateView(APIView):
                     amount=order.grand_total,
                     currency='ZMW',
                     provider='LENCO_CARD',
-                    payer_number='',
+                    payer_number=refund_phone,
                     gateway='lenco',
                     payment_method='card',
+                    payout_notes=f'Buyer accepted the card refund terms at {timezone.now():%Y-%m-%d %H:%M} UTC.',
                     status='pending',
                 )
+            elif attempt.payer_number != refund_phone:
+                attempt.payer_number = refund_phone
+                attempt.save(update_fields=['payer_number', 'updated_at'])
 
         return Response({
             'transaction_id': str(attempt.transaction_id),
@@ -105,6 +176,7 @@ class CardInitiateView(APIView):
             'amount': str(attempt.amount),
             'currency': attempt.currency,
             'status': attempt.status,
+            'refund_business_days': PlatformSettings.get().card_refund_business_days,
         })
 
 
@@ -268,6 +340,15 @@ class LencoWebhookView(APIView):
             if transaction:
                 sync_lenco_deposit(transaction)
 
-        # Everything else (settlements, transfers, transactions) is
-        # acknowledged so Lenco stops retrying.
+        elif event in ('transfer.successful', 'transfer.failed'):
+            try:
+                tx_id = uuid.UUID(str(data.get('reference')))
+            except ValueError:
+                return Response({'message': 'ignored'})  # not one of ours
+            transaction = Transaction.objects.filter(pk=tx_id, gateway='lenco').first()
+            if transaction:
+                sync_lenco_transfer(transaction)
+
+        # Everything else (settlements, transactions) is acknowledged so
+        # Lenco stops retrying.
         return Response({'message': 'ok'})

@@ -19,7 +19,9 @@ from accounts.models import User, VerificationRequest
 from notifications.signals import _create_notification, _send_push
 from orders.models import Order
 from .earnings import earnings_breakdown
+from .lenco_transfers import CannotSend, is_lenco_transfer, send_via_lenco
 from .models import Transaction
+from .services.lenco import LencoError
 
 logger = logging.getLogger(__name__)
 
@@ -312,7 +314,7 @@ class StaffWithdrawalsView(APIView):
             transaction_type='payout',
             trigger_event='manual',
             status='pending',
-        ).select_related('recipient', 'order').order_by('created_at')
+        ).select_related('recipient', 'order', 'bank_account').order_by('created_at')
 
         rows = []
         for tx in qs[:100]:
@@ -342,6 +344,15 @@ class StaffWithdrawalsView(APIView):
                 'provider': tx.provider,
                 'payout_stage': tx.payout_stage,
                 'payout_notes': tx.payout_notes,
+                'payment_method': tx.payment_method,
+                'fee_deducted': str(tx.fee_deducted),
+                'can_send_via_lenco': is_lenco_transfer(tx),
+                'bank': {
+                    'bank_name': tx.bank_account.bank_name,
+                    'account_number': tx.bank_account.account_number,
+                    'account_name': tx.bank_account.account_name,
+                    'name_matches': tx.bank_account.name_matches,
+                } if tx.bank_account else None,
                 'proof_image_url': request.build_absolute_uri(tx.proof_image.url) if tx.proof_image else None,
                 'created_at': tx.created_at.isoformat(),
                 'total_earned': str(total_earned.quantize(Decimal('0.01'))),
@@ -350,6 +361,40 @@ class StaffWithdrawalsView(APIView):
             })
 
         return Response({'results': rows, 'count': len(rows)})
+
+
+class StaffSendViaLencoView(APIView):
+    """
+    POST /api/staff/send-via-lenco/<tx_id>/   {confirm_name_mismatch?: bool}
+
+    Pays a card refund (to the buyer's mobile money number) or a seller's
+    bank withdrawal straight from the Lenco account, instead of staff sending
+    it by hand. The result arrives from Lenco (webhook / sync) and settles the
+    transaction; a failure leaves it pending so staff can retry or pay manually.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStaff]
+
+    def post(self, request, tx_id):
+        try:
+            tx = send_via_lenco(
+                tx_id,
+                allow_name_mismatch=request.data.get('confirm_name_mismatch') is True,
+            )
+        except Transaction.DoesNotExist:
+            return Response({'error': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+        except CannotSend as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except LencoError as exc:
+            return Response(
+                {'error': f'Lenco could not send this: {exc}'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({
+            'success': True,
+            'transaction_id': str(tx.transaction_id),
+            'status': tx.status,
+            'message': 'Sent. It will show as paid once Lenco confirms.' if tx.status == 'accepted' else 'Paid.',
+        })
 
 
 # ── Seller Verifications ────────────────────────────────────────────────────
@@ -531,6 +576,11 @@ class StaffRefundsView(APIView):
                     'amount': str(pending_refund.amount),
                     'refund_phone': pending_refund.payer_number,
                     'payout_method': pending_refund.payout_method,
+                    'is_card_refund': pending_refund.payment_method == 'card',
+                    'can_send_via_lenco': is_lenco_transfer(pending_refund),
+                    'due_at': pending_refund.due_at.isoformat() if pending_refund.due_at else None,
+                    'notes': pending_refund.payout_notes,
+                    'failure_message': pending_refund.failure_message or '',
                 } if pending_refund else None,
                 'refund_completed': completed_refund is not None,
                 'refund_proof_url': (

@@ -6,7 +6,7 @@ so both always show the same numbers.
 """
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import F, Sum
 
 from .models import Transaction
 
@@ -49,11 +49,15 @@ def earnings_breakdown(user, role_key):
     )
 
     # All completed payouts, any method — queue payments and manual claims.
+    # A payout's fee (e.g. the bank transfer fee) is taken from the seller's
+    # earnings too: `amount` is what they receive, amount + fee_deducted is
+    # what left their earnings.
+    gross = F('amount') + F('fee_deducted')
     total_paid_out = (
         base.filter(
             status='completed',
             payout_stage='payout_paid',
-        ).aggregate(total=Sum('amount'))['total']
+        ).aggregate(total=Sum(gross))['total']
         or Decimal('0.00')
     )
 
@@ -62,7 +66,7 @@ def earnings_breakdown(user, role_key):
         base.filter(
             trigger_event='manual',
             status__in=['pending', 'accepted'],
-        ).aggregate(total=Sum('amount'))['total']
+        ).aggregate(total=Sum(gross))['total']
         or Decimal('0.00')
     )
 

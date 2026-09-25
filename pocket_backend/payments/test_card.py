@@ -10,6 +10,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import User
 from orders.models import Order
+from portal.models import PlatformSettings
 
 from .card_views import CHECKOUT_TOKEN_SALT, apply_lenco_collection
 from .models import Transaction
@@ -53,17 +54,30 @@ class CardTestBase(APITestCase):
 
 @override_settings(**CARD_SETTINGS)
 class CardInitiateTests(CardTestBase):
+    def setUp(self):
+        super().setUp()
+        ps = PlatformSettings.get()
+        ps.card_payments_enabled = True
+        ps.save()
+
+    def _post(self, order_number=None):
+        return self.client.post('/api/payments/card/initiate/', {
+            'order_number': order_number or self.order.order_number,
+            'refund_phone': '0961111111',
+            'refund_policy_accepted': True,
+        }, format='json')
+
     def test_off_when_not_configured(self):
         self.client.force_authenticate(self.buyer)
         with override_settings(LENCO_API_TOKEN=''):
-            r = self.client.post('/api/payments/card/initiate/', {'order_number': self.order.order_number})
+            r = self._post()
         self.assertEqual(r.status_code, 503)
         self.assertEqual(Transaction.objects.count(), 0)
 
     def test_creates_pending_card_deposit_and_reuses_it(self):
         self.client.force_authenticate(self.buyer)
-        first = self.client.post('/api/payments/card/initiate/', {'order_number': self.order.order_number}).json()
-        second = self.client.post('/api/payments/card/initiate/', {'order_number': self.order.order_number}).json()
+        first = self._post().json()
+        second = self._post().json()
         self.assertEqual(first['transaction_id'], second['transaction_id'])
         self.assertTrue(first['checkout_url'].startswith('https://api.example.test/api/payments/card/checkout/'))
         tx = Transaction.objects.get()
@@ -72,12 +86,10 @@ class CardInitiateTests(CardTestBase):
 
     def test_only_the_buyer_can_pay_and_paid_orders_are_blocked(self):
         self.client.force_authenticate(self.seller)
-        r = self.client.post('/api/payments/card/initiate/', {'order_number': self.order.order_number})
-        self.assertEqual(r.status_code, 404)
+        self.assertEqual(self._post().status_code, 404)
         self.client.force_authenticate(self.buyer)
         self._card_tx(status='completed')
-        r = self.client.post('/api/payments/card/initiate/', {'order_number': self.order.order_number})
-        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self._post().status_code, 400)
 
 
 @override_settings(**CARD_SETTINGS)
@@ -226,4 +238,4 @@ class CardRefundRoutingTests(CardTestBase):
             (refund.gateway, refund.payment_method, refund.payout_method, refund.status),
             ('lenco', 'card', 'manual', 'pending'),
         )
-        self.assertIn('Lenco has no refund API', refund.payout_notes)
+        self.assertIn('NO valid mobile money number', refund.payout_notes)  # this deposit has no refund number

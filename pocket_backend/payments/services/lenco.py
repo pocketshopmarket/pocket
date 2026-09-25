@@ -83,6 +83,43 @@ class LencoService:
             'bank': data.get('bank') or {},
         }
 
+    # ── Mobile money ─────────────────────────────────────────────────────
+
+    @staticmethod
+    def resolve_mobile_money(phone, operator, country='zm'):
+        """
+        Registered name on a mobile money number. `operator` is Lenco's
+        `mtn` / `airtel` / `zamtel`. Returns {'account_name', 'phone', 'operator'}.
+        """
+        data = LencoService._request('POST', '/resolve/mobile-money', json={
+            'phone': str(phone).strip(),
+            'operator': operator,
+            'country': country,
+        })
+        if not data:
+            raise LencoError('Account details were not found.')
+        return {
+            'account_name': data.get('accountName') or '',
+            'phone': data.get('phone') or str(phone).strip(),
+            'operator': data.get('operator') or operator,
+        }
+
+    @staticmethod
+    def initiate_mobile_money_transfer(*, reference, amount, phone, operator,
+                                       narration='Pocket Shop payout', country='zm'):
+        """Pay out of the platform's Lenco account to a mobile money number."""
+        if not settings.LENCO_ACCOUNT_ID:
+            raise LencoError('Payouts are not available right now.')
+        return LencoService._request('POST', '/transfers/mobile-money', json={
+            'accountId': settings.LENCO_ACCOUNT_ID,
+            'amount': float(amount),
+            'reference': str(reference),
+            'narration': narration,
+            'phone': str(phone).strip(),
+            'operator': operator,
+            'country': country,
+        })
+
     # ── Card collections ─────────────────────────────────────────────────
 
     @staticmethod

@@ -236,12 +236,31 @@ class CancellationRefund {
   final String status;
   final double amount;
 
-  const CancellationRefund({required this.status, required this.amount});
+  /// True when the order was paid by card. A card payment can't be returned to
+  /// the card, so it is refunded to a mobile money number instead.
+  final bool isCardRefund;
+
+  /// When the refund was promised by (card refunds only).
+  final DateTime? dueAt;
+
+  /// Where a card refund is being sent, already masked by the server.
+  final String sentTo;
+
+  const CancellationRefund({
+    required this.status,
+    required this.amount,
+    this.isCardRefund = false,
+    this.dueAt,
+    this.sentTo = '',
+  });
 
   factory CancellationRefund.fromJson(Map<String, dynamic> json) {
     return CancellationRefund(
       status: json['status']?.toString() ?? 'pending',
       amount: double.tryParse(json['amount']?.toString() ?? '0') ?? 0,
+      isCardRefund: json['is_card_refund'] == true,
+      dueAt: DateTime.tryParse(json['due_at']?.toString() ?? '')?.toLocal(),
+      sentTo: json['sent_to']?.toString() ?? '',
     );
   }
 
@@ -249,9 +268,19 @@ class CancellationRefund {
     switch (status) {
       case 'completed': return 'Refund sent';
       case 'pending':   return 'Refund processing';
+      case 'accepted':  return 'Refund on its way';
       case 'failed':    return 'Refund failed';
       default:          return 'Refund $status';
     }
+  }
+
+  /// "Fri 2 Oct" — only while a card refund is still owed.
+  String? get dueLabel {
+    final due = dueAt;
+    if (due == null || status == 'completed') return null;
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${days[due.weekday - 1]} ${due.day} ${months[due.month - 1]}';
   }
 }
 

@@ -41,6 +41,36 @@ class PlatformSettings(models.Model):
         help_text='How seller and rider payouts are processed after delivery.'
     )
 
+    # Card payments & bank payouts (Lenco)
+    card_payments_enabled = models.BooleanField(
+        default=False,
+        help_text='Let buyers pay by card at checkout. Also needs the Lenco keys set on the server.',
+    )
+    card_refund_business_days = models.PositiveIntegerField(
+        default=5,
+        help_text='Business days promised to buyers for a card refund (shown on their order).',
+    )
+    card_fee_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=3.80,
+        help_text="Lenco's card fee, as a percentage. Only used to show buyers an estimate at checkout.",
+    )
+    card_fee_fixed = models.DecimalField(
+        max_digits=6, decimal_places=2, default=1.00,
+        help_text="Lenco's fixed card fee per payment (ZMW). Only used to show buyers an estimate.",
+    )
+    bank_payouts_enabled = models.BooleanField(
+        default=False,
+        help_text='Let sellers withdraw to a bank account. Riders always use mobile money.',
+    )
+    bank_payout_min_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=1000,
+        help_text='Smallest earnings withdrawal (ZMW) a seller can send to a bank account.',
+    )
+    bank_payout_fee = models.DecimalField(
+        max_digits=10, decimal_places=2, default=50,
+        help_text="Lenco's flat fee per bank transfer (ZMW). Deducted from the seller's payout.",
+    )
+
     # Maintenance
     maintenance_mode = models.BooleanField(
         default=False,

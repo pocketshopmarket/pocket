@@ -27,6 +27,21 @@ class PlatformSettingsAdmin(admin.ModelAdmin):
         ('Payouts', {
             'fields': ('payout_method',),
         }),
+        ('Card payments & bank payouts (Lenco)', {
+            'fields': (
+                'card_payments_enabled',
+                'card_refund_business_days',
+                'card_fee_percent',
+                'card_fee_fixed',
+                'bank_payouts_enabled',
+                'bank_payout_min_amount',
+                'bank_payout_fee',
+            ),
+            'description': (
+                'Both switches start OFF. Turn them on only once the Lenco keys are set on the '
+                'server. The bank fee is deducted from the seller\'s payout; riders always use mobile money.'
+            ),
+        }),
         ('Maintenance', {
             'fields': ('maintenance_mode', 'maintenance_message'),
         }),

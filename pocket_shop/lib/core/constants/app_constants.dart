@@ -76,6 +76,8 @@ class AppConstants {
   static const String staffWithdrawalsEndpoint = 'staff/withdrawals/';
   static const String staffVerificationsEndpoint = 'staff/verifications/';
   static const String staffRefundsEndpoint = 'staff/refunds/';
+  static const String staffSendViaLencoPrefix = 'staff/send-via-lenco/';
+  static const String staffFailedPayoutsEndpoint = 'staff/failed-payouts/';
   static const String settingsEndpoint = 'settings/';
 
   // User Roles

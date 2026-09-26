@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../services/staff_service.dart';
+import 'staff_payouts_screen.dart';
 
 final _statsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
   return StaffService().getStats();
@@ -90,7 +91,10 @@ class StaffHomeScreen extends ConsumerWidget {
                   child: CircularProgressIndicator(),
                 ),
               ),
-              error: (e, _) => _ErrorCard(message: e.toString(), onRetry: () => ref.invalidate(_statsProvider)),
+              error: (e, _) => _ErrorCard(
+                message: StaffService.errorMessage(e, fallback: 'Could not load the dashboard. Check your connection.'),
+                onRetry: () => ref.invalidate(_statsProvider),
+              ),
               data: (data) => _StatsGrid(data: data),
             ),
           ],
@@ -100,13 +104,25 @@ class StaffHomeScreen extends ConsumerWidget {
   }
 }
 
-class _StatsGrid extends StatelessWidget {
+// Bottom-navigation positions in StaffMainScreen.
+const _branchPayouts = 1;
+const _branchVerify = 2;
+const _branchRefunds = 3;
+
+class _StatsGrid extends ConsumerWidget {
   final Map<String, dynamic> data;
 
   const _StatsGrid({required this.data});
 
+  /// Jump to the tab that holds the work behind a number, so the dashboard
+  /// is a starting point rather than a dead end.
+  void _open(BuildContext context, WidgetRef ref, int branch, {int? payoutsTab}) {
+    if (payoutsTab != null) ref.read(staffPayoutsTabProvider.notifier).state = payoutsTab;
+    StatefulNavigationShell.of(context).goBranch(branch);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
         Row(
@@ -117,6 +133,7 @@ class _StatsGrid extends StatelessWidget {
                 value: '${data['payout_queue_count'] ?? 0}',
                 icon: Icons.pending_actions_rounded,
                 color: Colors.orange,
+                onTap: () => _open(context, ref, _branchPayouts, payoutsTab: staffPayoutsTabSellers),
               ),
             ),
             const SizedBox(width: 12),
@@ -124,8 +141,9 @@ class _StatsGrid extends StatelessWidget {
               child: _StatCard(
                 label: 'Earnings Claims',
                 value: '${data['withdrawal_count'] ?? 0}',
-                icon: Icons.account_balance_wallet_rounded,
+                icon: Icons.request_quote_rounded,
                 color: Colors.blue,
+                onTap: () => _open(context, ref, _branchPayouts, payoutsTab: staffPayoutsTabClaims),
               ),
             ),
           ],
@@ -139,6 +157,7 @@ class _StatsGrid extends StatelessWidget {
                 value: '${data['verification_count'] ?? 0}',
                 icon: Icons.verified_user_rounded,
                 color: Colors.green,
+                onTap: () => _open(context, ref, _branchVerify),
               ),
             ),
             const SizedBox(width: 12),
@@ -148,6 +167,7 @@ class _StatsGrid extends StatelessWidget {
                 value: '${data['refund_count'] ?? 0}',
                 icon: Icons.assignment_return_rounded,
                 color: Colors.red,
+                onTap: () => _open(context, ref, _branchRefunds),
               ),
             ),
           ],
@@ -157,7 +177,9 @@ class _StatsGrid extends StatelessWidget {
           children: [
             Expanded(
               child: _StatCard(
-                label: "Today's Revenue",
+                // This is money collected from buyers today (gross), not
+                // Pocket Shop's own revenue, so don't call it revenue.
+                label: 'Collected today',
                 value: 'ZMW ${data['today_revenue'] ?? '0.00'}',
                 icon: Icons.trending_up_rounded,
                 color: Colors.purple,
@@ -171,6 +193,7 @@ class _StatsGrid extends StatelessWidget {
                 value: '${data['failed_payouts_count'] ?? 0}',
                 icon: Icons.error_outline_rounded,
                 color: Colors.red,
+                onTap: () => _open(context, ref, _branchPayouts, payoutsTab: staffPayoutsTabFailed),
               ),
             ),
           ],
@@ -231,6 +254,7 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool wide;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.label,
@@ -238,12 +262,16 @@ class _StatCard extends StatelessWidget {
     required this.icon,
     required this.color,
     this.wide = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,6 +294,7 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

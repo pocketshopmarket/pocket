@@ -60,17 +60,49 @@ def _create_and_attempt_refund(locked_order, *, trigger_event: str, force_auto_r
     payout_method = PlatformSettings.get().payout_method
     auto_refund = payout_method == 'gateway' or force_auto_refund
 
+    # Lenco has no refund API, so a card payment can't be credited back to the
+    # card. It is refunded to a mobile money number instead, which staff send
+    # from the queue (paid out of the Lenco account). Never attempt the PawaPay
+    # refund for it — PawaPay has no record of the deposit.
+    is_card_deposit = deposit_tx.gateway == 'lenco'
+    refund_provider = deposit_tx.provider
+    refund_due_at = None
+    refund_notes = ''
+    if is_card_deposit:
+        auto_refund = False
+        # The card can't be credited back, so the refund goes to the mobile
+        # money number the buyer confirmed at checkout (kept on the deposit),
+        # promised within the platform's refund window.
+        from django.utils import timezone
+        from payments.mobile_money import (
+            OPERATOR_TO_PROVIDER, InvalidMobileNumber, add_business_days,
+            parse_mobile_money_number,
+        )
+        try:
+            _phone, operator = parse_mobile_money_number(deposit_tx.payer_number)
+            refund_provider = OPERATOR_TO_PROVIDER[operator]
+            refund_notes = 'Card refund — pay to the mobile money number the buyer confirmed at checkout.'
+        except InvalidMobileNumber:
+            refund_notes = 'Card refund — NO valid mobile money number on file. Contact the buyer for one.'
+        refund_due_at = add_business_days(
+            timezone.now(), PlatformSettings.get().card_refund_business_days
+        )
+
     refund_tx = Transaction.objects.create(
         order=locked_order,
         transaction_type='refund',
         amount=locked_order.grand_total,
         currency=deposit_tx.currency,
-        provider=deposit_tx.provider,
+        provider=refund_provider,
         payer_number=deposit_tx.payer_number,
+        gateway=deposit_tx.gateway,
+        payment_method=deposit_tx.payment_method,
         recipient=locked_order.buyer,
         recipient_role='buyer',
         trigger_event=trigger_event,
         payout_method='gateway' if auto_refund else 'manual',
+        payout_notes=refund_notes,
+        due_at=refund_due_at,
         status='pending',
     )
 

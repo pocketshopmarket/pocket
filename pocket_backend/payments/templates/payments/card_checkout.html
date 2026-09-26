@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Pay by card | Pocket Shop</title>
+    <style>
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+               font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #FAFAFA; color: #1A1A2E; }
+        .box { text-align: center; padding: 32px 24px; max-width: 320px; }
+        .spinner { width: 34px; height: 34px; margin: 0 auto 18px; border: 3px solid #B2EBF2;
+                   border-top-color: #00BCD4; border-radius: 50%; animation: spin 0.9s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        h1 { font-size: 1.1rem; margin: 0 0 8px; }
+        p { margin: 0 0 18px; color: #6B7280; font-size: 0.95rem; line-height: 1.5; }
+        button { background: #00BCD4; color: #fff; border: 0; border-radius: 50px; padding: 12px 28px;
+                 font-size: 1rem; font-weight: 700; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <div class="spinner" id="spinner"></div>
+        <h1 id="title">Opening secure card payment…</h1>
+        <p id="text">Please wait a moment.</p>
+        <button id="retry" hidden>Try again</button>
+    </div>
+
+    {{ config|json_script:"lenco-config" }}
+    <script src="{{ widget_url }}"></script>
+    <script>
+        var config = JSON.parse(document.getElementById('lenco-config').textContent);
+        var titleEl = document.getElementById('title');
+        var textEl = document.getElementById('text');
+        var retryEl = document.getElementById('retry');
+        var spinnerEl = document.getElementById('spinner');
+
+        // Tell the Flutter WebView what happened. The app treats this only as
+        // a hint to start checking — the server confirms the payment itself.
+        function notifyApp(message) {
+            try { PocketPay.postMessage(message); } catch (e) { /* opened in a normal browser */ }
+        }
+
+        function show(title, text, canRetry) {
+            titleEl.textContent = title;
+            textEl.textContent = text;
+            retryEl.hidden = !canRetry;
+            spinnerEl.style.display = canRetry ? 'none' : 'block';
+        }
+
+        function openWidget() {
+            show('Opening secure card payment…', 'Please wait a moment.', false);
+            LencoPay.getPaid({
+                key: config.key,
+                reference: config.reference,
+                email: config.email,
+                amount: config.amount,
+                currency: config.currency,
+                label: config.label,
+                channels: config.channels,
+                bearer: config.bearer,
+                customer: config.customer,
+                onSuccess: function () {
+                    show('Payment received', 'Confirming your payment…', false);
+                    notifyApp('success');
+                },
+                onConfirmationPending: function () {
+                    show('Confirming your payment', 'This can take a moment. You can return to the app.', false);
+                    notifyApp('pending');
+                },
+                onClose: function () {
+                    show('Payment not completed', 'The card window was closed before paying.', true);
+                    notifyApp('closed');
+                }
+            });
+        }
+
+        retryEl.addEventListener('click', openWidget);
+        window.addEventListener('load', openWidget);
+    </script>
+</body>
+</html>

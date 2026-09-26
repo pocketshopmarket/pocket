@@ -81,4 +81,42 @@ class StaffService {
     final data = res.data as Map<String, dynamic>;
     return List<Map<String, dynamic>>.from(data['results'] as List);
   }
+
+  /// Pays a card refund (to the buyer's mobile money) or a seller's bank
+  /// withdrawal straight from the Lenco account. The result arrives from
+  /// Lenco afterwards; the server refuses a second send.
+  Future<Map<String, dynamic>> sendViaLenco(String txId, {bool confirmNameMismatch = false}) async {
+    final res = await _api.post(
+      '${AppConstants.staffSendViaLencoPrefix}$txId/',
+      data: {'confirm_name_mismatch': confirmNameMismatch},
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getFailedPayouts() async {
+    final res = await _api.get(AppConstants.staffFailedPayoutsEndpoint);
+    final data = res.data as Map<String, dynamic>;
+    return List<Map<String, dynamic>>.from(data['results'] as List);
+  }
+
+  Future<void> requeuePayout(String txId) async {
+    await _api.post('${AppConstants.staffFailedPayoutsEndpoint}$txId/requeue/');
+  }
+
+  /// One place that turns a failed request into something a staff member can
+  /// read — the server's own `error` message when it sent one, never a raw
+  /// exception dump.
+  static String errorMessage(Object e, {String fallback = 'Something went wrong. Please try again.'}) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map && data['error'] is String) return data['error'] as String;
+      if (data is Map && data['detail'] is String) return data['detail'] as String;
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return 'Could not reach the server. Check your connection.';
+      }
+    }
+    return fallback;
+  }
 }

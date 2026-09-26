@@ -5,7 +5,9 @@ All views require the requesting user to have role == 'staff'.
 URL prefix: /api/staff/
 """
 import logging
+from datetime import datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from django.db import transaction as db_transaction
 from django.db.models import Count, Q, Sum, Value
@@ -19,9 +21,32 @@ from accounts.models import User, VerificationRequest
 from notifications.signals import _create_notification, _send_push
 from orders.models import Order
 from .earnings import earnings_breakdown
+from .lenco_transfers import CannotSend, is_lenco_transfer, send_via_lenco
 from .models import Transaction
+from .services.lenco import LencoError
 
 logger = logging.getLogger(__name__)
+
+
+ZAMBIA_TZ = ZoneInfo('Africa/Lusaka')
+
+
+def provider_label(code):
+    """'MTN_MOMO_ZMB' -> 'MTN MoMo'. Staff shouldn't have to read gateway codes."""
+    from .views import PROVIDER_TO_NETWORK_LABEL
+    if code == 'LENCO_CARD':
+        return 'Card (Lenco)'
+    if code == 'LENCO_BANK':
+        return 'Bank transfer'
+    return PROVIDER_TO_NETWORK_LABEL.get(code, code)
+
+
+def zambia_today_bounds():
+    """Start/end of *today in Zambia* as aware datetimes. The project runs on UTC,
+    which would roll the day over at 02:00 local time."""
+    local_today = timezone.now().astimezone(ZAMBIA_TZ).date()
+    start = datetime.combine(local_today, time.min, tzinfo=ZAMBIA_TZ)
+    return start, start + timedelta(days=1)
 
 
 class IsStaff(permissions.BasePermission):
@@ -127,8 +152,6 @@ class StaffStatsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsStaff]
 
     def get(self, request):
-        today = timezone.now().date()
-
         # Manual claims live in the withdrawals tab only — keep the two
         # counts disjoint so the dashboard matches the tabs.
         payout_queue_count = Transaction.objects.filter(
@@ -147,21 +170,28 @@ class StaffStatsView(APIView):
             status='submitted',
         ).count()
 
-        refund_count = Order.objects.filter(
-            status='cancelled',
-            transactions__transaction_type='refund',
-            transactions__status='pending',
-        ).distinct().count()
+        # Same definition the Refunds tab uses: any order with a refund still
+        # waiting on staff. (This used to require the order to be 'cancelled',
+        # so approved refunds on delivered orders never showed up here.)
+        refund_count = Transaction.objects.filter(
+            transaction_type='refund', status='pending',
+        ).values('order_id').distinct().count()
 
+        start, end = zambia_today_bounds()
         today_deposits = Transaction.objects.filter(
             transaction_type='deposit',
             status='completed',
-            created_at__date=today,
+            updated_at__gte=start,
+            updated_at__lt=end,
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
+        # Only payouts that genuinely failed to send. Payouts auto-failed
+        # because their order was cancelled are not failures and must not
+        # inflate this number.
         failed_payouts_count = Transaction.objects.filter(
             transaction_type='payout',
             status='failed',
+            payout_stage='payout_failed',
         ).count()
 
         from accounts.models import User as _User
@@ -215,6 +245,7 @@ class StaffPayoutQueueView(APIView):
                 'amount': str(tx.amount),
                 'currency': tx.currency,
                 'provider': tx.provider,
+                'provider_label': provider_label(tx.provider),
                 'trigger_event': tx.trigger_event,
                 'payout_method': tx.payout_method,
                 'payout_notes': tx.payout_notes,
@@ -308,11 +339,14 @@ class StaffWithdrawalsView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsStaff]
 
     def get(self, request):
+        # 'accepted' = already sent through a gateway and awaiting its result.
+        # Showing those (read-only) stops a payout vanishing from staff's view
+        # between "sent" and "confirmed".
         qs = Transaction.objects.filter(
             transaction_type='payout',
             trigger_event='manual',
-            status='pending',
-        ).select_related('recipient', 'order').order_by('created_at')
+            status__in=['pending', 'accepted'],
+        ).select_related('recipient', 'order', 'bank_account').order_by('status', 'created_at')
 
         rows = []
         for tx in qs[:100]:
@@ -340,8 +374,20 @@ class StaffWithdrawalsView(APIView):
                 'amount': str(tx.amount),
                 'currency': tx.currency,
                 'provider': tx.provider,
+                'provider_label': provider_label(tx.provider),
+                'status': tx.status,
+                'failure_message': tx.failure_message or '',
                 'payout_stage': tx.payout_stage,
                 'payout_notes': tx.payout_notes,
+                'payment_method': tx.payment_method,
+                'fee_deducted': str(tx.fee_deducted),
+                'can_send_via_lenco': is_lenco_transfer(tx),
+                'bank': {
+                    'bank_name': tx.bank_account.bank_name,
+                    'account_number': tx.bank_account.account_number,
+                    'account_name': tx.bank_account.account_name,
+                    'name_matches': tx.bank_account.name_matches,
+                } if tx.bank_account else None,
                 'proof_image_url': request.build_absolute_uri(tx.proof_image.url) if tx.proof_image else None,
                 'created_at': tx.created_at.isoformat(),
                 'total_earned': str(total_earned.quantize(Decimal('0.01'))),
@@ -350,6 +396,107 @@ class StaffWithdrawalsView(APIView):
             })
 
         return Response({'results': rows, 'count': len(rows)})
+
+
+class StaffSendViaLencoView(APIView):
+    """
+    POST /api/staff/send-via-lenco/<tx_id>/   {confirm_name_mismatch?: bool}
+
+    Pays a card refund (to the buyer's mobile money number) or a seller's
+    bank withdrawal straight from the Lenco account, instead of staff sending
+    it by hand. The result arrives from Lenco (webhook / sync) and settles the
+    transaction; a failure leaves it pending so staff can retry or pay manually.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStaff]
+
+    def post(self, request, tx_id):
+        try:
+            tx = send_via_lenco(
+                tx_id,
+                allow_name_mismatch=request.data.get('confirm_name_mismatch') is True,
+            )
+        except Transaction.DoesNotExist:
+            return Response({'error': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+        except CannotSend as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except LencoError as exc:
+            return Response(
+                {'error': f'Lenco could not send this: {exc}'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({
+            'success': True,
+            'transaction_id': str(tx.transaction_id),
+            'status': tx.status,
+            'message': 'Sent. It will show as paid once Lenco confirms.' if tx.status == 'accepted' else 'Paid.',
+        })
+
+
+class StaffFailedPayoutsView(APIView):
+    """
+    GET /api/staff/failed-payouts/
+    Payouts the gateway failed to send. Until now the dashboard counted these
+    but there was nowhere to see or fix them.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStaff]
+
+    def get(self, request):
+        qs = Transaction.objects.filter(
+            transaction_type='payout', status='failed', payout_stage='payout_failed',
+        ).select_related('recipient', 'order', 'bank_account').order_by('-updated_at')[:100]
+        rows = []
+        for tx in qs:
+            rows.append({
+                'transaction_id': str(tx.transaction_id),
+                'order_number': tx.order.order_number,
+                'recipient_name': tx.recipient.full_name if tx.recipient else '',
+                'recipient_phone': tx.payer_number,
+                'recipient_role': tx.recipient_role,
+                'amount': str(tx.amount),
+                'provider_label': provider_label(tx.provider),
+                'payment_method': tx.payment_method,
+                'failure_message': tx.failure_message or 'Unknown error',
+                'trigger_event': tx.trigger_event,
+                # A failed *withdrawal* returns to the person's earnings on its
+                # own (they can ask again). Only per-order payouts need requeuing.
+                'can_requeue': tx.trigger_event in ('pickup_qr', 'dropoff_qr') and tx.order.status != 'cancelled',
+                'failed_at': tx.updated_at.isoformat(),
+            })
+        return Response({'results': rows, 'count': len(rows)})
+
+
+class StaffRequeuePayoutView(APIView):
+    """
+    POST /api/staff/failed-payouts/<tx_id>/requeue/
+    Put a failed per-order payout back in the payout queue so staff can pay it.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStaff]
+
+    def post(self, request, tx_id):
+        with db_transaction.atomic():
+            try:
+                tx = (
+                    Transaction.objects.select_for_update(of=('self',))
+                    .select_related('order').get(pk=tx_id, transaction_type='payout')
+                )
+            except Transaction.DoesNotExist:
+                return Response({'error': 'Payout not found'}, status=status.HTTP_404_NOT_FOUND)
+            if tx.status != 'failed' or tx.payout_stage != 'payout_failed':
+                return Response({'error': 'This payout has not failed.'}, status=status.HTTP_400_BAD_REQUEST)
+            if tx.trigger_event not in ('pickup_qr', 'dropoff_qr') or tx.order.status == 'cancelled':
+                return Response(
+                    {'error': 'This payout cannot be requeued. A failed withdrawal returns to the '
+                              "person's earnings so they can request it again."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            previous = tx.failure_message or 'unknown error'
+            tx.status = 'pending'
+            tx.payout_stage = 'ready_for_payout'
+            tx.payout_method = 'manual'
+            tx.payout_notes = f'Requeued after gateway failure: {previous}'
+            tx.failure_message = ''
+            tx.save()
+        return Response({'success': True, 'transaction_id': str(tx.transaction_id), 'status': tx.status})
 
 
 # ── Seller Verifications ────────────────────────────────────────────────────
@@ -400,16 +547,33 @@ class StaffApproveVerificationView(APIView):
         except VerificationRequest.DoesNotExist:
             return Response({'error': 'Verification request not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        if action not in ('approve', 'reject'):
+            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Only a request that is actually waiting for review can be decided.
+        # Without this, a stale screen (or a second staff member) could flip an
+        # already-approved seller to rejected, or approve a rejected one.
+        if vr.status != 'submitted':
+            return Response(
+                {'error': f'This request was already {vr.status}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if action == 'approve':
             vr.approve(reviewer=request.user)
             return Response({'success': True, 'status': 'approved'})
-        elif action == 'reject':
-            reason = request.data.get('reason', '')
-            vr.rejection_reason = reason
-            vr.reject(reviewer=request.user)
-            return Response({'success': True, 'status': 'rejected'})
-        else:
-            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # The applicant sees this text, so a rejection must say why.
+        reason = str(request.data.get('reason', '')).strip()
+        if len(reason) < 3:
+            return Response(
+                {'error': 'Give a reason so the applicant knows what to fix.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Pass the reason INTO reject(): it stores its own default text
+        # otherwise, which used to silently replace what staff typed.
+        vr.reject(reviewer=request.user, reason=reason)
+        return Response({'success': True, 'status': 'rejected'})
 
 
 # ── Refunds / Cancellations ─────────────────────────────────────────────────
@@ -510,6 +674,10 @@ class StaffRefundsView(APIView):
                 (tx for tx in refund_txs if tx.status == 'pending'),
                 None,
             )
+            in_flight_refund = next(
+                (tx for tx in refund_txs if tx.status == 'accepted'),
+                None,
+            )
             completed_refund = next(
                 (tx for tx in refund_txs if tx.status == 'completed'),
                 None,
@@ -531,7 +699,14 @@ class StaffRefundsView(APIView):
                     'amount': str(pending_refund.amount),
                     'refund_phone': pending_refund.payer_number,
                     'payout_method': pending_refund.payout_method,
+                    'is_card_refund': pending_refund.payment_method == 'card',
+                    'can_send_via_lenco': is_lenco_transfer(pending_refund),
+                    'due_at': pending_refund.due_at.isoformat() if pending_refund.due_at else None,
+                    'notes': pending_refund.payout_notes,
+                    'failure_message': pending_refund.failure_message or '',
                 } if pending_refund else None,
+                'order_status': order.status,
+                'refund_in_flight': in_flight_refund is not None,
                 'refund_completed': completed_refund is not None,
                 'refund_proof_url': (
                     request.build_absolute_uri(completed_refund.proof_image.url)
@@ -540,4 +715,9 @@ class StaffRefundsView(APIView):
                 'cancelled_at': order.updated_at.isoformat(),
             })
 
+        # Work that needs a person first (oldest promise first), then the rest.
+        rows.sort(key=lambda r: (
+            r['pending_refund'] is None,
+            (r['pending_refund'] or {}).get('due_at') or '9999',
+        ))
         return Response({'results': rows, 'count': len(rows)})

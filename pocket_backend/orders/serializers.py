@@ -2,6 +2,23 @@ from rest_framework import serializers
 from .models import Cart, CartItem, Order, OrderItem, RefundRequest, CancellationRequest
 from .models import OrderRating
 
+def refund_summary(tx):
+    """
+    What a buyer may see about a refund: how far along it is, the amount, and
+    - for card payments, which can't go back to the card - where it is being
+    sent (masked) and the date it was promised by.
+    """
+    summary = {'status': tx.status, 'amount': str(tx.amount)}
+    if tx.payment_method == 'card':
+        number = tx.payer_number or ''
+        summary.update({
+            'is_card_refund': True,
+            'due_at': tx.due_at.isoformat() if tx.due_at else None,
+            'sent_to': f'{number[:6]}•••{number[-3:]}' if len(number) >= 9 else '',
+        })
+    return summary
+
+
 class CartItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_price = serializers.DecimalField(source='product.price', max_digits=10, decimal_places=2, read_only=True)
@@ -173,7 +190,7 @@ class OrderSerializer(serializers.ModelSerializer):
             ).order_by('-created_at').first()
             if tx is None:
                 return None
-            return {'status': tx.status, 'amount': str(tx.amount)}
+            return refund_summary(tx)
         except Exception:
             return None
 
@@ -254,7 +271,7 @@ class RefundRequestSerializer(serializers.ModelSerializer):
             ).order_by('-created_at').first()
             if tx is None:
                 return None
-            return {'status': tx.status, 'amount': str(tx.amount)}
+            return refund_summary(tx)
         except Exception:
             return None
 

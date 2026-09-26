@@ -134,6 +134,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
     context.go('/buyer/orders');
   }
 
+  bool get _isCard => widget.provider == 'LENCO_CARD';
+
   String _providerLabel(String provider) {
     switch (provider) {
       case 'AIRTEL_OAPI_ZMB':
@@ -144,6 +146,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
       case 'ZAMTEL_MONEY_ZMB':
       case 'ZAMTEL_MOMO_ZMB':
         return 'Zamtel Kwacha';
+      case 'LENCO_CARD':
+        return 'Card';
       default:
         return 'Mobile Money';
     }
@@ -279,7 +283,9 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Auto-refreshing every 5 seconds. Approve the payment on your phone.',
+                            _isCard
+                                ? 'Auto-refreshing every 5 seconds while we confirm your card payment.'
+                                : 'Auto-refreshing every 5 seconds. Approve the payment on your phone.',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondary
@@ -405,8 +411,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.phone_android_rounded,
+            child: Icon(
+              _isCard ? Icons.credit_card_rounded : Icons.phone_android_rounded,
               size: 46,
               color: AppTheme.primaryCyan,
             ),
@@ -434,6 +440,10 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
     }
     if (isNoPayment) {
       return 'No payment was initiated for this order.';
+    }
+    if (_isCard) {
+      return 'We are confirming your card payment. This usually takes a few seconds. '
+          'If you closed the card window before paying, your order will be cancelled shortly.';
     }
     return 'Please approve the ${_providerLabel(widget.provider)} prompt on your phone to complete the payment.';
   }

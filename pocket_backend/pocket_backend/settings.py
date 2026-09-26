@@ -332,6 +332,10 @@ PAWAPAY_WEBHOOK_SECRET = os.environ.get('PAWAPAY_WEBHOOK_SECRET', '')
 LENCO_API_TOKEN = os.environ.get('LENCO_API_TOKEN', '').strip()
 LENCO_PUBLIC_KEY = os.environ.get('LENCO_PUBLIC_KEY', '').strip()
 LENCO_ACCOUNT_ID = os.environ.get('LENCO_ACCOUNT_ID', '').strip()
+# Optional: the "Signature key" shown on the dashboard's Webhook tab. Lenco's docs say it is the
+# SHA256 hash of the API token (which is what we use when this is empty); if the dashboard ever
+# shows a different key, set it here and it is used as-is.
+LENCO_WEBHOOK_SECRET = os.environ.get('LENCO_WEBHOOK_SECRET', '').strip()
 LENCO_BASE_URL = os.environ.get('LENCO_BASE_URL', 'https://api.lenco.co/access/v2').rstrip('/')
 # The hosted card widget has separate sandbox and live scripts; follow whichever
 # API the token belongs to so the two can never be mixed by accident.

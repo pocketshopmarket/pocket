@@ -33,6 +33,13 @@ class LencoWebhookSignatureTests(SimpleTestCase):
         self.assertFalse(LencoService.verify_webhook_signature(self.body, self._sign('other', self.body)))
         self.assertFalse(LencoService.verify_webhook_signature(self.body, ''))
 
+    @override_settings(LENCO_API_TOKEN='secret-token', LENCO_WEBHOOK_SECRET='dashboard-signature-key')
+    def test_a_configured_dashboard_signature_key_is_used_as_given(self):
+        good = hmac.new(b'dashboard-signature-key', self.body, hashlib.sha512).hexdigest()
+        self.assertTrue(LencoService.verify_webhook_signature(self.body, good))
+        # The token-derived signature no longer verifies once a key is configured.
+        self.assertFalse(LencoService.verify_webhook_signature(self.body, self._sign('secret-token', self.body)))
+
     @override_settings(LENCO_API_TOKEN='')
     def test_fails_closed_when_not_configured(self):
         self.assertFalse(LencoService.verify_webhook_signature(self.body, self._sign('', self.body)))

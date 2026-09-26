@@ -168,6 +168,8 @@ class LencoService:
         token = settings.LENCO_API_TOKEN
         if not token or not signature:
             return False
-        key = hashlib.sha256(token.encode('utf-8')).hexdigest()
+        # The dashboard's signature key when configured, else the documented
+        # SHA256-of-the-API-token (they are the same value in Lenco's docs).
+        key = settings.LENCO_WEBHOOK_SECRET or hashlib.sha256(token.encode('utf-8')).hexdigest()
         expected = hmac.new(key.encode('utf-8'), raw_body, hashlib.sha512).hexdigest()
         return hmac.compare_digest(expected.lower(), signature.strip().lower())

@@ -45,6 +45,19 @@ class LencoWebhookSignatureTests(SimpleTestCase):
         self.assertFalse(LencoService.verify_webhook_signature(self.body, self._sign('', self.body)))
 
 
+class LencoRequestIdentityTests(SimpleTestCase):
+    @override_settings(LENCO_API_TOKEN='tok', LENCO_BASE_URL='https://api.example.test/v2')
+    def test_requests_carry_a_product_user_agent_not_the_library_default(self):
+        with mock.patch('payments.services.lenco.requests.request') as call:
+            call.return_value.status_code = 200
+            call.return_value.json.return_value = {'status': True, 'data': []}
+            LencoService.get_banks()
+        headers = call.call_args.kwargs['headers']
+        self.assertIn('PocketShop', headers['User-Agent'])
+        self.assertNotIn('python-requests', headers['User-Agent'])
+        self.assertEqual(headers['Authorization'], 'Bearer tok')
+
+
 class LencoServiceUnconfiguredTests(SimpleTestCase):
     @override_settings(LENCO_API_TOKEN='')
     def test_calls_refuse_without_token(self):

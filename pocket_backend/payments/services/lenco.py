@@ -29,11 +29,17 @@ class LencoService:
     def is_configured() -> bool:
         return bool(settings.LENCO_API_TOKEN)
 
+    # Lenco's live API sits behind Cloudflare, which answers 403 "Sorry, you have
+    # been blocked" to requests that identify as a bare script (curl, python-requests)
+    # even from a whitelisted IP. A normal product User-Agent gets through.
+    USER_AGENT = 'Mozilla/5.0 (compatible; PocketShop/1.0; +https://mypocketshop.store)'
+
     @staticmethod
     def _headers():
         return {
             'Authorization': f'Bearer {settings.LENCO_API_TOKEN}',
             'Content-Type': 'application/json',
+            'User-Agent': LencoService.USER_AGENT,
         }
 
     @staticmethod

@@ -46,6 +46,7 @@ import '../features/seller/screens/seller_product_reviews_screen.dart';
 import '../features/seller/screens/seller_products_screen.dart';
 import '../features/seller/screens/seller_profile_screen.dart';
 import '../features/seller/screens/seller_payout_methods_screen.dart';
+import '../features/seller/screens/seller_bank_accounts_screen.dart';
 import '../features/seller/screens/seller_payout_history_screen.dart';
 import '../features/shared/screens/notifications_screen.dart';
 import '../features/shared/screens/payout_screen.dart';
@@ -508,6 +509,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/seller/payout',
                 builder: (context, state) => const PayoutScreen(),
+              ),
+              GoRoute(
+                path: '/seller/bank-accounts',
+                builder: (context, state) => const SellerBankAccountsScreen(),
               ),
               GoRoute(
                 path: '/seller/payout-history',

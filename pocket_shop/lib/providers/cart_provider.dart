@@ -1,3 +1,4 @@
+import '../services/card_payment_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -241,6 +242,9 @@ class CartNotifier extends StateNotifier<CartState> {
     String? pickupTimeSlot,
     String? paymentProvider,
     String? payerNumber,
+    // When set, the order is paid by card instead of mobile money, and any
+    // refund is sent to this (already checked) mobile money number.
+    String? cardRefundPhone,
   }) async {
     if (state.items.isEmpty) {
       return {'success': false, 'message': 'No items in cart.'};
@@ -270,13 +274,27 @@ class CartNotifier extends StateNotifier<CartState> {
       );
 
       Map<String, dynamic>? paymentResult;
-      if (paymentProvider != null && payerNumber != null && payerNumber.trim().isNotEmpty) {
+      final useCard = cardRefundPhone != null && cardRefundPhone.trim().isNotEmpty;
+      if (useCard || (paymentProvider != null && payerNumber != null && payerNumber.trim().isNotEmpty)) {
         try {
-          paymentResult = await _orderService.initiatePayment(
-            orderNumber: order.orderNumber,
-            provider: paymentProvider,
-            payerNumber: payerNumber.trim(),
-          );
+          if (useCard) {
+            final session = await CardPaymentService().initiate(
+              orderNumber: order.orderNumber,
+              refundPhone: cardRefundPhone.trim(),
+            );
+            paymentResult = {
+              'method': 'card',
+              'checkout_url': session.checkoutUrl,
+              'transaction_id': session.transactionId,
+              'amount_charged': session.amount,
+            };
+          } else {
+            paymentResult = await _orderService.initiatePayment(
+              orderNumber: order.orderNumber,
+              provider: paymentProvider!,
+              payerNumber: payerNumber!.trim(),
+            );
+          }
         } catch (e) {
           // Payment initiation failed immediately — cancel the order and
           // restore the cart so the user can fix details and retry.

@@ -53,6 +53,27 @@ def _cards_available():
     )
 
 
+class PaymentOptionsView(APIView):
+    """
+    GET /api/payments/options/
+
+    What the checkout should offer. The app shows "Pay by card" only when
+    this says cards are on, so a switched-off or unconfigured server never
+    leads a buyer into a dead end. The fee numbers are for the estimate the
+    buyer sees; Lenco adds the real fee at payment.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        ps = PlatformSettings.get()
+        return Response({
+            'card_enabled': _cards_available(),
+            'card_refund_business_days': ps.card_refund_business_days,
+            'card_fee_percent': str(ps.card_fee_percent),
+            'card_fee_fixed': str(ps.card_fee_fixed),
+        })
+
+
 class CardRefundNumberCheckView(APIView):
     """
     POST /api/payments/card/refund-number/check/  {phone}

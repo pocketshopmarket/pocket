@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -52,6 +53,14 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
   bool _hasPayoutMethod = false;
   Map<String, dynamic>? _payoutMethod;
 
+  // Bank withdrawals (sellers only, and only when the admin has switched them on).
+  bool _bankEnabled = false;
+  double _bankMin = 1000;
+  double _bankFee = 50;
+  List<Map<String, dynamic>> _bankAccounts = [];
+  bool _payToBank = false;
+  int? _bankAccountId;
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +89,21 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
         _pendingPayouts = data['pending_payouts']?.toString() ?? '0.00';
         _hasPayoutMethod = data['has_payout_method'] == true;
         _payoutMethod = data['payout_method'] as Map<String, dynamic>?;
+        _bankEnabled = data['bank_payouts_enabled'] == true;
+        _bankMin = double.tryParse(data['bank_payout_min_amount']?.toString() ?? '') ?? 1000;
+        _bankFee = double.tryParse(data['bank_payout_fee']?.toString() ?? '') ?? 50;
+        _bankAccounts = List<Map<String, dynamic>>.from(
+          (data['bank_accounts'] as List? ?? []).map((a) => Map<String, dynamic>.from(a as Map)),
+        );
+        if (!_bankEnabled) _payToBank = false;
+        // Keep the chosen account if it still exists, else the default one.
+        final stillThere = _bankAccounts.any((a) => a['id'] == _bankAccountId);
+        if (!stillThere) {
+          final def = _bankAccounts.where((a) => a['is_default'] == true);
+          _bankAccountId = def.isNotEmpty
+              ? def.first['id'] as int?
+              : (_bankAccounts.isNotEmpty ? _bankAccounts.first['id'] as int? : null);
+        }
         _loading = false;
       });
     } catch (e) {
@@ -103,7 +127,11 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
     try {
       final resp = await _api.post(
         AppConstants.paymentsPayoutEndpoint,
-        data: {'amount': amount},
+        data: {
+          'amount': amount,
+          if (_payToBank) 'method': 'bank',
+          if (_payToBank && _bankAccountId != null) 'bank_account_id': _bankAccountId,
+        },
       );
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -443,6 +471,31 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                         const SizedBox(height: 24),
                       ],
 
+                      // ─── Where to pay: mobile money or bank (sellers, when enabled) ───
+                      if (_bankEnabled) ...[
+                        const Text(
+                          'Pay my earnings to',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textSecondary,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(value: false, label: Text('Mobile money'), icon: Icon(Icons.phone_android_rounded)),
+                            ButtonSegment(value: true, label: Text('Bank account'), icon: Icon(Icons.account_balance_rounded)),
+                          ],
+                          selected: {_payToBank},
+                          onSelectionChanged: (v) => setState(() => _payToBank = v.first),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_payToBank) ..._bankSection(),
+                        const SizedBox(height: 12),
+                      ],
+
                       // ─── Amount input ───
                       const Text(
                         'Amount to claim',
@@ -584,6 +637,8 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                       ),
 
                       const SizedBox(height: 10),
+                      if (_payToBank) ..._bankBreakdown()
+                      else
                       Text(
                         'Minimum claim: ZMW 5.00',
                         style: TextStyle(
@@ -601,8 +656,8 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           onPressed: (_submitting ||
-                                  !_hasPayoutMethod ||
-                                  available <= 0)
+                                  available <= 0 ||
+                                  (_payToBank ? !_bankClaimIsValid : !_hasPayoutMethod))
                               ? null
                               : _claimEarnings,
                           icon: _submitting
@@ -630,6 +685,113 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  double get _enteredAmount => double.tryParse(_amountController.text.trim()) ?? 0.0;
+
+  bool get _bankClaimIsValid =>
+      _bankAccountId != null && _enteredAmount >= _bankMin && _enteredAmount > _bankFee;
+
+  /// The account picker (or a prompt to add one) shown when paying to a bank.
+  List<Widget> _bankSection() {
+    if (_bankAccounts.isEmpty) {
+      return [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppTheme.warning.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Add a bank account first. We check the account holder name with your bank.',
+                style: TextStyle(fontSize: 12.5, height: 1.4),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await context.push('/seller/bank-accounts');
+                  if (mounted) _loadEarnings();
+                },
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Add bank account'),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+    return [
+      DropdownButtonFormField<int>(
+        initialValue: _bankAccountId,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Bank account', border: OutlineInputBorder()),
+        items: [
+          for (final a in _bankAccounts)
+            DropdownMenuItem(
+              value: a['id'] as int,
+              child: Text('${a['bank_name']}  ${a['account_number_masked']}'),
+            ),
+        ],
+        onChanged: (v) => setState(() => _bankAccountId = v),
+      ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: () async {
+            await context.push('/seller/bank-accounts');
+            if (mounted) _loadEarnings();
+          },
+          child: const Text('Manage bank accounts'),
+        ),
+      ),
+    ];
+  }
+
+  /// Minimum, fee and what the seller will actually receive - shown before
+  /// they confirm, because the bank fee is a flat amount taken from the payout.
+  List<Widget> _bankBreakdown() {
+    final amount = _enteredAmount;
+    final receive = amount - _bankFee;
+    final tooLow = amount > 0 && amount < _bankMin;
+    return [
+      Text(
+        'Minimum bank payout: ZMW ${_bankMin.toStringAsFixed(2)}',
+        style: TextStyle(
+          fontSize: 11,
+          color: tooLow ? AppTheme.error : AppTheme.textSecondary.withValues(alpha: 0.7),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(10)),
+        child: Column(
+          children: [
+            _breakdownRow('Bank transfer fee', '- ZMW ${_bankFee.toStringAsFixed(2)}'),
+            const SizedBox(height: 4),
+            _breakdownRow(
+              'You receive',
+              amount >= _bankMin && receive > 0 ? 'ZMW ${receive.toStringAsFixed(2)}' : '-',
+              bold: true,
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Widget _breakdownRow(String label, String value, {bool bold = false}) {
+    final style = TextStyle(fontSize: 13, fontWeight: bold ? FontWeight.w800 : FontWeight.w500);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(label, style: style), Text(value, style: style)],
     );
   }
 

@@ -15,6 +15,10 @@ import '../../../../providers/orders_provider.dart';
 import '../../../../providers/payment_methods_provider.dart';
 import '../../../../providers/platform_settings_provider.dart';
 import '../../../../widgets/sign_in_prompt.dart';
+import '../../../providers/payment_options_provider.dart';
+import '../../../services/card_payment_service.dart';
+import '../widgets/card_payment_panel.dart';
+import 'card_checkout_screen.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -56,6 +60,10 @@ class CartScreen extends ConsumerWidget {
     String? quotePricingMode;
     String pickupTimeSlot = 'As soon as possible';
     String selectedProvider = 'AIRTEL_OAPI_ZMB';
+    // 'mobile_money' or 'card'. Card is only offered when the server says so.
+    String payMethod = 'mobile_money';
+    final cardDraft = CardPaymentDraft();
+    PaymentOptions paymentOptions = const PaymentOptions();
     final payerNumberController = TextEditingController();
     Timer? manualSearchDebounce;
     bool searchingAddress = false;
@@ -68,6 +76,12 @@ class CartScreen extends ConsumerWidget {
     // Always fetch fresh payment methods so the number pre-fill reflects
     // any methods the user just registered before opening checkout.
     await ref.read(paymentMethodsProvider.notifier).load();
+    if (!context.mounted) return;
+    try {
+      paymentOptions = await ref.read(paymentOptionsProvider.future);
+    } catch (_) {
+      // Can't tell -> don't offer cards; mobile money always works.
+    }
     if (!context.mounted) return;
 
     String methodKeyForProvider(String providerCode) {
@@ -100,6 +114,39 @@ class CartScreen extends ConsumerWidget {
     }
 
     syncNumberFromSavedMethods();
+
+    Widget payMethodChip(String label, IconData icon, bool selected, VoidCallback onTap) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primaryCyan.withValues(alpha: 0.10) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppTheme.primaryCyan : AppTheme.divider,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: selected ? AppTheme.darkCyan : AppTheme.textSecondary),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? AppTheme.darkCyan : AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -752,6 +799,41 @@ class CartScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    if (paymentOptions.cardEnabled) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: payMethodChip(
+                              'Mobile money',
+                              Icons.phone_android_rounded,
+                              payMethod == 'mobile_money',
+                              () => setModalState(() => payMethod = 'mobile_money'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: payMethodChip(
+                              'Card',
+                              Icons.credit_card_rounded,
+                              payMethod == 'card',
+                              () => setModalState(() => payMethod = 'card'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (payMethod == 'card')
+                      CardPaymentPanel(
+                        draft: cardDraft,
+                        options: paymentOptions,
+                        orderTotal: ref.read(cartProvider).totalAmount +
+                            (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0),
+                        initialPhone: (user.phoneNumber).replaceFirst('+260', ''),
+                        service: ref.read(cardPaymentServiceProvider),
+                        onChanged: () => setModalState(() {}),
+                      )
+                    else
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
@@ -1064,12 +1146,16 @@ class CartScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Payment: ${selectedProvider == "AIRTEL_OAPI_ZMB" ? "Airtel" : selectedProvider == "MTN_MOMO_ZMB" ? "MTN" : "Zamtel"} Mobile Money',
+                          payMethod == 'card'
+                              ? 'Payment: Card (Visa / Mastercard)'
+                              : 'Payment: ${selectedProvider == "AIRTEL_OAPI_ZMB" ? "Airtel" : selectedProvider == "MTN_MOMO_ZMB" ? "MTN" : "Zamtel"} Mobile Money',
                           style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          payerNumberController.text.trim().isEmpty ? 'Number not entered' : payerNumberController.text.trim(),
+                          payMethod == 'card'
+                              ? 'Refunds to ${cardDraft.verified?.accountName ?? ''} ${cardDraft.verified?.phone ?? ''}'.trim()
+                              : (payerNumberController.text.trim().isEmpty ? 'Number not entered' : payerNumberController.text.trim()),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -1245,6 +1331,26 @@ class CartScreen extends ConsumerWidget {
                           return;
                         }
                         if (step == 2) {
+                          if (payMethod == 'card') {
+                            if (cardDraft.verified == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Check your refund mobile money number to continue.'),
+                                ),
+                              );
+                              return;
+                            }
+                            if (!cardDraft.acceptedTerms) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please accept the card refund terms to continue.'),
+                                ),
+                              );
+                              return;
+                            }
+                            setModalState(() => step = 3);
+                            return;
+                          }
                           if (payerNumberController.text.trim().isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -1330,8 +1436,9 @@ class CartScreen extends ConsumerWidget {
           deliveryLat: selectedLat,
           deliveryLng: selectedLng,
           pickupTimeSlot: fulfillmentType == 'pickup' ? pickupTimeSlot : null,
-          paymentProvider: selectedProvider,
-          payerNumber: payerNumberController.text,
+          paymentProvider: payMethod == 'card' ? null : selectedProvider,
+          payerNumber: payMethod == 'card' ? null : payerNumberController.text,
+          cardRefundPhone: payMethod == 'card' ? cardDraft.verified?.phone : null,
         );
 
     if (!context.mounted) return;
@@ -1345,12 +1452,24 @@ class CartScreen extends ConsumerWidget {
       ref.invalidate(buyerOrdersProvider);
 
       if (orderNumber.isNotEmpty) {
+        // Card: the payment happens in Lenco's window. Whatever it reports, the
+        // next screen asks the server for the real outcome.
+        final checkoutUrl = payment?['checkout_url']?.toString() ?? '';
+        if (checkoutUrl.isNotEmpty) {
+          await Navigator.of(context).push<CardCheckoutResult>(
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => CardCheckoutScreen(checkoutUrl: checkoutUrl),
+            ),
+          );
+          if (!context.mounted) return;
+        }
         // Navigate to payment pending screen so buyer can track payment status
         final amountCharged = payment?['amount_charged']?.toString() ?? '';
         context.go(
           '/buyer/payment-pending'
           '?order=${Uri.encodeComponent(orderNumber)}'
-          '&provider=${Uri.encodeComponent(selectedProvider)}'
+          '&provider=${Uri.encodeComponent(payMethod == 'card' ? 'LENCO_CARD' : selectedProvider)}'
           '&amount=${Uri.encodeComponent(amountCharged)}'
           '&delivery=${order?.isDelivery == true ? 'true' : 'false'}',
         );

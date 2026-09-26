@@ -347,13 +347,26 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
           Icon(icon, size: 15, color: color),
           const SizedBox(width: 7),
           Expanded(
-            child: Text(
-              '${refund.label} · ZMW ${refund.amount.toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${refund.label} · ZMW ${refund.amount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+                // Card payments can't go back to the card, so say when and
+                // where the money is coming.
+                if (refund.isCardRefund && refund.dueLabel != null)
+                  Text(
+                    'Due by ${refund.dueLabel}'
+                    '${refund.sentTo.isNotEmpty ? ' · to mobile money ${refund.sentTo}' : ''}',
+                    style: TextStyle(fontSize: 12, color: color),
+                  ),
+              ],
             ),
           ),
         ],

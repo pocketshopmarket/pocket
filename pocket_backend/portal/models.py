@@ -50,6 +50,14 @@ class PlatformSettings(models.Model):
         default=5,
         help_text='Business days promised to buyers for a card refund (shown on their order).',
     )
+    card_fee_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=3.80,
+        help_text="Lenco's card fee, as a percentage. Only used to show buyers an estimate at checkout.",
+    )
+    card_fee_fixed = models.DecimalField(
+        max_digits=6, decimal_places=2, default=1.00,
+        help_text="Lenco's fixed card fee per payment (ZMW). Only used to show buyers an estimate.",
+    )
     bank_payouts_enabled = models.BooleanField(
         default=False,
         help_text='Let sellers withdraw to a bank account. Riders always use mobile money.',

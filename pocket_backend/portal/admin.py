@@ -31,6 +31,8 @@ class PlatformSettingsAdmin(admin.ModelAdmin):
             'fields': (
                 'card_payments_enabled',
                 'card_refund_business_days',
+                'card_fee_percent',
+                'card_fee_fixed',
                 'bank_payouts_enabled',
                 'bank_payout_min_amount',
                 'bank_payout_fee',

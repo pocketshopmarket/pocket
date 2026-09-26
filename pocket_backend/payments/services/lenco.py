@@ -12,6 +12,10 @@ class LencoError(Exception):
     """A Lenco call failed; the message is safe to show to a user."""
 
 
+class LencoUnreachable(LencoError):
+    """We could not talk to Lenco at all (as opposed to Lenco saying no)."""
+
+
 class LencoService:
     """
     Thin client for Lenco's v2 API (https://lenco-api.readme.io/v2.0).
@@ -43,7 +47,7 @@ class LencoService:
             )
         except requests.RequestException as exc:
             logger.error('Lenco %s %s failed to connect: %s', method, path, exc)
-            raise LencoError('Could not reach the payment provider. Please try again.') from exc
+            raise LencoUnreachable('Could not reach the payment provider. Please try again.') from exc
 
         try:
             body = response.json()

@@ -20,7 +20,7 @@ from .mobile_money import (
     parse_mobile_money_number,
 )
 from .models import PayoutBankAccount, Transaction
-from .services.lenco import LencoError, LencoService
+from .services.lenco import LencoError, LencoService, LencoUnreachable
 from .test_card import CARD_SETTINGS, CardTestBase, _make_order
 
 LENCO_ON = dict(CARD_SETTINGS, LENCO_ACCOUNT_ID='acct-1')
@@ -95,6 +95,12 @@ class CardRefundNumberTests(CardTestBase):
         self.assertEqual(r.json(), {'phone': '+260961111111', 'operator': 'mtn',
                                     'network': 'MTN MoMo', 'account_name': 'Ann Buyer'})
         call.assert_called_once_with('+260961111111', 'mtn')
+
+    def test_a_connection_failure_is_not_reported_as_a_wrong_number(self):
+        with mock.patch.object(LencoService, 'resolve_mobile_money', side_effect=LencoUnreachable('down')):
+            r = self.client.post('/api/payments/card/refund-number/check/', {'phone': '0961111111'}, format='json')
+        self.assertEqual(r.status_code, 503)
+        self.assertNotIn("couldn't find", r.json()['error'])
 
     def test_check_rejects_bad_networks_and_unknown_accounts(self):
         self.assertEqual(self.client.post(

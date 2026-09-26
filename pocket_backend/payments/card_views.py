@@ -26,7 +26,7 @@ from .mobile_money import (
 )
 from .lenco_transfers import sync_lenco_transfer
 from .models import Transaction
-from .services.lenco import LencoError, LencoService
+from .services.lenco import LencoError, LencoService, LencoUnreachable
 from .views import apply_deposit_completed, apply_deposit_failed
 
 logger = logging.getLogger(__name__)
@@ -97,6 +97,9 @@ class CardRefundNumberCheckView(APIView):
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         try:
             resolved = LencoService.resolve_mobile_money(phone, operator)
+        except LencoUnreachable as exc:
+            # Not the buyer's fault - don't tell them the number is wrong.
+            return Response({'error': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except LencoError:
             return Response(
                 {'error': "We couldn't find a mobile money account for that number. Check it and try again."},

@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart' as android;
 
 import '../../../core/theme/app_theme.dart';
 
@@ -26,6 +30,14 @@ class _CardCheckoutScreenState extends State<CardCheckoutScreen> {
   String? _loadError;
   CardCheckoutResult? _result;
 
+  // If the card window doesn't finish loading a new page for a while (the
+  // classic symptom of a stuck 3-D Secure bank verification step), offer the
+  // "open in browser" escape hatch instead of leaving the buyer stuck on a
+  // spinner with no way out.
+  Timer? _stallTimer;
+  bool _showBrowserFallback = false;
+  static const _stallTimeout = Duration(seconds: 20);
+
   @override
   void initState() {
     super.initState();
@@ -36,8 +48,17 @@ class _CardCheckoutScreenState extends State<CardCheckoutScreen> {
       ..addJavaScriptChannel('PocketPay', onMessageReceived: _onPageMessage)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (request) {
+            _resetStallTimer();
+            return NavigationDecision.navigate;
+          },
           onPageFinished: (_) {
-            if (mounted) setState(() => _loading = false);
+            if (!mounted) return;
+            setState(() {
+              _loading = false;
+              _showBrowserFallback = false;
+            });
+            _resetStallTimer();
           },
           onWebResourceError: (error) {
             // Ignore sub-resource noise; only a failed main page matters.
@@ -51,6 +72,63 @@ class _CardCheckoutScreenState extends State<CardCheckoutScreen> {
         ),
       )
       ..loadRequest(Uri.parse(widget.checkoutUrl));
+    _allowThirdPartyCookiesOnAndroid();
+    _resetStallTimer();
+  }
+
+  @override
+  void dispose() {
+    _stallTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Bank verification pages commonly need a cookie set on their own domain
+  /// to be sent back on the redirect that follows. Android WebView has
+  /// third-party cookies switched off per-instance by default (since
+  /// Android 5), which shows up as exactly this symptom: the verification
+  /// step loads but never completes. iOS's WKWebView doesn't have this
+  /// restriction, so there is nothing to do there.
+  Future<void> _allowThirdPartyCookiesOnAndroid() async {
+    final platformController = _controller.platform;
+    if (platformController is! android.AndroidWebViewController) return;
+    final cookieManager = WebViewCookieManager().platform;
+    if (cookieManager is android.AndroidWebViewCookieManager) {
+      await cookieManager.setAcceptThirdPartyCookies(platformController, true);
+    }
+  }
+
+  void _resetStallTimer() {
+    _stallTimer?.cancel();
+    _stallTimer = Timer(_stallTimeout, () {
+      if (mounted) setState(() => _showBrowserFallback = true);
+    });
+  }
+
+  Future<void> _openInBrowser() async {
+    _stallTimer?.cancel();
+    final uri = Uri.parse(widget.checkoutUrl);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!mounted) return;
+    if (!opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open your browser. Please try again.')),
+      );
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Finish paying in your browser'),
+        content: const Text(
+          'Complete your card payment in the browser tab that just opened. Once done, come back here '
+          'and tap Continue — we\'ll pick up from there.',
+        ),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Continue')),
+        ],
+      ),
+    );
+    if (mounted) Navigator.of(context).pop(CardCheckoutResult.pending);
   }
 
   void _onPageMessage(JavaScriptMessage message) {
@@ -132,6 +210,44 @@ class _CardCheckoutScreenState extends State<CardCheckoutScreen> {
               ),
             if (_loading && _loadError == null)
               const Center(child: CircularProgressIndicator(color: AppTheme.primaryCyan)),
+            if (_showBrowserFallback && _loadError == null)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 24,
+                child: Material(
+                  elevation: 4,
+                  borderRadius: BorderRadius.circular(14),
+                  color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Taking a while?',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Some banks\' verification pages work better in your browser.',
+                          style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _openInBrowser,
+                            icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                            label: const Text('Open in browser instead'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

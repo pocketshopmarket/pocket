@@ -43,6 +43,7 @@ dependencies:
   latlong2: ^0.9.1
   url_launcher: ^6.2.5
   webview_flutter: ^4.10.0
+  webview_flutter_android: ^4.10.0
   flutter_screenutil: ^5.9.3
   image_picker: ^1.1.2
   # Desktop: file_selector/image_picker share a broken Pigeon channel on some Windows builds; file_picker uses a different path.

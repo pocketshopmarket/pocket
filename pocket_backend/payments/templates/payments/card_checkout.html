@@ -27,13 +27,34 @@
     </div>
 
     {{ config|json_script:"lenco-config" }}
-    <script src="{{ widget_url }}"></script>
+    <script src="{{ widget_url }}" onerror="onWidgetScriptFailed()"></script>
     <script>
         var config = JSON.parse(document.getElementById('lenco-config').textContent);
         var titleEl = document.getElementById('title');
         var textEl = document.getElementById('text');
         var retryEl = document.getElementById('retry');
         var spinnerEl = document.getElementById('spinner');
+        var widgetFailed = false;
+
+        // If the widget script can't load (a network blip, a slow connection,
+        // anything) the page must not sit on "Opening secure card payment…"
+        // forever with no way out — that is indistinguishable from a hang.
+        function onWidgetScriptFailed() {
+            if (widgetFailed) return;
+            widgetFailed = true;
+            show(
+                'Could not open secure payment',
+                'This usually means a network problem. Check your connection and try again.',
+                true
+            );
+        }
+
+        // The <script onerror> above only fires for a genuine load failure.
+        // A slow-but-working connection needs its own timeout so the buyer
+        // is never just staring at a spinner with no explanation.
+        window.setTimeout(function () {
+            if (typeof LencoPay === 'undefined') onWidgetScriptFailed();
+        }, 12000);
 
         // Tell the Flutter WebView what happened. The app treats this only as
         // a hint to start checking — the server confirms the payment itself.
@@ -49,7 +70,20 @@
         }
 
         function openWidget() {
+            if (widgetFailed) return;
+            if (typeof LencoPay === 'undefined') {
+                onWidgetScriptFailed();
+                return;
+            }
             show('Opening secure card payment…', 'Please wait a moment.', false);
+            try {
+                startLencoWidget();
+            } catch (e) {
+                onWidgetScriptFailed();
+            }
+        }
+
+        function startLencoWidget() {
             LencoPay.getPaid({
                 key: config.key,
                 reference: config.reference,

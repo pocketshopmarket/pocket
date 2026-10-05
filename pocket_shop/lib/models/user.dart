@@ -4,6 +4,7 @@ class User {
   final String? email;
   final String? gender;
   final String? dateOfBirth;
+  final bool showAlcoholProducts;
   final String role;
   final bool isVerified;
   final bool isPhoneVerified;
@@ -21,6 +22,7 @@ class User {
     this.email,
     this.gender,
     this.dateOfBirth,
+    this.showAlcoholProducts = true,
     required this.role,
     required this.isVerified,
     required this.isPhoneVerified,
@@ -40,6 +42,7 @@ class User {
       email: json['email'],
       gender: json['gender'] as String?,
       dateOfBirth: json['date_of_birth'] as String?,
+      showAlcoholProducts: json['show_alcohol_products'] as bool? ?? true,
       role: json['role'],
       isVerified: json['is_verified'] ?? false,
       isPhoneVerified: json['is_phone_verified'] ?? false,
@@ -66,6 +69,7 @@ class User {
       'email': email,
       'gender': gender,
       'date_of_birth': dateOfBirth,
+      'show_alcohol_products': showAlcoholProducts,
       'role': role,
       'is_verified': isVerified,
       'is_phone_verified': isPhoneVerified,
@@ -86,6 +90,7 @@ class User {
     String? email,
     String? gender,
     String? dateOfBirth,
+    bool? showAlcoholProducts,
     String? role,
     bool? isVerified,
     bool? isPhoneVerified,
@@ -103,6 +108,7 @@ class User {
       email: email ?? this.email,
       gender: gender ?? this.gender,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      showAlcoholProducts: showAlcoholProducts ?? this.showAlcoholProducts,
       role: role ?? this.role,
       isVerified: isVerified ?? this.isVerified,
       isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,

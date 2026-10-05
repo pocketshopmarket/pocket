@@ -174,7 +174,10 @@ class VerifyOTPView(APIView):
                     user_data['gender'] = gender
                 if date_of_birth is not None:
                     user_data['date_of_birth'] = date_of_birth
-                
+                show_alcohol_products = serializer.validated_data.get('show_alcohol_products')
+                if show_alcohol_products is not None:
+                    user_data['show_alcohol_products'] = show_alcohol_products
+
                 user = User.objects.create_user(**user_data)
                 
                 # Create appropriate profile
@@ -479,6 +482,8 @@ class ProfileView(APIView):
             else:
                 parsed = parse_date(str(raw_dob)) if isinstance(raw_dob, str) else raw_dob
                 user.date_of_birth = parsed
+        if 'show_alcohol_products' in request.data:
+            user.show_alcohol_products = bool(request.data.get('show_alcohol_products'))
         if 'profile_photo' in request.FILES:
             user.profile_photo = request.FILES['profile_photo']
 

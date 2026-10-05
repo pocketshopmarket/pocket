@@ -45,13 +45,14 @@ def category_tree_ids(category_id):
 def exclude_restricted_for_user(queryset, user):
     """
     Hide age-restricted-category products from anyone who isn't a
-    confirmed 18+ buyer. getattr() is deliberate: AnonymousUser has no
-    is_adult attribute, so guests safely fall through to the exclude.
+    confirmed 18+ buyer, or who is 18+ but has opted out of seeing them
+    (show_alcohol_products=False). getattr() is deliberate: AnonymousUser
+    has neither attribute, so guests safely fall through to the exclude.
     Checks one level up the category's parent too, so a forgotten
     subcategory flag (e.g. "Wine" under an unflagged "Alcohol & Spirits")
     doesn't leak restricted products through.
     """
-    if getattr(user, 'is_adult', False):
+    if getattr(user, 'is_adult', False) and getattr(user, 'show_alcohol_products', True):
         return queryset
     return queryset.exclude(
         models.Q(category__is_age_restricted=True) |
@@ -65,7 +66,7 @@ def product_blocked_for_user(product, user):
     add-to-cart / checkout where a single Product instance is already
     fetched rather than a queryset.
     """
-    if getattr(user, 'is_adult', False):
+    if getattr(user, 'is_adult', False) and getattr(user, 'show_alcohol_products', True):
         return False
     category = product.category
     if not category:

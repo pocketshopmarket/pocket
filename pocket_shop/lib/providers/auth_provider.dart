@@ -159,18 +159,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? fullName,
     String? gender,
     String? dateOfBirth,
+    bool? showAlcoholProducts,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
-    
+
     try {
       final result = await _authService.verifyOtp(
-        phoneNumber, 
-        otp, 
-        role: role, 
-        password: password, 
+        phoneNumber,
+        otp,
+        role: role,
+        password: password,
         fullName: fullName,
         gender: gender,
         dateOfBirth: dateOfBirth,
+        showAlcoholProducts: showAlcoholProducts,
       );
       
       if (result['success']) {

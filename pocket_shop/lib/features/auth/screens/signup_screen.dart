@@ -34,6 +34,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   String? _gender;
   DateTime? _dateOfBirth;
+  // Only asked once the buyer is computed 18+; defaults to shown (matches the
+  // server default) so an unanswered-but-visible toggle doesn't surprise them.
+  bool _showAlcoholProducts = true;
   int _pageIndex = 0;
   bool _isLoading = false;
   bool _isPasswordVisible = false;
@@ -55,6 +58,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final m = d.month.toString().padLeft(2, '0');
     final day = d.day.toString().padLeft(2, '0');
     return '${d.year}-$m-$day';
+  }
+
+  bool get _isAdult {
+    final dob = _dateOfBirth;
+    if (dob == null) return false;
+    final now = DateTime.now();
+    var age = now.year - dob.year;
+    final hadBirthdayThisYear =
+        now.month > dob.month || (now.month == dob.month && now.day >= dob.day);
+    if (!hadBirthdayThisYear) age -= 1;
+    return age >= 18;
   }
 
   Future<void> _pickDateOfBirth() async {
@@ -111,6 +125,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           'password': _passwordController.text,
           'gender': _gender,
           if (dob != null) 'date_of_birth': _formatDateIso(dob),
+          if (_isAdult) 'show_alcohol_products': _showAlcoholProducts,
         },
       );
     } else {
@@ -325,6 +340,57 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 );
               },
             ),
+            if (_isAdult) ...[
+              SizedBox(height: AppSizes.spacingMedium.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceWhite,
+                  borderRadius: BorderRadius.circular(AppSizes.radius.r),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'See alcohol products?',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'You can change this later in your profile.',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    Semantics(
+                      label: 'See alcohol products, select Yes or No',
+                      child: SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment<bool>(value: true, label: Text('Yes')),
+                          ButtonSegment<bool>(value: false, label: Text('No')),
+                        ],
+                        showSelectedIcon: false,
+                        selected: {_showAlcoholProducts},
+                        onSelectionChanged: (selection) {
+                          setState(() => _showAlcoholProducts = selection.first);
+                        },
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12.sp)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             SizedBox(height: AppSizes.spacingLarge.h),
             SizedBox(
               height: 46.h,

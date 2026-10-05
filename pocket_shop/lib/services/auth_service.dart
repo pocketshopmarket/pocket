@@ -151,14 +151,15 @@ class AuthService {
     String? fullName,
     String? gender,
     String? dateOfBirth,
+    bool? showAlcoholProducts,
   }) async {
     final formattedPhone = _formatPhoneOrNull(phoneNumber) ?? _formatPhone(phoneNumber);
     await _ensureInitialized();
-    final data = {
+    final data = <String, dynamic>{
       'phone_number': formattedPhone,
       'otp_code': otp,
     };
-    
+
     // Add optional fields for new user registration
     if (role != null) data['role'] = role;
     if (password != null) data['password'] = password;
@@ -166,6 +167,9 @@ class AuthService {
     if (gender != null && gender.isNotEmpty) data['gender'] = gender;
     if (dateOfBirth != null && dateOfBirth.isNotEmpty) {
       data['date_of_birth'] = dateOfBirth;
+    }
+    if (showAlcoholProducts != null) {
+      data['show_alcohol_products'] = showAlcoholProducts;
     }
 
     try {
@@ -558,6 +562,7 @@ class AuthService {
     String? fullName,
     String? defaultAddress,
     String? dateOfBirth,
+    bool? showAlcoholProducts,
   }) async {
     await _ensureInitialized();
     try {
@@ -565,6 +570,7 @@ class AuthService {
         if (fullName != null) 'full_name': fullName.trim(),
         if (defaultAddress != null) 'default_address': defaultAddress.trim(),
         if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
+        if (showAlcoholProducts != null) 'show_alcohol_products': showAlcoholProducts,
       };
       final response = await _apiService.put(
         AppConstants.profileEndpoint,

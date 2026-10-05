@@ -391,6 +391,36 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
     }
   }
 
+  bool _isAdult(String? dobIso) {
+    final dob = dobIso != null ? DateTime.tryParse(dobIso) : null;
+    if (dob == null) return false;
+    final now = DateTime.now();
+    var age = now.year - dob.year;
+    final hadBirthdayThisYear =
+        now.month > dob.month || (now.month == dob.month && now.day >= dob.day);
+    if (!hadBirthdayThisYear) age -= 1;
+    return age >= 18;
+  }
+
+  Future<void> _toggleShowAlcoholProducts(bool value) async {
+    setState(() => _isSavingProfile = true);
+    try {
+      final result = await ref
+          .read(authServiceProvider)
+          .updateProfile(showAlcoholProducts: value);
+      if (!mounted) return;
+      if (result['success'] == true) {
+        await ref.read(authProvider.notifier).refreshUser();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Could not save')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingProfile = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
@@ -582,6 +612,19 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                           value: user.dateOfBirth ?? 'Not set — add to unlock 18+ items',
                           onTap: () => _editDateOfBirth(user.dateOfBirth),
                         ),
+                        if (_isAdult(user.dateOfBirth)) ...[
+                          const Divider(height: 1),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            secondary: const Icon(Icons.liquor_outlined, color: AppTheme.textSecondary),
+                            title: const Text(
+                              'Show alcohol products',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                            value: user.showAlcoholProducts,
+                            onChanged: _isSavingProfile ? null : _toggleShowAlcoholProducts,
+                          ),
+                        ],
                       ],
                     ),
             ),

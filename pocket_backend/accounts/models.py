@@ -54,6 +54,14 @@ class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=False)
     date_of_birth = models.DateField(blank=True, null=True)
+    show_alcohol_products = models.BooleanField(
+        default=True,
+        help_text=(
+            'Whether an 18+ buyer wants alcohol-category products in their listings. '
+            'Has no effect on under-18 or no-date-of-birth buyers, who never see them '
+            'regardless (see is_adult / products.models.exclude_restricted_for_user).'
+        ),
+    )
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
     fcm_token = models.CharField(max_length=255, blank=True, default='')
     qr_secret = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

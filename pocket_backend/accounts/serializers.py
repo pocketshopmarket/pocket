@@ -42,6 +42,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'phone_number', 'full_name', 'gender', 'date_of_birth', 'email', 'role',
             'is_verified', 'is_phone_verified', 'date_joined', 'profile_photo',
+            'show_alcohol_products',
         ]
         read_only_fields = ['id', 'is_verified', 'is_phone_verified', 'date_joined', 'profile_photo']
 
@@ -314,6 +315,7 @@ class VerifyOTPSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
     gender = serializers.ChoiceField(choices=User.GENDER_CHOICES, required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
+    show_alcohol_products = serializers.BooleanField(required=False)
 
     def validate_phone_number(self, value):
         return normalize_zambia_phone_to_e164(value)

@@ -16,6 +16,7 @@ import '../../../../widgets/shop_section_card.dart';
 import 'dart:async';
 import '../../../../models/category.dart';
 import '../../../../providers/auth_provider.dart';
+import '../widgets/birthday_nudge_card.dart';
 import '../../../../widgets/notification_bell.dart';
 import '../../../../widgets/qr_identity_sheet.dart';
 import '../../../../widgets/sign_in_prompt.dart';
@@ -394,6 +395,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 ],
               ),
               SizedBox(height: isCompact ? 10 : 12),
+              const BirthdayNudgeCard(),
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(

@@ -1,11 +1,11 @@
 import logging
 import json
+from functools import wraps
 
 import django_filters
 from django.db.models import Avg, Count, F, Prefetch, Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
-from django.views.decorators.vary import vary_on_headers
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
@@ -23,6 +23,39 @@ from .pagination import ProductPagination
 from .serializers import ProductSerializer, CategorySerializer, PromoBannerSerializer
 
 logger = logging.getLogger(__name__)
+
+
+def cache_for_guests(timeout):
+    """
+    Caches a list-style view's response, but only for anonymous requests.
+
+    `cache_page` + `vary_on_headers('Authorization')` (the previous approach
+    here) partitions the cache per JWT, which stops one buyer's cached
+    results leaking to another — but a buyer's OWN access token doesn't
+    change when their profile does, so for up to `timeout` seconds after
+    setting a date of birth, their own request would still hit the stale
+    pre-update cache entry and keep showing age-restricted products as
+    hidden. Guests can never trigger that (no account to update), so
+    caching is safe and effective for them; authenticated requests always
+    run fresh, since age-restriction is exactly the kind of per-user state
+    that makes caching them unsafe without a lot more invalidation plumbing
+    than this traffic currently justifies.
+    """
+    def decorator(view_method):
+        @wraps(view_method)
+        def wrapper(self, request, *args, **kwargs):
+            if request.user.is_authenticated:
+                return view_method(self, request, *args, **kwargs)
+            key = f'guest_product_cache:{request.get_full_path()}'
+            cached = cache.get(key)
+            if cached is not None:
+                return Response(cached)
+            response = view_method(self, request, *args, **kwargs)
+            if response.status_code == 200:
+                cache.set(key, response.data, timeout)
+            return response
+        return wrapper
+    return decorator
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -380,12 +413,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You can only delete your own products.')
         instance.delete()
 
-    # Results are now filtered per-user (age restriction), so the cache
-    # must be partitioned per caller — vary_on_headers ensures a guest's
-    # or one buyer's cached response can never be served to a different
-    # buyer (critically, an adult's response is never served to a minor).
-    @method_decorator(cache_page(30))
-    @method_decorator(vary_on_headers('Authorization'))
+    @cache_for_guests(30)
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
@@ -397,8 +425,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
-    @method_decorator(cache_page(30))
-    @method_decorator(vary_on_headers('Authorization'))
+    @cache_for_guests(30)
     def trending(self, request):
         queryset = self.filter_queryset(self.get_queryset()).order_by(
             '-purchases_count',
@@ -413,8 +440,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['get'])
-    @method_decorator(cache_page(30))
-    @method_decorator(vary_on_headers('Authorization'))
+    @cache_for_guests(30)
     def related(self, request, pk=None):
         product = self.get_object()
         queryset = self.get_queryset().exclude(pk=product.pk).filter(

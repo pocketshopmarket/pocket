@@ -35,7 +35,6 @@ class Product {
   final String quality;
   final int sellerId;
   final String? sellerName;
-  final String? sellerPhone;
   final int stockQuantity;
   final List<String> imageUrls;
   final bool isAvailable;
@@ -54,7 +53,6 @@ class Product {
     this.quality = 'new',
     required this.sellerId,
     this.sellerName,
-    this.sellerPhone,
     required this.stockQuantity,
     this.imageUrls = const [],
     required this.isAvailable,
@@ -99,7 +97,6 @@ class Product {
       quality: json['quality']?.toString() ?? 'new',
       sellerId: json['seller'] as int,
       sellerName: json['seller_name']?.toString(),
-      sellerPhone: json['seller_phone']?.toString(),
       stockQuantity: json['stock_quantity'] is int ? json['stock_quantity'] as int : int.tryParse('${json['stock_quantity']}') ?? 0,
       imageUrls: _parseImagesFromJson(json),
       isAvailable: json['is_available'] ?? true,

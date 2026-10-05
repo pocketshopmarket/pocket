@@ -92,7 +92,6 @@ def replace_variants(product, payload):
 
 class ProductSerializer(serializers.ModelSerializer):
     seller_name = serializers.CharField(source='seller.full_name', read_only=True)
-    seller_phone = serializers.CharField(source='seller.phone_number', read_only=True)
     images = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
     variants = serializers.SerializerMethodField()
@@ -115,7 +114,6 @@ class ProductSerializer(serializers.ModelSerializer):
             'quality',
             'seller',
             'seller_name',
-            'seller_phone',
             'stock_quantity',
             'images',
             'image_url',

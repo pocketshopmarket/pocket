@@ -26,6 +26,10 @@ class Notification(models.Model):
         ('welcome', 'Welcome'),
         ('announcement', 'Announcement'),
         ('general', 'General'),
+        ('transport_request', 'Transport Request Received'),
+        ('transport_proposed', 'Transport Proposal Received'),
+        ('transport_declined', 'Transport Request Declined'),
+        ('transport_expired', 'Transport Request Expired'),
     ]
 
     recipient = models.ForeignKey(

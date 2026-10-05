@@ -112,6 +112,69 @@ class Order(models.Model):
             self.order_number = f"ORD{uuid.uuid4().hex[:8].upper()}"
         super().save(*args, **kwargs)
 
+class TransportRequest(models.Model):
+    """
+    A buyer too far for normal rider delivery asking the seller to arrange
+    their own transport (e.g. an intercity bus/courier) instead — and the
+    seller's reply. Deliberately one-shot: the seller proposes a method and
+    a fee once, the buyer accepts or doesn't, no back-and-forth haggling.
+    Accepting creates a real Order with that fee as the delivery_fee.
+
+    Doesn't reserve stock while pending — kept simple since this is expected
+    to be low-volume; a buyer who accepts a stale request just sees the
+    normal "out of stock" error, same as anyone else.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Waiting for seller'),
+        ('proposed', 'Seller proposed'),
+        ('accepted', 'Buyer accepted'),
+        ('declined', 'Seller declined'),
+        ('expired', 'Expired — seller never responded'),
+    ]
+
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transport_requests')
+    seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transport_requests_received')
+    product = models.ForeignKey('products.Product', on_delete=models.CASCADE, related_name='transport_requests')
+    quantity = models.PositiveIntegerField(default=1)
+
+    delivery_address = models.TextField()
+    delivery_lat = models.FloatField(null=True, blank=True)
+    delivery_lng = models.FloatField(null=True, blank=True)
+    distance_km = models.FloatField(help_text='Straight-line distance from the seller’s shop at request time.')
+
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+
+    proposed_method = models.CharField(max_length=200, blank=True, default='')
+    proposed_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    decline_reason = models.CharField(max_length=300, blank=True, default='')
+
+    order = models.OneToOneField(
+        'orders.Order', null=True, blank=True, on_delete=models.SET_NULL, related_name='transport_request',
+    )
+
+    expires_at = models.DateTimeField(help_text='Seller must respond by this time, or the request auto-expires.')
+    responded_at = models.DateTimeField(null=True, blank=True, help_text='When the seller proposed or declined.')
+    decided_at = models.DateTimeField(null=True, blank=True, help_text='When the buyer accepted (or it expired).')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            # One live (pending/proposed) request per buyer+product at a time —
+            # the "can't ask twice" rule enforced at the database level, not
+            # just in the view.
+            models.UniqueConstraint(
+                fields=['buyer', 'product'],
+                condition=models.Q(status__in=['pending', 'proposed']),
+                name='one_live_transport_request_per_buyer_product',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.product.name} for {self.buyer.full_name} ({self.get_status_display()})'
+
+
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey('products.Product', on_delete=models.CASCADE)

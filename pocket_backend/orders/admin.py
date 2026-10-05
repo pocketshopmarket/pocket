@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cart, CartItem, Order, OrderItem, OrderRating, CancellationRequest, RefundRequest
+from .models import Cart, CartItem, Order, OrderItem, OrderRating, CancellationRequest, RefundRequest, TransportRequest
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
@@ -23,6 +23,19 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ['status', 'created_at']
     search_fields = ['order_number', 'buyer__phone_number', 'seller__phone_number']
     readonly_fields = ['order_number', 'created_at', 'updated_at']
+
+@admin.register(TransportRequest)
+class TransportRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'buyer', 'seller', 'product', 'quantity',
+        'distance_km', 'status', 'proposed_fee', 'expires_at', 'created_at',
+    ]
+    list_filter = ['status', 'created_at']
+    search_fields = ['buyer__phone_number', 'seller__phone_number', 'product__name']
+    readonly_fields = [
+        'buyer', 'seller', 'product', 'quantity', 'delivery_address', 'delivery_lat', 'delivery_lng',
+        'distance_km', 'order', 'created_at', 'updated_at', 'responded_at', 'decided_at',
+    ]
     
     def get_readonly_fields(self, request, obj=None):
         if obj:  # editing an existing object

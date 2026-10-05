@@ -1216,28 +1216,37 @@ class DeliveryQuoteView(APIView):
         pricing_mode = None
         config = DeliveryPricingConfig.get_config()
 
+        within_range = None
         if plat is not None and plng is not None:
             try:
                 distance_km = LocationService.calculate_distance(
                     float(plat), float(plng), dlat, dlng
                 )
-                fee = LocationService.calculate_delivery_fee(distance_km)
-                pricing_mode = (
-                    'flat'
-                    if distance_km <= float(config.short_distance_threshold_km)
-                    else 'per_km'
-                )
+                within_range = distance_km <= float(config.max_delivery_distance_km)
+                if within_range:
+                    fee = LocationService.calculate_delivery_fee(distance_km)
+                    pricing_mode = (
+                        'flat'
+                        if distance_km <= float(config.short_distance_threshold_km)
+                        else 'per_km'
+                    )
+                # Beyond max_delivery_distance_km: distance_km is still returned
+                # (the caller needs it to offer "request transport"), but no fee
+                # is calculated — a per-km charge at that range would dwarf most
+                # products' value, and no rider is realistically making the trip.
             except (TypeError, ValueError):
                 pass
 
         return Response(
             {
                 'distance_km': round(distance_km, 2) if distance_km is not None else None,
+                'within_range': within_range,
                 'estimated_fee_zmw': fee,
                 'pricing_mode': pricing_mode,
                 'short_distance_threshold_km': float(config.short_distance_threshold_km),
                 'short_distance_flat_rate': float(config.short_distance_flat_rate),
                 'per_km_rate': float(config.per_km_rate),
+                'max_delivery_distance_km': float(config.max_delivery_distance_km),
                 'buyer_service_fee_rate': float(PlatformSettings.get().buyer_service_fee_rate),
             }
         )

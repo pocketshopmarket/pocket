@@ -22,6 +22,7 @@ class DeliveryPricingConfigAdmin(admin.ModelAdmin):
         'short_distance_threshold_km',
         'short_distance_flat_rate',
         'per_km_rate',
+        'max_delivery_distance_km',
         'updated_at',
     ]
     fieldsets = (
@@ -34,6 +35,13 @@ class DeliveryPricingConfigAdmin(admin.ModelAdmin):
         ('Long-distance pricing', {
             'description': 'Applied to every trip longer than the short-distance threshold.',
             'fields': ('per_km_rate',),
+        }),
+        ('Maximum delivery distance', {
+            'description': (
+                'Beyond this, rider delivery isn’t offered at all — only Pickup and '
+                'requesting the seller arrange transport (bus/courier).'
+            ),
+            'fields': ('max_delivery_distance_km',),
         }),
     )
     readonly_fields = ['updated_at']

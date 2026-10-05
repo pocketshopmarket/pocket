@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem, Order, OrderItem, RefundRequest, CancellationRequest
+from .models import Cart, CartItem, Order, OrderItem, RefundRequest, CancellationRequest, TransportRequest
 from .models import OrderRating
 
 def refund_summary(tx):
@@ -324,3 +324,47 @@ class SellerRespondCancellationSerializer(serializers.Serializer):
 class AdminRespondCancellationSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=['approve', 'reject'])
     note = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class TransportRequestSerializer(serializers.ModelSerializer):
+    buyer_name = serializers.CharField(source='buyer.full_name', read_only=True)
+    seller_name = serializers.CharField(source='seller.full_name', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_price = serializers.DecimalField(source='product.price', max_digits=10, decimal_places=2, read_only=True)
+    product_image_url = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    order_number = serializers.CharField(source='order.order_number', read_only=True)
+
+    class Meta:
+        model = TransportRequest
+        fields = [
+            'id', 'status', 'status_display',
+            'buyer', 'buyer_name', 'seller', 'seller_name',
+            'product', 'product_name', 'product_price', 'product_image_url', 'quantity',
+            'delivery_address', 'distance_km',
+            'proposed_method', 'proposed_fee', 'decline_reason',
+            'order_number',
+            'expires_at', 'responded_at', 'decided_at', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_product_image_url(self, obj):
+        from products.serializers import first_image_url_for_product
+        return first_image_url_for_product(obj.product, self.context.get('request'))
+
+
+class CreateTransportRequestSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1, default=1)
+    delivery_address = serializers.CharField(max_length=500)
+    delivery_lat = serializers.FloatField()
+    delivery_lng = serializers.FloatField()
+
+
+class ProposeTransportSerializer(serializers.Serializer):
+    method = serializers.CharField(max_length=200)
+    fee = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+
+
+class DeclineTransportSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=300, required=False, allow_blank=True)

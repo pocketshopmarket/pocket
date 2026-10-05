@@ -254,6 +254,7 @@ class CreateOrderView(APIView):
                     dlng = ps_meta.get('delivery_lng')
                     if dlat is not None and dlng is not None:
                         from delivery.utils import LocationService
+                        from delivery.models import DeliveryPricingConfig
                         from accounts.models import SellerProfile
                         try:
                             # Resolve seller shop coordinates.
@@ -264,6 +265,21 @@ class CreateOrderView(APIView):
                                     sp.shop_lat, sp.shop_lng,
                                     float(dlat), float(dlng),
                                 )
+                                # Enforced here too, not just at the quote step: a
+                                # per-km fee beyond this range would dwarf most
+                                # products' value, and no rider makes that trip.
+                                max_km = float(DeliveryPricingConfig.get_config().max_delivery_distance_km)
+                                if distance_km > max_km:
+                                    return Response(
+                                        {
+                                            'error': (
+                                                f'This seller is {distance_km:.0f} km away — too far for '
+                                                'rider delivery. Choose Pickup, or request the seller '
+                                                'arrange transport instead.'
+                                            )
+                                        },
+                                        status=status.HTTP_400_BAD_REQUEST,
+                                    )
                                 server_delivery_fee = LocationService.calculate_delivery_fee(distance_km)
                             else:
                                 # No seller coords — trust client as fallback.

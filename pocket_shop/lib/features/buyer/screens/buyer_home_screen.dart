@@ -96,7 +96,13 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
             try {
               final fetched = await ref.read(productServiceProvider).getProduct(productId);
               if (mounted) context.push('/buyer/product-details', extra: fetched);
-            } catch (_) {}
+            } catch (_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not open this product. Please try again.')),
+                );
+              }
+            }
           }
         }
         break;

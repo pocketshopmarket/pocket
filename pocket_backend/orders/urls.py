@@ -16,6 +16,12 @@ from .views import (
     CancellationRequestListView,
     CancellationRequestRespondView,
 )
+from .transport_views import (
+    TransportRequestAcceptView,
+    TransportRequestCreateListView,
+    TransportRequestDeclineView,
+    TransportRequestProposeView,
+)
 
 urlpatterns = [
     # Cart endpoints
@@ -45,5 +51,11 @@ urlpatterns = [
         SellerDashboardStatsView.as_view(),
         name='seller-dashboard-stats',
     ),
+
+    # Transport requests (buyer too far for normal delivery)
+    path('transport-requests/', TransportRequestCreateListView.as_view(), name='transport-request-list-create'),
+    path('transport-requests/<int:pk>/propose/', TransportRequestProposeView.as_view(), name='transport-request-propose'),
+    path('transport-requests/<int:pk>/decline/', TransportRequestDeclineView.as_view(), name='transport-request-decline'),
+    path('transport-requests/<int:pk>/accept/', TransportRequestAcceptView.as_view(), name='transport-request-accept'),
 ]
 

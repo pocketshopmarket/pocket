@@ -34,6 +34,15 @@ class DeliveryPricingConfig(models.Model):
         default=30.00,
         help_text='Flat delivery fee for short-distance trips (ZMW)',
     )
+    max_delivery_distance_km = models.FloatField(
+        default=100.0,
+        help_text=(
+            'Trips beyond this distance are not offered as normal rider delivery — '
+            'a per-km fee at that range would far exceed most products’ value, and no '
+            'rider is realistically making the trip. Buyers beyond this range see Pickup '
+            'and the option to request the seller arrange transport instead.'
+        ),
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

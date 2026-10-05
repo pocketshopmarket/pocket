@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +15,7 @@ import '../../../../models/order.dart';
 import '../../../../providers/orders_provider.dart';
 import '../../../../providers/payment_methods_provider.dart';
 import '../../../../providers/platform_settings_provider.dart';
+import '../../../../providers/transport_requests_provider.dart';
 import '../../../../widgets/sign_in_prompt.dart';
 import '../../../providers/payment_options_provider.dart';
 import '../../../services/card_payment_service.dart';
@@ -58,6 +60,8 @@ class CartScreen extends ConsumerWidget {
     double? quoteDistanceKm;
     int? quoteEtaMinutes;
     String? quotePricingMode;
+    bool outOfRange = false;
+    double? maxDeliveryKm;
     String pickupTimeSlot = 'As soon as possible';
     String selectedProvider = 'AIRTEL_OAPI_ZMB';
     // 'mobile_money' or 'card'. Card is only offered when the server says so.
@@ -148,7 +152,7 @@ class CartScreen extends ConsumerWidget {
       );
     }
 
-    final ok = await showModalBottomSheet<bool>(
+    final ok = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -705,6 +709,62 @@ class CartScreen extends ConsumerWidget {
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppTheme.warning,
+                          ),
+                        ),
+                      ],
+                      if (outOfRange) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppTheme.warning.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppTheme.warning.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                quoteDistanceKm != null
+                                    ? 'This seller is ${quoteDistanceKm!.toStringAsFixed(0)} km away'
+                                        '${maxDeliveryKm != null ? ' — too far for rider delivery (max ${maxDeliveryKm!.toStringAsFixed(0)} km)' : ' — too far for rider delivery'}.'
+                                    : 'This seller is too far away for rider delivery.',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                cartItems.isNotEmpty
+                                    ? 'You can ask the seller to arrange their own transport (bus or courier) for "${cartItems.first.product.name}", or switch to pickup.'
+                                    : 'You can ask the seller to arrange their own transport, or switch to pickup.',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                              if (cartItems.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => Navigator.pop(ctx, 'transport'),
+                                    icon: const Icon(
+                                      Icons.local_shipping_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Ask seller to arrange transport'),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
@@ -1301,13 +1361,27 @@ class CartScreen extends ConsumerWidget {
                                 .then((quote) {
                                   if (!context.mounted) return;
                                   setModalState(() {
+                                    quoteDistanceKm =
+                                        (quote['distance_km'] as num?)
+                                            ?.toDouble();
+                                    if (quote['within_range'] == false) {
+                                      outOfRange = true;
+                                      maxDeliveryKm =
+                                          (quote['max_delivery_distance_km']
+                                                  as num?)
+                                              ?.toDouble();
+                                      quoteFee = null;
+                                      quoteLoading = false;
+                                      // Stay on step 1 so the buyer sees the
+                                      // out-of-range message and can request
+                                      // transport instead of continuing.
+                                      return;
+                                    }
+                                    outOfRange = false;
                                     quoteFee =
                                         (quote['estimated_fee_zmw'] as num?)
                                             ?.toDouble() ??
                                         (quote['fee'] as num?)?.toDouble();
-                                    quoteDistanceKm =
-                                        (quote['distance_km'] as num?)
-                                            ?.toDouble();
                                     quotePricingMode =
                                         quote['pricing_mode']?.toString();
                                     quoteEtaMinutes =
@@ -1373,7 +1447,7 @@ class CartScreen extends ConsumerWidget {
                           setModalState(() => step = 3);
                           return;
                         }
-                        Navigator.pop(ctx, true);
+                        Navigator.pop(ctx, 'checkout');
                       },
                       child: Text(
                         quoteLoading
@@ -1394,7 +1468,67 @@ class CartScreen extends ConsumerWidget {
     );
     manualSearchDebounce?.cancel();
 
-    if (ok != true || !context.mounted) return;
+    if (ok == null || !context.mounted) return;
+
+    if (ok == 'transport') {
+      if (cartItems.isEmpty || selectedLat == null || selectedLng == null) return;
+      final item = cartItems.first;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black54,
+        builder: (_) => const PopScope(
+          canPop: false,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  'Sending your request…',
+                  style: TextStyle(color: Colors.white, fontSize: 15),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      try {
+        await ref.read(transportServiceProvider).create(
+              productId: item.product.id,
+              quantity: item.quantity,
+              deliveryAddress:
+                  useManualAddress && addressController.text.trim().isNotEmpty
+                      ? addressController.text.trim()
+                      : (locationLabel ?? addressController.text.trim()),
+              deliveryLat: selectedLat!,
+              deliveryLng: selectedLng!,
+            );
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Request sent. The seller will propose a transport method and fee.',
+            ),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+        context.push('/transport-requests');
+      } catch (e) {
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pop();
+        if (!context.mounted) return;
+        final msg = e is DioException
+            ? (ref.read(transportServiceProvider).extractErrorMessage(e) ??
+                'Could not send the request. Please try again.')
+            : 'Could not send the request. Please try again.';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+      return;
+    }
 
     // Show a full-screen overlay while the checkout API calls run so the user
     // doesn't see the bare cart screen for 2-3 seconds.

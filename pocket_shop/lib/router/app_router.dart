@@ -52,6 +52,7 @@ import '../features/shared/screens/notifications_screen.dart';
 import '../features/shared/screens/payout_screen.dart';
 import '../features/shared/screens/refund_requests_screen.dart';
 import '../features/shared/screens/cancellation_requests_screen.dart';
+import '../features/shared/screens/transport_requests_screen.dart';
 import '../models/product.dart';
 import '../providers/auth_provider.dart' show AuthState, authProvider;
 
@@ -281,6 +282,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/cancellation-requests',
         builder: (context, state) => const CancellationRequestsScreen(),
+      ),
+      GoRoute(
+        path: '/transport-requests',
+        builder: (context, state) => const TransportRequestsScreen(),
       ),
 
       // ── Role root redirects ────────────────────────────────────────────

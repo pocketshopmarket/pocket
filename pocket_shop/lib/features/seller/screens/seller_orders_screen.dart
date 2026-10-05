@@ -13,6 +13,7 @@ import '../../../providers/platform_settings_provider.dart';
 import '../../../widgets/qr_identity_sheet.dart';
 import '../../shared/screens/refund_requests_screen.dart';
 import '../../shared/screens/cancellation_requests_screen.dart';
+import '../../shared/screens/transport_requests_screen.dart';
 
 class SellerOrdersScreen extends ConsumerStatefulWidget {
   final int? initialOrderId;
@@ -190,6 +191,26 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
                     foregroundColor: AppTheme.error,
                     side: BorderSide(
                         color: AppTheme.error.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TransportRequestsScreen(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.local_shipping_outlined, size: 18),
+                  label: const Text('Transport requests'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.accentBlue,
+                    side: BorderSide(
+                        color: AppTheme.accentBlue.withValues(alpha: 0.5)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),

@@ -787,6 +787,12 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                     title: 'Cancellation requests',
                     onTap: () => context.push('/cancellation-requests'),
                   ),
+                  const SizedBox(height: 8),
+                  _ActionTile(
+                    icon: Icons.local_shipping_outlined,
+                    title: 'Transport requests',
+                    onTap: () => context.push('/transport-requests'),
+                  ),
                 ],
               ),
             ),

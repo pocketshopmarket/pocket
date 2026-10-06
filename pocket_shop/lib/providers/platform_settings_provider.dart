@@ -22,6 +22,52 @@ final commissionRateProvider = Provider<double>((ref) =>
 final buyerServiceFeeRateProvider = Provider<double>((ref) =>
     _val(ref.watch(platformSettingsProvider), 'buyer_service_fee_rate', 0.0));
 
+class BuyerServiceFeeTier {
+  final double minOrderValue;
+  final double? maxOrderValue;
+  final double feeRate;
+
+  const BuyerServiceFeeTier({
+    required this.minOrderValue,
+    this.maxOrderValue,
+    required this.feeRate,
+  });
+
+  factory BuyerServiceFeeTier.fromJson(Map<String, dynamic> json) => BuyerServiceFeeTier(
+        minOrderValue: (json['min_order_value'] as num).toDouble(),
+        maxOrderValue: (json['max_order_value'] as num?)?.toDouble(),
+        feeRate: (json['fee_rate'] as num).toDouble(),
+      );
+}
+
+final buyerServiceFeeTiersProvider = Provider<List<BuyerServiceFeeTier>>((ref) {
+  final raw = ref
+      .watch(platformSettingsProvider)
+      .whenData((s) => s['buyer_service_fee_tiers'] as List?)
+      .valueOrNull;
+  if (raw == null) return const [];
+  return raw
+      .map((e) => BuyerServiceFeeTier.fromJson(Map<String, dynamic>.from(e as Map)))
+      .toList();
+});
+
+/// Picks the tier covering [orderSubtotal], falling back to the flat
+/// buyer_service_fee_rate when no tiers are configured or none match
+/// (e.g. a gap left by admin misconfiguration) — mirrors
+/// portal.models.get_buyer_service_fee_rate on the server, which is always
+/// the authoritative calculation at order-creation time regardless of what
+/// this preview shows.
+double buyerServiceFeeRateForAmount(WidgetRef ref, double orderSubtotal) {
+  final tiers = ref.read(buyerServiceFeeTiersProvider);
+  for (final t in tiers) {
+    if (orderSubtotal >= t.minOrderValue &&
+        (t.maxOrderValue == null || orderSubtotal <= t.maxOrderValue!)) {
+      return t.feeRate;
+    }
+  }
+  return ref.read(buyerServiceFeeRateProvider);
+}
+
 final deliveryPerKmRateProvider = Provider<double>((ref) =>
     _val(ref.watch(platformSettingsProvider), 'delivery_per_km_rate', 8.0));
 

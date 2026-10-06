@@ -292,10 +292,9 @@ class CreateOrderView(APIView):
                 from decimal import Decimal as _Decimal
                 delivery_fee_val = _Decimal(str(server_delivery_fee or 0))
 
-                # ---------- Buyer service fee (server-side, from live Platform Settings) ----------
-                from portal.models import PlatformSettings
-                _ps = PlatformSettings.get()
-                service_fee_rate = _Decimal(str(_ps.buyer_service_fee_rate))
+                # ---------- Buyer service fee (server-side, tiered by order subtotal) ----------
+                from portal.models import get_buyer_service_fee_rate
+                service_fee_rate = get_buyer_service_fee_rate(line_total)
                 service_fee_val = (_Decimal(str(line_total)) * service_fee_rate).quantize(_Decimal('0.01'))
 
                 # Create order after stock validation passes.

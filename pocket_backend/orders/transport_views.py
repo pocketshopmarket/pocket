@@ -210,9 +210,9 @@ class TransportRequestAcceptView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            from portal.models import PlatformSettings
+            from portal.models import get_buyer_service_fee_rate
             line_total = product.price * tr.quantity
-            service_fee_rate = Decimal(str(PlatformSettings.get().buyer_service_fee_rate))
+            service_fee_rate = get_buyer_service_fee_rate(line_total)
             service_fee_val = (Decimal(str(line_total)) * service_fee_rate).quantize(Decimal('0.01'))
 
             order = Order.objects.create(

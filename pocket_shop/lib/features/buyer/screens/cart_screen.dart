@@ -1264,7 +1264,7 @@ class CartScreen extends ConsumerWidget {
                               ],
                             ),
                           ],
-                          if ((ref.read(cartProvider).totalAmount * ref.read(buyerServiceFeeRateProvider)) > 0) ...[
+                          if ((ref.read(cartProvider).totalAmount * buyerServiceFeeRateForAmount(ref, ref.read(cartProvider).totalAmount)) > 0) ...[
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1274,7 +1274,7 @@ class CartScreen extends ConsumerWidget {
                                   style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                                 ),
                                 Text(
-                                  'ZMW ${(ref.read(cartProvider).totalAmount * ref.read(buyerServiceFeeRateProvider)).toStringAsFixed(2)}',
+                                  'ZMW ${(ref.read(cartProvider).totalAmount * buyerServiceFeeRateForAmount(ref, ref.read(cartProvider).totalAmount)).toStringAsFixed(2)}',
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                                 ),
                               ],
@@ -1296,7 +1296,7 @@ class CartScreen extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                'ZMW ${(ref.read(cartProvider).totalAmount + (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0) + (ref.read(cartProvider).totalAmount * ref.read(buyerServiceFeeRateProvider))).toStringAsFixed(2)}',
+                                'ZMW ${(ref.read(cartProvider).totalAmount + (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0) + (ref.read(cartProvider).totalAmount * buyerServiceFeeRateForAmount(ref, ref.read(cartProvider).totalAmount))).toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,

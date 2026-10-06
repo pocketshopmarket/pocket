@@ -64,7 +64,7 @@ class Order(models.Model):
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     service_fee = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
-        help_text='Buyer service fee, snapshotted from PlatformSettings.buyer_service_fee_rate at order creation time.',
+        help_text='Buyer service fee, snapshotted at order creation time from portal.models.get_buyer_service_fee_rate (a tiered rate by order subtotal, or the flat PlatformSettings.buyer_service_fee_rate if no tiers are configured).',
     )
     fulfillment_type = models.CharField(
         max_length=10, choices=FULFILLMENT_CHOICES, default='delivery',

@@ -103,6 +103,58 @@ class PlatformSettings(models.Model):
         return obj
 
 
+class BuyerServiceFeeTier(models.Model):
+    """
+    Optional tiered replacement for the flat PlatformSettings.buyer_service_fee_rate.
+    When at least one active tier exists, get_buyer_service_fee_rate() picks the
+    tier whose range contains the order's item subtotal instead of the flat rate.
+    With no tiers configured, behavior is unchanged from the flat rate.
+    """
+    min_order_value = models.DecimalField(
+        max_digits=10, decimal_places=2,
+        help_text='Inclusive lower bound of the order subtotal (ZMW) this tier applies to.',
+    )
+    max_order_value = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Inclusive upper bound (ZMW). Leave blank for "and above" (no upper limit).',
+    )
+    fee_rate = models.DecimalField(
+        max_digits=5, decimal_places=4,
+        help_text='Service fee charged to buyers for orders in this range. 0.05 = 5%.',
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['min_order_value']
+        verbose_name = 'Buyer service fee tier'
+
+    def __str__(self):
+        upper = f'{self.max_order_value}' if self.max_order_value is not None else 'and above'
+        return f'ZMW {self.min_order_value}–{upper} -> {self.fee_rate * 100:.1f}%'
+
+
+def get_buyer_service_fee_rate(order_subtotal):
+    """
+    Returns the Decimal fee rate for an order with this item subtotal.
+    Picks the lowest-min active tier whose range contains the amount; falls
+    back to the flat PlatformSettings.buyer_service_fee_rate when no tiers
+    are configured (or none match, e.g. a gap left by admin misconfiguration).
+    """
+    amount = Decimal(str(order_subtotal))
+    tier = (
+        BuyerServiceFeeTier.objects.filter(is_active=True, min_order_value__lte=amount)
+        .filter(models.Q(max_order_value__isnull=True) | models.Q(max_order_value__gte=amount))
+        .order_by('min_order_value')
+        .first()
+    )
+    if tier:
+        return tier.fee_rate
+    # Decimal(str(...)) guards against PlatformSettings.get() returning its
+    # just-created instance with the raw float field default (0.00, not
+    # Decimal('0.00')) still in memory on a brand-new row.
+    return Decimal(str(PlatformSettings.get().buyer_service_fee_rate))
+
+
 class RevenueSnapshot(models.Model):
     year = models.PositiveIntegerField()
     month = models.PositiveIntegerField()  # 1–12

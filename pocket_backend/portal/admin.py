@@ -3,7 +3,7 @@ import calendar
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import PlatformSettings, RevenueSnapshot
+from .models import BuyerServiceFeeTier, PlatformSettings, RevenueSnapshot
 
 
 @admin.register(PlatformSettings)
@@ -18,7 +18,9 @@ class PlatformSettingsAdmin(admin.ModelAdmin):
             ),
             'description': (
                 'All rates are decimals: 0.05 = 5%, 0.10 = 10%, 0 = no charge. '
-                'Changes take effect immediately.'
+                'Changes take effect immediately. buyer_service_fee_rate is only used '
+                'when no Buyer service fee tiers (below) are configured, or an order '
+                'falls outside every tier\'s range — otherwise the matching tier wins.'
             ),
         }),
         ('Orders', {
@@ -52,6 +54,17 @@ class PlatformSettingsAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(BuyerServiceFeeTier)
+class BuyerServiceFeeTierAdmin(admin.ModelAdmin):
+    list_display = ('min_order_value', 'max_order_value', 'fee_rate_display', 'is_active')
+    list_editable = ('is_active',)
+    ordering = ('min_order_value',)
+
+    @admin.display(description='Fee rate')
+    def fee_rate_display(self, obj):
+        return f'{obj.fee_rate * 100:.2f}%'
 
 
 def _zmw(value):

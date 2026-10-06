@@ -6,7 +6,7 @@ from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import PlatformSettings
+from .models import BuyerServiceFeeTier, PlatformSettings
 
 _BASE_URL = 'https://mypocketshop.store'
 
@@ -102,8 +102,17 @@ class PublicSettingsView(APIView):
 
     def get(self, request):
         s = PlatformSettings.get()
+        tiers = BuyerServiceFeeTier.objects.filter(is_active=True).order_by('min_order_value')
         return Response({
             'buyer_service_fee_rate': float(s.buyer_service_fee_rate),
+            'buyer_service_fee_tiers': [
+                {
+                    'min_order_value': float(t.min_order_value),
+                    'max_order_value': float(t.max_order_value) if t.max_order_value is not None else None,
+                    'fee_rate': float(t.fee_rate),
+                }
+                for t in tiers
+            ],
             'seller_commission_rate': float(s.seller_commission_rate),
             'rider_commission_rate': float(s.rider_commission_rate),
             'payout_fee_rate': float(s.payout_fee_rate),

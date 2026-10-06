@@ -51,6 +51,7 @@ class Transaction(models.Model):
     GATEWAY_CHOICES = [
         ('pawapay', 'PawaPay (mobile money)'),
         ('lenco', 'Lenco (card / bank)'),
+        ('lipila', 'Lipila (card)'),
     ]
 
     PAYMENT_METHOD_CHOICES = [

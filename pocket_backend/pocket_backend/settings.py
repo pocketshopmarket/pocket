@@ -345,6 +345,19 @@ LENCO_WIDGET_URL = os.environ.get('LENCO_WIDGET_URL') or (
     else 'https://pay.lenco.co/js/v1/inline.js'
 )
 
+# LIPILA CONFIGURATION — alternative card collections (Visa/Mastercard/Amex),
+# under evaluation as a possible fix/fallback for the Lenco CyberSource 3DS
+# issue on card payments. Unlike Lenco's hosted-widget-on-our-page flow,
+# Lipila's /collections/card call directly returns a cardRedirectionUrl to
+# send the buyer to — no Pocket Shop-hosted checkout template needed.
+# LIPILA_API_KEY is the Test or Live key from Merchant Dashboard > Wallets >
+# view more details (or the Developer section). LIPILA_WEBHOOK_SECRET is the
+# base64 secret from Settings > Webhook Secret. Leaving the key empty keeps
+# this switched off, so it's safe to deploy before keys exist.
+LIPILA_API_KEY = os.environ.get('LIPILA_API_KEY', '').strip()
+LIPILA_WEBHOOK_SECRET = os.environ.get('LIPILA_WEBHOOK_SECRET', '').strip()
+LIPILA_BASE_URL = os.environ.get('LIPILA_BASE_URL', 'https://api.lipila.dev/api/v1').rstrip('/')
+
 # Platform commission taken from each order (0.05 = 5%).
 PLATFORM_COMMISSION_RATE = float(os.environ.get('PLATFORM_COMMISSION_RATE', '0.05'))
 

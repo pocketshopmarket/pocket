@@ -52,5 +52,27 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Without these, url_launcher's canLaunchUrl() can return false on
+             package-visibility-restricted devices (Android 11+) even though
+             the OS itself would otherwise handle these — the rider "Google
+             Maps" navigation button and the "Call buyer/seller" buttons go
+             through this check and silently do nothing without it. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="geo"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="google.navigation"/>
+        </intent>
     </queries>
 </manifest>

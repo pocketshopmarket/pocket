@@ -202,6 +202,25 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     );
     if (await canLaunchUrl(fallback)) {
       await launchUrl(fallback, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps on this device.')),
+      );
+    }
+  }
+
+  Future<void> _callPhone(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+      return;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the phone dialer on this device.')),
+      );
     }
   }
 
@@ -1279,10 +1298,7 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                     children: [
                       if (buyerPhone.isNotEmpty)
                         TextButton.icon(
-                          onPressed: () async {
-                            final uri = Uri(scheme: 'tel', path: buyerPhone);
-                            if (await canLaunchUrl(uri)) await launchUrl(uri);
-                          },
+                          onPressed: () => _callPhone(buyerPhone),
                           icon: const Icon(Icons.call_outlined, size: 16),
                           label: const Text('Call buyer'),
                           style: TextButton.styleFrom(
@@ -1295,10 +1311,7 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                         ),
                       if (sellerPhone.isNotEmpty)
                         TextButton.icon(
-                          onPressed: () async {
-                            final uri = Uri(scheme: 'tel', path: sellerPhone);
-                            if (await canLaunchUrl(uri)) await launchUrl(uri);
-                          },
+                          onPressed: () => _callPhone(sellerPhone),
                           icon: const Icon(Icons.call_outlined, size: 16),
                           label: const Text('Call seller'),
                           style: TextButton.styleFrom(

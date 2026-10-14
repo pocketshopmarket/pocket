@@ -47,6 +47,7 @@ def staff_analytics_page(request):
         'user_breakdown': data['user_breakdown'],
         'top_stores': data['top_stores'],
         'top_products': data['top_products'],
+        'top_riders': data['top_riders'],
         'title': 'Store & product analytics',
     })
 

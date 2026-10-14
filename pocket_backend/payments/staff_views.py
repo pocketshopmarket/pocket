@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User, VerificationRequest
+from delivery.models import DeliveryAssignment
 from notifications.signals import _create_notification, _send_push
 from orders.models import Order
 from products.models import Product
@@ -224,10 +225,11 @@ class StaffStatsView(APIView):
 
 def compute_staff_analytics(days=30):
     """
-    Cross-seller performance: which stores and products are doing best, and
-    how the user base breaks down by role. Revenue/units are counted only
-    from delivered orders in range — cancelled/pending orders would inflate
-    a "performance" number that's meant to reflect real completed sales.
+    Cross-seller performance: which stores, products and riders are doing
+    best, and how the user base breaks down by role. Revenue/units/deliveries
+    are counted only from delivered orders/assignments in range —
+    cancelled/pending ones would inflate a "performance" number that's meant
+    to reflect real completed activity.
 
     Shared by the API (StaffAnalyticsView, for the app) and the Django-admin
     page (portal.views.staff_analytics_page) so the two never drift apart.
@@ -291,6 +293,29 @@ def compute_staff_analytics(days=30):
         for row in top_products_rows
     ]
 
+    top_riders_rows = (
+        DeliveryAssignment.objects.filter(status='delivered', delivered_at__gte=cutoff)
+        .values('delivery_person_id', 'delivery_person__full_name')
+        .annotate(deliveries_count=Count('id'))
+        .order_by('-deliveries_count')[:10]
+    )
+    rider_ids = [row['delivery_person_id'] for row in top_riders_rows]
+    earnings_by_rider = dict(
+        Transaction.objects.filter(
+            transaction_type='payout', recipient_role='delivery',
+            recipient_id__in=rider_ids, status='completed',
+        ).values('recipient_id').annotate(total=Sum('amount')).values_list('recipient_id', 'total')
+    )
+    top_riders = [
+        {
+            'rider_id': row['delivery_person_id'],
+            'name': row['delivery_person__full_name'],
+            'deliveries_count': row['deliveries_count'],
+            'earnings': str(earnings_by_rider.get(row['delivery_person_id']) or 0),
+        }
+        for row in top_riders_rows
+    ]
+
     return {
         'days': days,
         'user_breakdown': {
@@ -302,6 +327,7 @@ def compute_staff_analytics(days=30):
         },
         'top_stores': top_stores,
         'top_products': top_products,
+        'top_riders': top_riders,
     }
 
 

@@ -79,4 +79,23 @@
 {% else %}
 <p class="ps-empty">No delivered orders in this period yet.</p>
 {% endif %}
+
+<div class="ps-section-title">Top performing riders</div>
+{% if top_riders %}
+<table class="ps-table">
+  <thead><tr><th></th><th>Rider</th><th>Deliveries</th><th>Earnings (ZMW)</th></tr></thead>
+  <tbody>
+    {% for row in top_riders %}
+    <tr>
+      <td class="ps-rank">{{ forloop.counter }}</td>
+      <td>{{ row.name }}</td>
+      <td>{{ row.deliveries_count }}</td>
+      <td>{{ row.earnings }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="ps-empty">No completed deliveries in this period yet.</p>
+{% endif %}
 {% endblock %}

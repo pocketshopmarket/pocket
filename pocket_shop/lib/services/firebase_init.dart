@@ -86,11 +86,12 @@ Future<void> _showDebugNotification(String body) async {
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'pocket_shop_channel',
+          'pocket_shop_channel_v2',
           'Pocket Shop',
           channelDescription: 'Pocket Shop order and payment updates',
           importance: Importance.high,
           priority: Priority.high,
+          sound: RawResourceAndroidNotificationSound('notification_tone'),
         ),
         iOS: DarwinNotificationDetails(),
       ),
@@ -144,10 +145,11 @@ Future<void> _initLocalNotifications() async {
           AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(
         const AndroidNotificationChannel(
-          'pocket_shop_channel',
+          'pocket_shop_channel_v2',
           'Pocket Shop',
           description: 'Pocket Shop order and payment updates',
           importance: Importance.high,
+          sound: RawResourceAndroidNotificationSound('notification_tone'),
         ),
       );
 }
@@ -162,12 +164,13 @@ Future<void> _handleForegroundMessage(RemoteMessage message) async {
     notification.body,
     const NotificationDetails(
       android: AndroidNotificationDetails(
-        'pocket_shop_channel',
+        'pocket_shop_channel_v2',
         'Pocket Shop',
         channelDescription: 'Pocket Shop order and payment updates',
         importance: Importance.high,
         priority: Priority.high,
         largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+        sound: RawResourceAndroidNotificationSound('notification_tone'),
       ),
       iOS: DarwinNotificationDetails(),
     ),

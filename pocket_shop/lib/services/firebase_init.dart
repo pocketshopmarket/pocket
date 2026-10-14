@@ -93,7 +93,7 @@ Future<void> _showDebugNotification(String body) async {
           priority: Priority.high,
           sound: RawResourceAndroidNotificationSound('notification_tone'),
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(sound: 'notification_tone.wav'),
       ),
     );
   } catch (_) {
@@ -172,7 +172,7 @@ Future<void> _handleForegroundMessage(RemoteMessage message) async {
         largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         sound: RawResourceAndroidNotificationSound('notification_tone'),
       ),
-      iOS: DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(sound: 'notification_tone.wav'),
     ),
   );
 }

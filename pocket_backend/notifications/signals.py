@@ -80,7 +80,12 @@ def _send_push(recipient, title, message, data_payload):
             token=token,
             apns=messaging.APNSConfig(
                 headers={'apns-priority': '10'},
-                payload=messaging.APNSPayload(aps=messaging.Aps(sound='default')),
+                # Must match the filename bundled in ios/Runner (added to the
+                # Xcode project's Resources build phase) — this is what
+                # actually plays when the app is backgrounded/terminated;
+                # the Flutter-side DarwinNotificationDetails sound only
+                # applies to the foreground local-notification path.
+                payload=messaging.APNSPayload(aps=messaging.Aps(sound='notification_tone.wav')),
             ),
         )
         messaging.send(msg, app=app)
@@ -499,7 +504,12 @@ def _send_announcement_push_batch(tokens, title, message):
             tokens=tokens,
             apns=messaging.APNSConfig(
                 headers={'apns-priority': '10'},
-                payload=messaging.APNSPayload(aps=messaging.Aps(sound='default')),
+                # Must match the filename bundled in ios/Runner (added to the
+                # Xcode project's Resources build phase) — this is what
+                # actually plays when the app is backgrounded/terminated;
+                # the Flutter-side DarwinNotificationDetails sound only
+                # applies to the foreground local-notification path.
+                payload=messaging.APNSPayload(aps=messaging.Aps(sound='notification_tone.wav')),
             ),
         )
         response = messaging.send_each_for_multicast(multicast, app=app)

@@ -18,6 +18,7 @@
 {% endblock %}
 
 {% block userlinks %}
+<a href="{% url 'portal:staff-analytics' %}" style="margin-right:12px;font-weight:600;">Analytics</a>
 <a href="/manual/" target="_blank" style="margin-right:12px;font-weight:600;">Manual</a>
 {{ block.super }}
 {% endblock %}

@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.contrib.admin.views.decorators import staff_member_required
 from django.http import HttpResponse
 from django.shortcuts import render
 from rest_framework import permissions
@@ -25,6 +26,29 @@ def manual(request):
 
 def partner_api_docs(request):
     return render(request, 'portal/partner_api.html')
+
+
+@staff_member_required
+def staff_analytics_page(request):
+    """
+    Django-admin-only view of compute_staff_analytics() — which stores and
+    products are performing best, plus the user-role breakdown. Linked from
+    the admin's top bar (templates/admin/base_site.html), same spot as the
+    existing Manual link.
+    """
+    from payments.staff_views import compute_staff_analytics
+    try:
+        days = int(request.GET.get('days', 30))
+    except (ValueError, TypeError):
+        days = 30
+    data = compute_staff_analytics(days)
+    return render(request, 'admin/staff_analytics.html', {
+        'days': data['days'],
+        'user_breakdown': data['user_breakdown'],
+        'top_stores': data['top_stores'],
+        'top_products': data['top_products'],
+        'title': 'Store & product analytics',
+    })
 
 
 def delete_account(request):

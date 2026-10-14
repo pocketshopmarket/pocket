@@ -1,0 +1,82 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<style>
+  .ps-period { margin-bottom: 20px; }
+  .ps-period a {
+    display: inline-block; margin-right: 8px; padding: 6px 14px;
+    border-radius: 6px; background: #f1f5f9; color: #334155;
+    text-decoration: none; font-weight: 600; font-size: 13px;
+  }
+  .ps-period a.active { background: #0f172a; color: #fff; }
+  .ps-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 28px; }
+  .ps-stat {
+    flex: 1 1 140px; background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .ps-stat .value { font-size: 24px; font-weight: 800; color: #0f172a; }
+  .ps-stat .label { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .ps-section-title { font-size: 16px; font-weight: 800; margin: 24px 0 10px; color: #0f172a; }
+  .ps-table { width: 100%; border-collapse: collapse; background: #fff; }
+  .ps-table th, .ps-table td {
+    text-align: left; padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;
+  }
+  .ps-table th { color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 11px; }
+  .ps-rank { color: #64748b; width: 32px; }
+  .ps-empty { color: #64748b; font-size: 13px; padding: 12px 0; }
+</style>
+
+<div class="ps-period">
+  <a href="?days=7" class="{% if days == 7 %}active{% endif %}">7 days</a>
+  <a href="?days=30" class="{% if days == 30 %}active{% endif %}">30 days</a>
+  <a href="?days=90" class="{% if days == 90 %}active{% endif %}">90 days</a>
+  <a href="?days=365" class="{% if days == 365 %}active{% endif %}">365 days</a>
+</div>
+
+<div class="ps-stats">
+  <div class="ps-stat"><div class="value">{{ user_breakdown.buyer_count }}</div><div class="label">Buyers</div></div>
+  <div class="ps-stat"><div class="value">{{ user_breakdown.seller_count }}</div><div class="label">Sellers</div></div>
+  <div class="ps-stat"><div class="value">{{ user_breakdown.rider_count }}</div><div class="label">Riders</div></div>
+  <div class="ps-stat"><div class="value">{{ user_breakdown.staff_count }}</div><div class="label">Staff</div></div>
+  <div class="ps-stat"><div class="value">{{ user_breakdown.new_signups }}</div><div class="label">New signups this period</div></div>
+</div>
+
+<div class="ps-section-title">Top performing stores</div>
+{% if top_stores %}
+<table class="ps-table">
+  <thead><tr><th></th><th>Store</th><th>Orders</th><th>Revenue (ZMW)</th></tr></thead>
+  <tbody>
+    {% for row in top_stores %}
+    <tr>
+      <td class="ps-rank">{{ forloop.counter }}</td>
+      <td>{{ row.shop_name }}</td>
+      <td>{{ row.orders_count }}</td>
+      <td>{{ row.revenue }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="ps-empty">No delivered orders in this period yet.</p>
+{% endif %}
+
+<div class="ps-section-title">Top performing products</div>
+{% if top_products %}
+<table class="ps-table">
+  <thead><tr><th></th><th>Product</th><th>Store</th><th>Units sold</th><th>Revenue (ZMW)</th></tr></thead>
+  <tbody>
+    {% for row in top_products %}
+    <tr>
+      <td class="ps-rank">{{ forloop.counter }}</td>
+      <td>{{ row.name }}</td>
+      <td>{{ row.shop_name }}</td>
+      <td>{{ row.units_sold }}</td>
+      <td>{{ row.revenue }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="ps-empty">No delivered orders in this period yet.</p>
+{% endif %}
+{% endblock %}

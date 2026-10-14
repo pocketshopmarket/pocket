@@ -11,6 +11,14 @@ class StaffService {
     return res.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getAnalytics({int days = 30}) async {
+    final res = await _api.get(
+      AppConstants.staffAnalyticsEndpoint,
+      queryParameters: {'days': days},
+    );
+    return res.data as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> getPayoutQueue({String? role}) async {
     final params = <String, dynamic>{};
     if (role != null && role.isNotEmpty) params['role'] = role;

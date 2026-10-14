@@ -10,7 +10,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from django.db import transaction as db_transaction
-from django.db.models import Count, Q, Sum, Value
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import permissions, status
@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from accounts.models import User, VerificationRequest
 from notifications.signals import _create_notification, _send_push
 from orders.models import Order
+from products.models import Product
 from .earnings import earnings_breakdown
 from .lenco_transfers import CannotSend, is_lenco_transfer, send_via_lenco
 from .models import Transaction
@@ -55,6 +56,15 @@ class IsStaff(permissions.BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.role == 'staff'
+        )
+
+
+class IsStaffOrAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.role in ('staff', 'admin')
         )
 
 
@@ -210,6 +220,97 @@ class StaffStatsView(APIView):
             'seller_count': seller_count,
             'rider_count': rider_count,
         })
+
+
+def compute_staff_analytics(days=30):
+    """
+    Cross-seller performance: which stores and products are doing best, and
+    how the user base breaks down by role. Revenue/units are counted only
+    from delivered orders in range — cancelled/pending orders would inflate
+    a "performance" number that's meant to reflect real completed sales.
+
+    Shared by the API (StaffAnalyticsView, for the app) and the Django-admin
+    page (portal.views.staff_analytics_page) so the two never drift apart.
+    """
+    try:
+        days = max(1, min(365, int(days)))
+    except (ValueError, TypeError):
+        days = 30
+    cutoff = timezone.now() - timedelta(days=days - 1)
+
+    buyer_count = User.objects.filter(role='buyer', is_active=True).count()
+    seller_count = User.objects.filter(role='seller', is_active=True).count()
+    rider_count = User.objects.filter(role='delivery', is_active=True).count()
+    staff_count = User.objects.filter(role='staff', is_active=True).count()
+    new_signups = User.objects.filter(is_active=True, date_joined__gte=cutoff).count()
+
+    delivered_in_range = Order.objects.filter(status='delivered', created_at__gte=cutoff)
+
+    top_stores_rows = (
+        delivered_in_range
+        .values('seller_id', 'seller__seller_profile__shop_name', 'seller__full_name')
+        .annotate(orders_count=Count('id'), revenue=Sum('total_price'))
+        .order_by('-revenue')[:10]
+    )
+    top_stores = [
+        {
+            'seller_id': row['seller_id'],
+            'shop_name': row['seller__seller_profile__shop_name'] or row['seller__full_name'],
+            'orders_count': row['orders_count'],
+            'revenue': str(row['revenue'] or 0),
+        }
+        for row in top_stores_rows
+    ]
+
+    top_products_rows = (
+        Product.objects.filter(
+            orderitem__order__status='delivered',
+            orderitem__order__created_at__gte=cutoff,
+        )
+        .values('id', 'name', 'seller_id', 'seller__seller_profile__shop_name')
+        .annotate(
+            units_sold=Sum('orderitem__quantity'),
+            revenue=Sum(
+                ExpressionWrapper(
+                    F('orderitem__quantity') * F('orderitem__price'),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            ),
+        )
+        .order_by('-revenue')[:10]
+    )
+    top_products = [
+        {
+            'id': row['id'],
+            'name': row['name'],
+            'seller_id': row['seller_id'],
+            'shop_name': row['seller__seller_profile__shop_name'] or '',
+            'units_sold': row['units_sold'] or 0,
+            'revenue': str(row['revenue'] or 0),
+        }
+        for row in top_products_rows
+    ]
+
+    return {
+        'days': days,
+        'user_breakdown': {
+            'buyer_count': buyer_count,
+            'seller_count': seller_count,
+            'rider_count': rider_count,
+            'staff_count': staff_count,
+            'new_signups': new_signups,
+        },
+        'top_stores': top_stores,
+        'top_products': top_products,
+    }
+
+
+class StaffAnalyticsView(APIView):
+    """GET /api/staff/analytics/?days=30 — see compute_staff_analytics()."""
+    permission_classes = [permissions.IsAuthenticated, IsStaffOrAdmin]
+
+    def get(self, request):
+        return Response(compute_staff_analytics(request.query_params.get('days', 30)))
 
 
 # ── Payout Queue ────────────────────────────────────────────────────────────

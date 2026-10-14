@@ -16,6 +16,7 @@ from .bank_views import (
     BankListView,
 )
 from .staff_views import (
+    StaffAnalyticsView,
     StaffApproveVerificationView,
     StaffFailedPayoutsView,
     StaffRequeuePayoutView,
@@ -66,6 +67,7 @@ urlpatterns = [
 
 staff_urlpatterns = [
     path('stats/', StaffStatsView.as_view(), name='staff-stats'),
+    path('analytics/', StaffAnalyticsView.as_view(), name='staff-analytics'),
     path('payout-queue/', StaffPayoutQueueView.as_view(), name='staff-payout-queue'),
     path('mark-paid/<uuid:tx_id>/', StaffMarkPaidView.as_view(), name='staff-mark-paid'),
     path('mark-refunded/<uuid:tx_id>/', StaffMarkRefundedView.as_view(), name='staff-mark-refunded'),

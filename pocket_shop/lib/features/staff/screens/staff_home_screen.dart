@@ -8,7 +8,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../services/staff_service.dart';
-import 'staff_analytics_screen.dart';
 import 'staff_payouts_screen.dart';
 
 final _statsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) {
@@ -222,18 +221,6 @@ class _StatsGrid extends ConsumerWidget {
                 ],
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StaffAnalyticsScreen()),
-            ),
-            icon: const Icon(Icons.bar_chart_rounded, size: 18),
-            label: const Text('Store & product analytics'),
           ),
         ),
       ],

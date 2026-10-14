@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../shared/screens/refund_requests_screen.dart';
-import '../../staff/screens/staff_analytics_screen.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -63,16 +62,6 @@ class AdminDashboardScreen extends ConsumerWidget {
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.5),
           ),
           const SizedBox(height: 10),
-          _tile(
-            icon: Icons.bar_chart_rounded,
-            color: AppTheme.primaryCyan,
-            title: 'Store & product analytics',
-            subtitle: 'Which stores and products are performing best',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StaffAnalyticsScreen()),
-            ),
-          ),
           _tile(
             icon: Icons.assignment_return_rounded,
             color: AppTheme.warning,

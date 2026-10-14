@@ -70,7 +70,6 @@ class AppConstants {
   
   // Staff endpoints
   static const String staffStatsEndpoint = 'staff/stats/';
-  static const String staffAnalyticsEndpoint = 'staff/analytics/';
   static const String staffPayoutQueueEndpoint = 'staff/payout-queue/';
   static const String staffMarkPaidPrefix = 'staff/mark-paid/';
   static const String staffMarkRefundedPrefix = 'staff/mark-refunded/';

@@ -236,6 +236,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             gender: args['gender'] as String?,
             dateOfBirth: args['date_of_birth'] as String?,
             showAlcoholProducts: args['show_alcohol_products'] as bool?,
+            preferredCategoryId: args['preferred_category'] as int?,
           );
         },
       ),

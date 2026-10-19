@@ -182,7 +182,8 @@ class VerifyOTPView(APIView):
                 
                 # Create appropriate profile
                 if role == 'buyer':
-                    BuyerProfile.objects.create(user=user)
+                    preferred_category_id = serializer.validated_data.get('preferred_category')
+                    BuyerProfile.objects.create(user=user, preferred_category=preferred_category_id)
                 elif role == 'seller':
                     SellerProfile.objects.create(
                         user=user,
@@ -575,10 +576,15 @@ class ShopListView(APIView):
     Public shop directory for buyer-facing discovery (guest-browsable, no
     auth required — mirrors the AllowAny pattern used for product browsing).
 
-    GET /api/auth/shops/?lat=&lng=&max_km=&search=&page=
+    GET /api/auth/shops/?lat=&lng=&max_km=&search=&category=&page=
 
     With lat/lng: sorted nearest-first (Haversine, computed in Python since
     there's no PostGIS backing). Without lat/lng: sorted alphabetically.
+
+    category (a top-level Category id) narrows this to shops carrying at
+    least one available product in that category or any of its
+    subcategories — shops have no category of their own, so this is
+    derived from what they actually sell.
     """
     permission_classes = [permissions.AllowAny]
 
@@ -620,6 +626,19 @@ class ShopListView(APIView):
         search = request.query_params.get('search')
         if search:
             qs = qs.filter(shop_name__icontains=search)
+
+        category_param = request.query_params.get('category')
+        if category_param:
+            try:
+                category_id = int(category_param)
+            except (TypeError, ValueError):
+                category_id = None
+            if category_id is not None:
+                from products.models import category_tree_ids
+                qs = qs.filter(
+                    user__products__category_id__in=category_tree_ids(category_id),
+                    user__products__is_available=True,
+                ).distinct()
 
         shops = list(qs)
 

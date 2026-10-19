@@ -10,6 +10,7 @@ class ShopQuery {
     this.lat,
     this.lng,
     this.maxKm,
+    this.category,
     this.page = 1,
     this.pageSize = 20,
   });
@@ -18,6 +19,7 @@ class ShopQuery {
   final double? lat;
   final double? lng;
   final double? maxKm;
+  final int? category;
   final int page;
   final int pageSize;
 }
@@ -76,6 +78,7 @@ class ShopService {
       if (query.lat != null) 'lat': query.lat,
       if (query.lng != null) 'lng': query.lng,
       if (query.maxKm != null) 'max_km': query.maxKm,
+      if (query.category != null) 'category': query.category,
     };
     try {
       final response = await _apiService.get(

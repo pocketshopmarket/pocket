@@ -97,6 +97,12 @@ class BuyerProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='buyer_profile')
     default_address = models.TextField(blank=True)
     preferred_payment_method = models.CharField(max_length=20, default='cash')
+    # Set at signup ("what do you love to shop for?") or by tapping a
+    # category chip on the home screen — either way becomes the buyer's new
+    # default. Null means "show everything" (no category narrows the feed).
+    preferred_category = models.ForeignKey(
+        'products.Category', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

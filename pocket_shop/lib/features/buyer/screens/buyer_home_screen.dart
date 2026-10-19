@@ -832,6 +832,48 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 }),
               ),
               const SizedBox(height: 16),
+              Builder(
+                builder: (context) {
+                  final categories = ref.watch(topLevelCategoriesProvider);
+                  if (categories.isEmpty) return const SizedBox.shrink();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 36,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: 1 + categories.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (_, index) {
+                            final isAll = index == 0;
+                            final catId = isAll ? null : categories[index - 1].id;
+                            final catName = isAll ? 'All' : categories[index - 1].name;
+                            final selected = shopState.selectedCategoryId == catId;
+                            return ChoiceChip(
+                              label: Text(catName),
+                              selected: selected,
+                              onSelected: (_) {
+                                if (!selected) {
+                                  ref.read(shopProvider.notifier).setCategory(catId);
+                                }
+                              },
+                              labelStyle: TextStyle(
+                                fontSize: 12,
+                                color: selected ? Colors.white : AppTheme.textPrimary,
+                              ),
+                              selectedColor: AppTheme.primaryCyan,
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: AppTheme.divider),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                },
+              ),
               // "Near Me" is silently omitted (no error UI) when location is
               // denied/unavailable — confirmed product decision, not a bug.
               if (shopState.isLoadingNearby) ...[

@@ -152,6 +152,7 @@ class AuthService {
     String? gender,
     String? dateOfBirth,
     bool? showAlcoholProducts,
+    int? preferredCategoryId,
   }) async {
     final formattedPhone = _formatPhoneOrNull(phoneNumber) ?? _formatPhone(phoneNumber);
     await _ensureInitialized();
@@ -170,6 +171,9 @@ class AuthService {
     }
     if (showAlcoholProducts != null) {
       data['show_alcohol_products'] = showAlcoholProducts;
+    }
+    if (preferredCategoryId != null) {
+      data['preferred_category'] = preferredCategoryId;
     }
 
     try {
@@ -563,6 +567,10 @@ class AuthService {
     String? defaultAddress,
     String? dateOfBirth,
     bool? showAlcoholProducts,
+    int? preferredCategoryId,
+    // preferredCategoryId alone can't tell "leave it alone" apart from
+    // "clear it" (both look like null) — this flag says which one is meant.
+    bool updatePreferredCategory = false,
   }) async {
     await _ensureInitialized();
     try {
@@ -571,6 +579,7 @@ class AuthService {
         if (defaultAddress != null) 'default_address': defaultAddress.trim(),
         if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
         if (showAlcoholProducts != null) 'show_alcohol_products': showAlcoholProducts,
+        if (updatePreferredCategory) 'preferred_category': preferredCategoryId,
       };
       final response = await _apiService.put(
         AppConstants.profileEndpoint,

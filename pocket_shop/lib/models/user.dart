@@ -141,16 +141,22 @@ class User {
 class BuyerProfile {
   final String? defaultAddress;
   final String preferredPaymentMethod;
+  final int? preferredCategoryId;
+  final String? preferredCategoryName;
 
   BuyerProfile({
     this.defaultAddress,
     required this.preferredPaymentMethod,
+    this.preferredCategoryId,
+    this.preferredCategoryName,
   });
 
   factory BuyerProfile.fromJson(Map<String, dynamic> json) {
     return BuyerProfile(
       defaultAddress: json['default_address'],
       preferredPaymentMethod: json['preferred_payment_method'] ?? 'cash',
+      preferredCategoryId: json['preferred_category'] as int?,
+      preferredCategoryName: json['preferred_category_name'] as String?,
     );
   }
 
@@ -158,6 +164,8 @@ class BuyerProfile {
     return {
       'default_address': defaultAddress,
       'preferred_payment_method': preferredPaymentMethod,
+      'preferred_category': preferredCategoryId,
+      'preferred_category_name': preferredCategoryName,
     };
   }
 }

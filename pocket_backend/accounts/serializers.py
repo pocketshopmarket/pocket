@@ -11,6 +11,7 @@ from .models import (
 )
 from .phone_utils import normalize_zambia_phone_to_e164
 from .otp_utils import assert_phone_otp_valid
+from products.models import Category
 
 PROVIDER_PREFIX_RULES = {
     'mtn_momo': {'096', '076'},
@@ -49,11 +50,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class BuyerProfileSerializer(serializers.ModelSerializer):
     user = UserProfileSerializer(read_only=True)
-    
+    preferred_category_name = serializers.CharField(
+        source='preferred_category.name', read_only=True, default=None,
+    )
+
     class Meta:
         model = BuyerProfile
-        fields = ['user', 'default_address', 'preferred_payment_method', 'created_at', 'updated_at']
+        fields = [
+            'user', 'default_address', 'preferred_payment_method',
+            'preferred_category', 'preferred_category_name',
+            'created_at', 'updated_at',
+        ]
         read_only_fields = ['created_at', 'updated_at']
+        extra_kwargs = {'preferred_category': {'allow_null': True, 'required': False}}
 
 
 class BuyerPaymentMethodSerializer(serializers.ModelSerializer):
@@ -316,6 +325,9 @@ class VerifyOTPSerializer(serializers.Serializer):
     gender = serializers.ChoiceField(choices=User.GENDER_CHOICES, required=False, allow_blank=True)
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     show_alcohol_products = serializers.BooleanField(required=False)
+    preferred_category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), required=False, allow_null=True,
+    )
 
     def validate_phone_number(self, value):
         return normalize_zambia_phone_to_e164(value)

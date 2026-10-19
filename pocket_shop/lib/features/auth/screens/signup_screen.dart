@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../../models/category.dart';
+import '../../../../providers/category_provider.dart';
 import '../../../../services/auth_service.dart';
 import '../auth_navigation.dart';
 import '../widgets/auth_action_button.dart';
@@ -37,6 +39,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   // Only asked once the buyer is computed 18+; defaults to shown (matches the
   // server default) so an unanswered-but-visible toggle doesn't surprise them.
   bool _showAlcoholProducts = true;
+  // Buyer-only. Null means "no preference" — skipping the question is fine,
+  // the home screen just won't default to a filtered view for them.
+  int? _preferredCategoryId;
   int _pageIndex = 0;
   bool _isLoading = false;
   bool _isPasswordVisible = false;
@@ -126,6 +131,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           'gender': _gender,
           if (dob != null) 'date_of_birth': _formatDateIso(dob),
           if (_isAdult) 'show_alcohol_products': _showAlcoholProducts,
+          if (widget.role == 'buyer' && _preferredCategoryId != null)
+            'preferred_category': _preferredCategoryId,
         },
       );
     } else {
@@ -386,6 +393,67 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12.sp)),
                         ),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (widget.role == 'buyer') ...[
+              SizedBox(height: AppSizes.spacingMedium.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceWhite,
+                  borderRadius: BorderRadius.circular(AppSizes.radius.r),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'What do you love to shop for?',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Optional — we\'ll show you that first. You can change it anytime.',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final categories = ref.watch(topLevelCategoriesProvider);
+                        if (categories.isEmpty) return const SizedBox.shrink();
+                        return Wrap(
+                          spacing: 8.w,
+                          runSpacing: 8.h,
+                          children: categories.map((Category c) {
+                            final selected = _preferredCategoryId == c.id;
+                            return ChoiceChip(
+                              label: Text(c.name),
+                              selected: selected,
+                              onSelected: (_) {
+                                setState(() {
+                                  _preferredCategoryId = selected ? null : c.id;
+                                });
+                              },
+                              labelStyle: TextStyle(
+                                fontSize: 12.sp,
+                                color: selected ? Colors.white : AppTheme.textPrimary,
+                              ),
+                              selectedColor: AppTheme.primaryCyan,
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: AppTheme.divider),
+                            );
+                          }).toList(),
+                        );
+                      },
                     ),
                   ],
                 ),

@@ -11,6 +11,7 @@ class PromoBanner {
   final String? imageUrl;
   final String actionType;
   final String actionValue;
+  final bool isSponsored;
 
   const PromoBanner({
     required this.id,
@@ -22,6 +23,7 @@ class PromoBanner {
     this.imageUrl,
     this.actionType = 'none',
     this.actionValue = '',
+    this.isSponsored = false,
   });
 
   factory PromoBanner.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class PromoBanner {
       imageUrl: json['image_url'] as String?,
       actionType: json['action_type'] as String? ?? 'none',
       actionValue: json['action_value'] as String? ?? '',
+      isSponsored: json['is_sponsored'] as bool? ?? false,
     );
   }
 

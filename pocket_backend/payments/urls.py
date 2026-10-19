@@ -1,6 +1,9 @@
 from django.urls import path
 from django.http import JsonResponse
-from .views import EarningsSummaryView, InitiatePaymentView, PawaPayWebhookView, PaymentStatusView, RequestPayoutView
+from .views import (
+    BannerPaymentInitiateView, BannerPaymentStatusView, EarningsSummaryView,
+    InitiatePaymentView, PawaPayWebhookView, PaymentStatusView, RequestPayoutView,
+)
 from .card_views import (
     CardInitiateView,
     CardRefundNumberCheckView,
@@ -18,6 +21,8 @@ from .bank_views import (
 from .staff_views import (
     StaffAnalyticsView,
     StaffApproveVerificationView,
+    StaffBannerDecisionView,
+    StaffBannerQueueView,
     StaffFailedPayoutsView,
     StaffRequeuePayoutView,
     StaffMarkPaidView,
@@ -50,6 +55,8 @@ urlpatterns = [
     path('initiate/', InitiatePaymentView.as_view(), name='initiate-payment'),
     path('webhook/', PawaPayWebhookView.as_view(), name='pawapay-webhook'),
     path('status/', PaymentStatusView.as_view(), name='payment-status'),
+    path('banner/initiate/', BannerPaymentInitiateView.as_view(), name='banner-payment-initiate'),
+    path('banner/status/', BannerPaymentStatusView.as_view(), name='banner-payment-status'),
     path('earnings/summary/', EarningsSummaryView.as_view(), name='earnings-summary'),
     path('payout/', RequestPayoutView.as_view(), name='request-payout'),
     path('ping/', _pawapay_ping, name='pawapay-ping'),
@@ -78,5 +85,7 @@ staff_urlpatterns = [
     path('failed-payouts/', StaffFailedPayoutsView.as_view(), name='staff-failed-payouts'),
     path('failed-payouts/<uuid:tx_id>/requeue/', StaffRequeuePayoutView.as_view(), name='staff-requeue-payout'),
     path('send-via-lenco/<uuid:tx_id>/', StaffSendViaLencoView.as_view(), name='staff-send-via-lenco'),
+    path('banners/', StaffBannerQueueView.as_view(), name='staff-banner-queue'),
+    path('banners/<int:pk>/<str:action>/', StaffBannerDecisionView.as_view(), name='staff-banner-decision'),
 ]
 

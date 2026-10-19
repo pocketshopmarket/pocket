@@ -71,6 +71,16 @@ class PlatformSettings(models.Model):
         help_text="Lenco's flat fee per bank transfer (ZMW). Deducted from the seller's payout.",
     )
 
+    # Seller-paid banner promotion ("Promote your shop")
+    banner_slot_enabled = models.BooleanField(
+        default=False,
+        help_text='Let sellers request and pay for a promoted home-screen banner.',
+    )
+    banner_slot_price_per_day = models.DecimalField(
+        max_digits=10, decimal_places=2, default=50,
+        help_text='Price (ZMW) per day of a seller-paid banner slot.',
+    )
+
     # Maintenance
     maintenance_mode = models.BooleanField(
         default=False,

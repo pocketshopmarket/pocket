@@ -455,6 +455,21 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
             label: const Text('Manage payment methods'),
           ),
         ),
+        if (approved) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => context.push('/seller/promote-shop'),
+              icon: const Icon(Icons.campaign_outlined),
+              label: const Text('Promote your shop'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryCyan,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         SizedBox(
           height: 48,

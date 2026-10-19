@@ -93,8 +93,16 @@ class Transaction(models.Model):
         null=True, blank=True, related_name='transactions',
         help_text='Destination account for a bank payout.',
     )
+    # Nullable: a transaction belongs to either an order OR a promo_banner
+    # (never neither, never both — enforced in the views that create these,
+    # not at the DB level, to keep this migration additive and simple).
     order = models.ForeignKey(
-        'orders.Order', on_delete=models.CASCADE, related_name='transactions'
+        'orders.Order', on_delete=models.CASCADE, related_name='transactions',
+        null=True, blank=True,
+    )
+    promo_banner = models.ForeignKey(
+        'products.PromoBanner', on_delete=models.CASCADE, related_name='transactions',
+        null=True, blank=True,
     )
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
     amount = models.DecimalField(max_digits=10, decimal_places=2)

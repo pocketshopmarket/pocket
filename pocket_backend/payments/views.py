@@ -132,6 +132,32 @@ def apply_deposit_failed(transaction, *, word='failed', cancelled_by_user=False)
         logger.exception('Payment failure notification failed for order %s', transaction.order.order_number)
 
 
+def apply_banner_payment_completed(transaction):
+    """
+    Payment confirmed for a seller-paid banner slot. Deliberately does NOT
+    set is_active — a successful payment only moves the banner into staff's
+    review queue; it only reaches buyers once a human approves it (see
+    payments.staff_views.StaffBannerQueueView).
+    """
+    banner = transaction.promo_banner
+    banner.status = 'pending_review'
+    banner.save(update_fields=['status'])
+    try:
+        from .staff_views import notify_staff_new_banner_submission
+        notify_staff_new_banner_submission(banner)
+    except Exception:
+        logger.exception('Staff notify failed for banner %s', banner.id)
+
+
+def apply_banner_payment_failed(transaction):
+    """Payment failed/cancelled — leave the banner at pending_payment so the seller can retry."""
+    banner = transaction.promo_banner
+    if banner.status == 'pending_payment':
+        return  # already in the right state; nothing to do
+    banner.status = 'pending_payment'
+    banner.save(update_fields=['status'])
+
+
 # ─── Payment Initiation ────────────────────────────────────────────────
 
 class InitiatePaymentView(APIView):
@@ -251,6 +277,170 @@ class InitiatePaymentView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class BannerPaymentInitiateView(APIView):
+    """
+    POST /api/payments/banner/initiate/  {banner_id, payer_number}
+
+    Mobile-money-only charge for a seller's "promote your shop" banner slot
+    (see products.SellerBannerRequestView — that creates the banner at
+    status=pending_payment with its price already set; this just charges
+    it). Mirrors InitiatePaymentView's idempotency/sync pattern but against
+    a PromoBanner instead of an Order — kept as its own view rather than
+    branching InitiatePaymentView, since order.grand_total/order.status
+    assumptions run through that view's idempotency logic too deeply to
+    safely bolt a second domain onto it.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from products.models import PromoBanner
+
+        banner_id = request.data.get('banner_id')
+        payer_number = request.data.get('payer_number')
+        if not all([banner_id, payer_number]):
+            return Response(
+                {"error": "banner_id and payer_number are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        banner = get_object_or_404(PromoBanner, id=banner_id, seller=request.user)
+        if banner.status != 'pending_payment':
+            return Response(
+                {"error": f"This banner is '{banner.status}' — cannot pay for it now."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            normalized_number = normalize_zambia_phone_to_e164(payer_number)
+        except Exception:
+            return Response(
+                {"error": "Invalid payer_number format"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        provider = detect_provider_from_phone(normalized_number)
+
+        from django.utils import timezone
+        from datetime import timedelta
+
+        existing = Transaction.objects.filter(
+            promo_banner=banner,
+            transaction_type='deposit',
+            status__in=['pending', 'accepted'],
+        ).first()
+        if existing:
+            if existing.status == 'pending':
+                if timezone.now() - existing.created_at > timedelta(minutes=3):
+                    existing.status = 'failed'
+                    existing.failure_message = 'Deposit initiation timed out — retrying'
+                    existing.save()
+                    existing = None
+            elif existing.status == 'accepted':
+                remote = PawaPayService.get_deposit_status(str(existing.transaction_id))
+                if remote:
+                    remote_status = remote.get('status', '')
+                    if remote_status in ('FAILED', 'TERMINATED'):
+                        existing.status = 'failed'
+                        reason = remote.get('failureReason', {})
+                        existing.failure_message = reason.get('failureMessage', remote_status)
+                        existing.save()
+                        existing = None
+                    elif remote_status == 'COMPLETED':
+                        existing.status = 'completed'
+                        existing.save()
+                        apply_banner_payment_completed(existing)
+
+        if existing:
+            return Response({
+                "message": "Payment already initiated",
+                "transaction_id": existing.transaction_id,
+                "status": existing.status,
+                "amount_charged": str(existing.amount),
+            }, status=status.HTTP_200_OK)
+
+        transaction = Transaction.objects.create(
+            promo_banner=banner,
+            transaction_type='deposit',
+            amount=banner.price_paid,
+            currency='ZMW',
+            provider=provider,
+            payer_number=normalized_number,
+            recipient_role='platform',
+            status='pending',
+        )
+
+        pawapay_response = PawaPayService.initiate_deposit(transaction)
+
+        if pawapay_response:
+            return Response({
+                "message": "Payment initiated successfully",
+                "transaction_id": transaction.transaction_id,
+                "status": transaction.status,
+                "amount_charged": str(banner.price_paid),
+                "pawapay_raw_data": pawapay_response,
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                "error": "Failed to initiate payment with Mobile Money provider",
+                "reason": transaction.failure_message,
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class BannerPaymentStatusView(APIView):
+    """
+    GET /api/payments/banner/status/?banner_id=
+    Used by the "Promote your shop" screen to poll for completion, same
+    role PaymentStatusView plays for order checkout.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from products.models import PromoBanner
+
+        banner_id = request.query_params.get('banner_id')
+        if not banner_id:
+            return Response(
+                {'error': 'banner_id query parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        banner = get_object_or_404(PromoBanner, id=banner_id, seller=request.user)
+
+        deposit_tx = (
+            Transaction.objects.filter(promo_banner=banner, transaction_type='deposit')
+            .order_by('-created_at')
+            .first()
+        )
+        if not deposit_tx:
+            return Response({
+                'banner_id': banner.id,
+                'banner_status': banner.status,
+                'payment_status': 'no_payment',
+            })
+
+        if deposit_tx.status in ('pending', 'accepted'):
+            remote = PawaPayService.get_deposit_status(str(deposit_tx.transaction_id))
+            if remote:
+                remote_status = remote.get('status', '')
+                if remote_status == 'COMPLETED' and deposit_tx.status != 'completed':
+                    deposit_tx.status = 'completed'
+                    deposit_tx.save()
+                    apply_banner_payment_completed(deposit_tx)
+                    banner.refresh_from_db()
+                elif remote_status in ('FAILED', 'TERMINATED') and deposit_tx.status != 'failed':
+                    deposit_tx.status = 'failed'
+                    reason = remote.get('failureReason', {})
+                    deposit_tx.failure_message = reason.get('failureMessage', remote_status)
+                    deposit_tx.save()
+                    apply_banner_payment_failed(deposit_tx)
+                    banner.refresh_from_db()
+
+        return Response({
+            'banner_id': banner.id,
+            'banner_status': banner.status,
+            'payment_status': deposit_tx.status,
+            'transaction_id': str(deposit_tx.transaction_id),
+        })
+
+
 # ─── PawaPay Webhook ───────────────────────────────────────────────────
 
 class PawaPayWebhookView(APIView):
@@ -327,8 +517,11 @@ class PawaPayWebhookView(APIView):
                 transaction.payout_stage = 'payout_paid'
                 send_payout_completed_notification = True
 
-            if transaction.transaction_type == 'deposit':
+            if transaction.transaction_type == 'deposit' and transaction.order_id:
                 apply_deposit_completed(transaction)
+
+            elif transaction.transaction_type == 'deposit' and transaction.promo_banner_id:
+                apply_banner_payment_completed(transaction)
 
             elif transaction.transaction_type == 'refund':
                 # No-op for post-delivery refund-request approvals (order
@@ -364,12 +557,15 @@ class PawaPayWebhookView(APIView):
                         transaction.transaction_id,
                     )
 
-            if transaction.transaction_type == 'deposit':
+            if transaction.transaction_type == 'deposit' and transaction.order_id:
                 apply_deposit_failed(
                     transaction,
                     word=status_value.lower(),
                     cancelled_by_user=status_value == 'TERMINATED',
                 )
+
+            elif transaction.transaction_type == 'deposit' and transaction.promo_banner_id:
+                apply_banner_payment_failed(transaction)
 
             elif transaction.transaction_type == 'refund':
                 # Gateway refund failed — put it back in the staff manual

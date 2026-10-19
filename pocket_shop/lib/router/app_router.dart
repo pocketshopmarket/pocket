@@ -23,6 +23,7 @@ import '../features/buyer/screens/cart_screen.dart';
 import '../features/buyer/screens/order_tracking_screen.dart';
 import '../features/buyer/screens/payment_pending_screen.dart';
 import '../features/buyer/screens/shop_storefront_screen.dart';
+import '../models/seller_banner.dart';
 import '../models/shop.dart';
 import '../features/delivery/screens/active_delivery_screen.dart';
 import '../features/delivery/screens/delivery_home_screen.dart';
@@ -32,13 +33,16 @@ import '../features/delivery/screens/delivery_profile_screen.dart';
 import '../features/delivery/screens/earnings_screen.dart';
 import '../features/admin/screens/admin_dashboard_screen.dart';
 import '../features/staff/screens/staff_account_screen.dart';
+import '../features/staff/screens/staff_banner_queue_screen.dart';
 import '../features/staff/screens/staff_home_screen.dart';
 import '../features/staff/screens/staff_main_screen.dart';
 import '../features/staff/screens/staff_payouts_screen.dart';
 import '../features/staff/screens/staff_refunds_screen.dart';
 import '../features/staff/screens/staff_verifications_screen.dart';
 import '../features/seller/screens/add_product_screen.dart';
+import '../features/seller/screens/banner_payment_screen.dart';
 import '../features/seller/screens/edit_product_screen.dart';
+import '../features/seller/screens/promote_shop_screen.dart';
 import '../features/seller/screens/seller_dashboard_screen.dart';
 import '../features/seller/screens/seller_main_screen.dart';
 import '../features/seller/screens/seller_orders_screen.dart';
@@ -529,6 +533,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   return SellerPayoutHistoryScreen(payouts: payouts);
                 },
               ),
+              GoRoute(
+                path: '/seller/promote-shop',
+                builder: (context, state) => const PromoteShopScreen(),
+              ),
+              GoRoute(
+                path: '/seller/promote-shop/pay',
+                builder: (context, state) {
+                  final banner = state.extra as SellerBanner;
+                  return BannerPaymentScreen(banner: banner);
+                },
+              ),
             ],
           ),
         ],
@@ -598,6 +613,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/staff/home',
                 builder: (context, state) => const StaffHomeScreen(),
+              ),
+              GoRoute(
+                path: '/staff/banners',
+                builder: (context, state) => const StaffBannerQueueScreen(),
               ),
             ],
           ),

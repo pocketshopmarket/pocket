@@ -58,8 +58,14 @@ class PawaPayService:
                     "provider": transaction.provider
                 }
             },
-            # Passes the Pocket order number for reconciliation in PawaPay dashboard
-            "clientReferenceId": transaction.order.order_number,
+            # Passes a human-readable reference for reconciliation in the
+            # PawaPay dashboard — the order number, or a banner reference
+            # for a seller-paid promotion slot (transactions aren't always
+            # order-linked; see Transaction.promo_banner).
+            "clientReferenceId": (
+                transaction.order.order_number if transaction.order_id
+                else f"BANNER-{transaction.promo_banner_id}"
+            ),
             "customerMessage": "Pocket Order" 
         }
 

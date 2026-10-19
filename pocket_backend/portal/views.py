@@ -145,4 +145,6 @@ class PublicSettingsView(APIView):
             'payout_method': s.payout_method,
             'maintenance_mode': s.maintenance_mode,
             'maintenance_message': s.maintenance_message,
+            'banner_slot_enabled': s.banner_slot_enabled,
+            'banner_slot_price_per_day': float(s.banner_slot_price_per_day),
         })

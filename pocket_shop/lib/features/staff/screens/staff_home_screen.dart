@@ -199,6 +199,22 @@ class _StatsGrid extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                label: 'Banner reviews',
+                value: '${data['banner_queue_count'] ?? 0}',
+                icon: Icons.campaign_rounded,
+                color: Colors.teal,
+                onTap: () => context.push('/staff/banners'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox.shrink()),
+          ],
+        ),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(

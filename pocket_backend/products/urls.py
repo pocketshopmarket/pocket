@@ -1,6 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductViewSet, CategoryViewSet, RecommendedProductsView, TrackInteractionView, PromoBannerListView
+from .views import (
+    ProductViewSet, CategoryViewSet, RecommendedProductsView, TrackInteractionView,
+    PromoBannerListView, SellerBannerRequestView, SellerBannerListView,
+)
 
 router = DefaultRouter()
 router.register(r'', ProductViewSet, basename='product')
@@ -11,5 +14,7 @@ urlpatterns = [
     path('recommended/', RecommendedProductsView.as_view(), name='recommended-products'),
     path('interact/', TrackInteractionView.as_view(), name='track-interaction'),
     path('banners/', PromoBannerListView.as_view(), name='promo-banners'),
+    path('banners/request/', SellerBannerRequestView.as_view(), name='banner-request'),
+    path('banners/mine/', SellerBannerListView.as_view(), name='banner-mine'),
     path('', include(router.urls)),
 ]

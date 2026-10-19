@@ -141,6 +141,16 @@ def notify_staff_payout_failed(transaction):
     )
 
 
+def notify_staff_new_banner_submission(banner):
+    """Called when a seller's banner payment completes — it's now waiting
+    on staff review before it can go live."""
+    _notify_staff(
+        title='New Banner Awaiting Review',
+        message=f'{banner.seller.full_name} paid ZMW {banner.price_paid} to promote "{banner.title}".',
+        data_payload={'type': 'banner_submission', 'banner_id': banner.id},
+    )
+
+
 def notify_staff_new_verification(verification_request):
     """Called when a seller/rider submits verification documents."""
     _notify_staff(
@@ -205,6 +215,9 @@ class StaffStatsView(APIView):
             payout_stage='payout_failed',
         ).count()
 
+        from products.models import PromoBanner
+        banner_queue_count = PromoBanner.objects.filter(status='pending_review').count()
+
         from accounts.models import User as _User
         buyer_count = _User.objects.filter(role='buyer', is_active=True).count()
         seller_count = _User.objects.filter(role='seller', is_active=True).count()
@@ -217,6 +230,7 @@ class StaffStatsView(APIView):
             'refund_count': refund_count,
             'today_revenue': str(today_deposits),
             'failed_payouts_count': failed_payouts_count,
+            'banner_queue_count': banner_queue_count,
             'buyer_count': buyer_count,
             'seller_count': seller_count,
             'rider_count': rider_count,
@@ -848,3 +862,108 @@ class StaffRefundsView(APIView):
             (r['pending_refund'] or {}).get('due_at') or '9999',
         ))
         return Response({'results': rows, 'count': len(rows)})
+
+
+# ── Banner review queue ─────────────────────────────────────────────────────
+
+class StaffBannerQueueView(APIView):
+    """GET /api/staff/banners/ — seller-paid banners awaiting a go/no-go."""
+    permission_classes = [permissions.IsAuthenticated, IsStaff]
+
+    def get(self, request):
+        from products.models import PromoBanner
+        qs = PromoBanner.objects.filter(
+            status='pending_review',
+        ).select_related('seller').order_by('created_at')
+
+        rows = []
+        for banner in qs[:100]:
+            rows.append({
+                'id': banner.id,
+                'seller_name': banner.seller.full_name,
+                'seller_phone': banner.seller.phone_number,
+                'title': banner.title,
+                'subtitle': banner.subtitle,
+                'cta_text': banner.cta_text,
+                'bg_color': banner.bg_color,
+                'icon_name': banner.icon_name,
+                'image_url': (
+                    request.build_absolute_uri(banner.image.url) if banner.image else None
+                ),
+                'price_paid': str(banner.price_paid),
+                'duration_days': banner.duration_days,
+                'created_at': banner.created_at.isoformat(),
+            })
+        return Response({'results': rows, 'count': len(rows)})
+
+
+class StaffBannerDecisionView(APIView):
+    """
+    POST /api/staff/banners/<pk>/<approve|reject>/
+
+    Approve sets is_active + a starts_at/ends_at window from duration_days —
+    this is the ONLY place is_active is ever set True for a seller-paid
+    banner; a successful payment alone never does it (see
+    payments.views.apply_banner_payment_completed).
+
+    Reject does not touch money — refunding a rejected banner is a manual
+    staff action (same ad-hoc pattern already used for other manual
+    payouts/refunds elsewhere in the app), deliberately not automated here.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStaff]
+
+    def post(self, request, pk, action):
+        from products.models import PromoBanner
+        try:
+            banner = PromoBanner.objects.select_related('seller').get(pk=pk)
+        except PromoBanner.DoesNotExist:
+            return Response({'error': 'Banner not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if action not in ('approve', 'reject'):
+            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if banner.status != 'pending_review':
+            return Response(
+                {'error': f'This banner is "{banner.get_status_display()}", not awaiting review.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if action == 'approve':
+            now = timezone.now()
+            banner.status = 'active'
+            banner.is_active = True
+            banner.starts_at = now
+            banner.ends_at = now + timedelta(days=banner.duration_days or 1)
+            banner.save(update_fields=['status', 'is_active', 'starts_at', 'ends_at'])
+            try:
+                _create_notification(
+                    recipient=banner.seller,
+                    notification_type='banner_approved',
+                    title='Your banner is live!',
+                    message=f'"{banner.title}" is now showing on the home screen.',
+                    data_payload={'type': 'banner_approved', 'banner_id': banner.id},
+                )
+            except Exception:
+                logger.warning('Banner-approved notify failed for banner %s', banner.id)
+            return Response({'success': True, 'status': 'active'})
+
+        reason = str(request.data.get('reason', '')).strip()
+        if len(reason) < 3:
+            return Response(
+                {'error': 'Give a reason so the seller knows what to fix.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        banner.status = 'rejected'
+        banner.is_active = False
+        banner.save(update_fields=['status', 'is_active'])
+        try:
+            _create_notification(
+                recipient=banner.seller,
+                notification_type='banner_rejected',
+                title='Your banner was not approved',
+                message=reason,
+                data_payload={'type': 'banner_rejected', 'banner_id': banner.id},
+            )
+        except Exception:
+            logger.warning('Banner-rejected notify failed for banner %s', banner.id)
+        return Response({'success': True, 'status': 'rejected'})

@@ -271,7 +271,10 @@ def apply_lenco_collection(transaction_id, data):
     and the order is only ever settled once.
     """
     with db_transaction.atomic():
-        transaction = Transaction.objects.select_for_update().select_related('order').get(pk=transaction_id)
+        # of=('self',): order is now nullable, so select_related('order') is an outer
+        # join — Postgres refuses FOR UPDATE on the nullable side of one unless the
+        # lock is scoped to just this table.
+        transaction = Transaction.objects.select_for_update(of=('self',)).select_related('order').get(pk=transaction_id)
         if transaction.status in ('completed', 'failed'):
             return transaction
 

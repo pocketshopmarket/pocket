@@ -103,6 +103,23 @@ class StaffService {
     await _api.post('${AppConstants.staffFailedPayoutsEndpoint}$txId/requeue/');
   }
 
+  Future<List<Map<String, dynamic>>> getBannerQueue() async {
+    final res = await _api.get(AppConstants.staffBannerQueueEndpoint);
+    final data = res.data as Map<String, dynamic>;
+    return List<Map<String, dynamic>>.from(data['results'] as List);
+  }
+
+  Future<void> approveBanner(int id) async {
+    await _api.post('${AppConstants.staffBannerQueueEndpoint}$id/approve/');
+  }
+
+  Future<void> rejectBanner(int id, {required String reason}) async {
+    await _api.post(
+      '${AppConstants.staffBannerQueueEndpoint}$id/reject/',
+      data: {'reason': reason},
+    );
+  }
+
   /// One place that turns a failed request into something a staff member can
   /// read — the server's own `error` message when it sent one, never a raw
   /// exception dump.

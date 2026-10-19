@@ -237,13 +237,30 @@ class ProductInteraction(models.Model):
 
 
 class PromoBanner(models.Model):
-    """Promotional banners shown on the buyer home screen."""
+    """
+    Promotional banners shown on the buyer home screen. Either a plain
+    admin-authored banner (seller=None, status irrelevant, is_active set
+    directly by an admin) or a seller-paid "promote your shop" slot
+    (seller set, goes through status: pending_payment -> pending_review ->
+    active/rejected, and is_active only ever flips True once staff approve
+    it — a payment alone never puts a banner in front of buyers).
+    """
 
     ACTION_CHOICES = [
         ('category', 'Navigate to Category'),
         ('product', 'Navigate to Product'),
+        ('shop', 'Navigate to Shop'),
         ('url', 'Open External URL'),
         ('none', 'No Action'),
+    ]
+
+    STATUS_CHOICES = [
+        ('draft', 'Draft (admin-authored, not seller-paid)'),
+        ('pending_payment', 'Awaiting seller payment'),
+        ('pending_review', 'Paid — awaiting staff review'),
+        ('active', 'Approved and live'),
+        ('rejected', 'Rejected by staff'),
+        ('expired', 'Expired'),
     ]
 
     title = models.CharField(max_length=60)
@@ -293,6 +310,15 @@ class PromoBanner(models.Model):
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
 
+    # Seller-paid slot (null seller = ordinary admin-authored banner)
+    seller = models.ForeignKey(
+        'accounts.User', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='promo_banners',
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    price_paid = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    duration_days = models.PositiveIntegerField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -300,3 +326,31 @@ class PromoBanner(models.Model):
 
     def __str__(self):
         return f"Banner: {self.title}"
+
+    def save(self, *args, **kwargs):
+        # Hard guarantee, not just a convention callers have to remember:
+        # a seller-linked banner can never be buyer-visible except in the
+        # one state staff actually approved it in. is_active=True on an
+        # admin-authored banner (seller=None) is untouched.
+        if self.seller_id and self.status != 'active':
+            self.is_active = False
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        value = (self.action_value or '').strip()
+        if self.action_type in ('category', 'product', 'shop'):
+            if not value:
+                raise ValidationError({'action_value': 'Required for this action type.'})
+            try:
+                target_id = int(value)
+            except ValueError:
+                raise ValidationError({'action_value': 'Must be a numeric ID for this action type.'})
+            if self.action_type == 'category' and not Category.objects.filter(id=target_id).exists():
+                raise ValidationError({'action_value': f'No category with ID {target_id}.'})
+            if self.action_type == 'product' and not Product.objects.filter(id=target_id).exists():
+                raise ValidationError({'action_value': f'No product with ID {target_id}.'})
+            if self.action_type == 'shop':
+                from accounts.models import User
+                if not User.objects.filter(id=target_id, role='seller').exists():
+                    raise ValidationError({'action_value': f'No seller with ID {target_id}.'})

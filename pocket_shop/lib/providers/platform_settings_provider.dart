@@ -82,3 +82,9 @@ final maintenanceModeProvider = Provider<bool>((ref) =>
 
 final maintenanceMessageProvider = Provider<String>((ref) =>
     _val(ref.watch(platformSettingsProvider), 'maintenance_message', 'Under maintenance. Please try again shortly.'));
+
+final bannerSlotEnabledProvider = Provider<bool>((ref) =>
+    _val(ref.watch(platformSettingsProvider), 'banner_slot_enabled', false));
+
+final bannerSlotPricePerDayProvider = Provider<double>((ref) =>
+    _val(ref.watch(platformSettingsProvider), 'banner_slot_price_per_day', 50.0));

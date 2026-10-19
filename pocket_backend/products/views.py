@@ -1,5 +1,6 @@
 import logging
 import json
+from decimal import Decimal
 from functools import wraps
 
 import django_filters
@@ -20,7 +21,10 @@ from datetime import timedelta
 from accounts.permissions import IsApprovedSeller
 from .models import MAX_PRODUCT_IMAGES, Product, ProductImage, Category, UserInterest, SearchHistory, ProductInteraction, PromoBanner, exclude_restricted_for_user, category_tree_ids
 from .pagination import ProductPagination
-from .serializers import ProductSerializer, CategorySerializer, PromoBannerSerializer
+from .serializers import (
+    ProductSerializer, CategorySerializer, PromoBannerSerializer,
+    SellerBannerRequestSerializer, SellerBannerSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -468,7 +472,74 @@ class PromoBannerListView(APIView):
         ).filter(
             Q(ends_at__isnull=True) | Q(ends_at__gte=now),
         )
+        # Higher priority shows first (matches the field's own help text and
+        # the model's default ordering) — this is what makes a sponsored
+        # banner's priority boost actually put it near the front.
         serializer = PromoBannerSerializer(
-            qs.order_by('priority')[:10], many=True, context={'request': request},
+            qs.order_by('-priority')[:10], many=True, context={'request': request},
         )
         return Response(serializer.data)
+
+
+class SellerBannerRequestView(APIView):
+    """
+    POST /api/products/banners/request/
+
+    Seller submits a "promote your shop" banner — creates a PromoBanner at
+    status=pending_payment and returns it with the price to charge. Payment
+    itself is a separate step (payments.BannerPaymentInitiateView): a seller
+    might abandon payment, so banner creation and charging are split rather
+    than coupled into one all-or-nothing call.
+    """
+    permission_classes = [IsApprovedSeller]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def post(self, request):
+        from portal.models import PlatformSettings
+        ps = PlatformSettings.get()
+        if not ps.banner_slot_enabled:
+            return Response(
+                {'error': 'Shop promotion is not available right now.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        serializer = SellerBannerRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        price = (ps.banner_slot_price_per_day * data['duration_days']).quantize(Decimal('0.01'))
+
+        banner = PromoBanner(
+            title=data['title'],
+            subtitle=data.get('subtitle', ''),
+            cta_text=data.get('cta_text') or 'Shop now',
+            bg_color=data.get('bg_color') or '#F97316',
+            icon_name=data.get('icon_name') or 'storefront_outlined',
+            image=data.get('image'),
+            action_type='shop',
+            action_value=str(request.user.id),
+            seller=request.user,
+            status='pending_payment',
+            price_paid=price,
+            duration_days=data['duration_days'],
+            is_active=False,
+        )
+        banner.full_clean()
+        banner.save()
+        return Response(
+            SellerBannerSerializer(banner, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class SellerBannerListView(APIView):
+    """GET /api/products/banners/mine/ — the requesting seller's own banner requests/history."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.role != 'seller':
+            return Response({'error': 'Only sellers can access this.'}, status=status.HTTP_403_FORBIDDEN)
+        qs = PromoBanner.objects.filter(seller=request.user).order_by('-created_at')
+        return Response(
+            SellerBannerSerializer(qs, many=True, context={'request': request}).data
+        )

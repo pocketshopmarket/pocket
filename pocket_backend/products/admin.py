@@ -55,14 +55,15 @@ class ProductVariantAdmin(admin.ModelAdmin):
 @admin.register(PromoBanner)
 class PromoBannerAdmin(admin.ModelAdmin):
     list_display = [
-        'title', 'subtitle', 'cta_text', 'bg_color',
+        'title', 'seller', 'status', 'price_paid', 'duration_days',
         'action_type', 'action_value', 'is_active', 'priority',
         'starts_at', 'ends_at',
     ]
-    list_filter = ['is_active', 'action_type']
-    list_editable = ['is_active', 'priority']
-    search_fields = ['title', 'subtitle']
+    list_filter = ['status', 'is_active', 'action_type']
+    list_editable = ['priority']
+    search_fields = ['title', 'subtitle', 'seller__phone_number', 'seller__full_name']
     readonly_fields = ['created_at']
+    autocomplete_fields = ['seller']
 
     fieldsets = (
         ('Content', {
@@ -77,8 +78,17 @@ class PromoBannerAdmin(admin.ModelAdmin):
             'description': (
                 '<b>action_type = category</b> → enter the Category ID in action_value (find it in the Categories list).<br>'
                 '<b>action_type = product</b> → enter the Product ID in action_value (find it in the Products list).<br>'
+                '<b>action_type = shop</b> → enter the seller User ID in action_value (find it in the Users list).<br>'
                 '<b>action_type = url</b> → paste the full URL (https://...) in action_value.<br>'
                 '<b>action_type = none</b> → leave action_value empty.'
+            ),
+        }),
+        ('Seller-paid slot', {
+            'fields': ('seller', 'status', 'price_paid', 'duration_days'),
+            'description': (
+                'Leave seller blank for an ordinary admin-authored banner. When seller is set, '
+                'is_active is forced off until status is moved to "active" — use the staff banner '
+                'review queue (or set status to active here) to publish it, never is_active alone.'
             ),
         }),
         ('Scheduling', {

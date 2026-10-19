@@ -106,6 +106,12 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
           }
         }
         break;
+      case 'shop':
+        final sellerId = int.tryParse(banner.actionValue);
+        if (sellerId != null) {
+          context.push('/buyer/shop-details?id=$sellerId');
+        }
+        break;
       case 'url':
         final uri = Uri.tryParse(banner.actionValue);
         if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -805,6 +811,27 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                     ],
                                   ),
                                 ),
+                                if (banner.isSponsored)
+                                  Positioned(
+                                    top: 10,
+                                    right: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.35),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Text(
+                                        'Sponsored',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),

@@ -30,6 +30,8 @@ class Notification(models.Model):
         ('transport_proposed', 'Transport Proposal Received'),
         ('transport_declined', 'Transport Request Declined'),
         ('transport_expired', 'Transport Request Expired'),
+        ('banner_approved', 'Promoted Banner Approved'),
+        ('banner_rejected', 'Promoted Banner Rejected'),
     ]
 
     recipient = models.ForeignKey(

@@ -183,14 +183,52 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class PromoBannerSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
+    is_sponsored = serializers.SerializerMethodField()
 
     class Meta:
         model = PromoBanner
         fields = [
             'id', 'title', 'subtitle', 'cta_text',
             'bg_color', 'icon_name', 'image_url',
-            'action_type', 'action_value',
+            'action_type', 'action_value', 'is_sponsored',
         ]
+
+    def get_image_url(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+
+    def get_is_sponsored(self, obj):
+        return obj.seller_id is not None
+
+
+class SellerBannerRequestSerializer(serializers.Serializer):
+    """What a seller submits to request a 'promote your shop' banner slot."""
+    title = serializers.CharField(max_length=60)
+    subtitle = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    cta_text = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    bg_color = serializers.CharField(max_length=7, required=False, allow_blank=True)
+    icon_name = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    image = serializers.ImageField(required=False, allow_null=True)
+    duration_days = serializers.IntegerField(min_value=1, max_value=90)
+
+
+class SellerBannerSerializer(serializers.ModelSerializer):
+    """A seller's own view of their banner request — includes status/price,
+    which the public PromoBannerSerializer (buyer-facing) never exposes."""
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PromoBanner
+        fields = [
+            'id', 'title', 'subtitle', 'cta_text', 'bg_color', 'icon_name',
+            'image_url', 'status', 'price_paid', 'duration_days',
+            'starts_at', 'ends_at', 'created_at',
+        ]
+        read_only_fields = fields
 
     def get_image_url(self, obj):
         if obj.image:

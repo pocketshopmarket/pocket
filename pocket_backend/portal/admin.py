@@ -44,6 +44,16 @@ class PlatformSettingsAdmin(admin.ModelAdmin):
                 'server. The bank fee is deducted from the seller\'s payout; riders always use mobile money.'
             ),
         }),
+        ('Shop promotion banners', {
+            'fields': ('banner_slot_enabled', 'banner_slot_price_per_day'),
+            'description': (
+                'Starts OFF. When on, approved sellers can pay to feature their shop as a '
+                '"Sponsored" banner on the buyer home screen — price_paid = this rate x the '
+                'number of days they choose. A payment never makes a banner visible by itself; '
+                'it only queues it for staff review (Analytics page in the top bar has nothing '
+                'to do with this — review requests from the app\'s staff dashboard).'
+            ),
+        }),
         ('Maintenance', {
             'fields': ('maintenance_mode', 'maintenance_message'),
         }),

@@ -102,7 +102,12 @@ class PromoteShopScreen extends ConsumerWidget {
                   );
                 }
                 return Column(
-                  children: items.map((b) => _BannerHistoryCard(banner: b)).toList(),
+                  children: items
+                      .map((b) => _BannerHistoryCard(
+                            banner: b,
+                            onCancelled: () => ref.invalidate(_myBannersProvider),
+                          ))
+                      .toList(),
                 );
               },
             ),
@@ -129,12 +134,20 @@ class PromoteShopScreen extends ConsumerWidget {
   }
 }
 
-class _BannerHistoryCard extends StatelessWidget {
+class _BannerHistoryCard extends StatefulWidget {
   final SellerBanner banner;
-  const _BannerHistoryCard({required this.banner});
+  final VoidCallback onCancelled;
+  const _BannerHistoryCard({required this.banner, required this.onCancelled});
+
+  @override
+  State<_BannerHistoryCard> createState() => _BannerHistoryCardState();
+}
+
+class _BannerHistoryCardState extends State<_BannerHistoryCard> {
+  bool _cancelling = false;
 
   Color _statusColor() {
-    switch (banner.status) {
+    switch (widget.banner.status) {
       case 'active':
         return AppTheme.success;
       case 'rejected':
@@ -147,8 +160,41 @@ class _BannerHistoryCard extends StatelessWidget {
     }
   }
 
+  Future<void> _cancel() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel this request?'),
+        content: Text('"${widget.banner.title}" will be removed from your list. '
+            'You can always submit a new promotion later.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep it')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel request'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _cancelling = true);
+    try {
+      await BannerService().cancelBanner(widget.banner.id);
+      widget.onCancelled();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(BannerService.errorMessage(e, fallback: 'Could not cancel this request.'))),
+        );
+        setState(() => _cancelling = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final banner = widget.banner;
     final color = _statusColor();
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -189,14 +235,30 @@ class _BannerHistoryCard extends StatelessWidget {
           ),
           if (banner.status == 'pending_payment') ...[
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 40,
-              child: OutlinedButton(
-                onPressed: () => context.push('/seller/promote-shop/pay', extra: banner),
-                child: const Text('Finish payment'),
+            if (_cancelling)
+              const Center(child: CircularProgressIndicator())
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _cancel,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.error,
+                        side: const BorderSide(color: AppTheme.error),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => context.push('/seller/promote-shop/pay', extra: banner),
+                      child: const Text('Finish payment'),
+                    ),
+                  ),
+                ],
               ),
-            ),
           ],
         ],
       ),

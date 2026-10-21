@@ -81,6 +81,38 @@ class SellerBannerRequestTests(APITestCase):
         r = self.client.get('/api/products/banners/mine/')
         self.assertEqual(r.json(), [])
 
+    def test_seller_can_cancel_an_unpaid_request(self):
+        created = self.client.post(
+            '/api/products/banners/request/', {'title': 'Abandoned', 'duration_days': 1}, format='json',
+        ).json()
+        r = self.client.post(f"/api/products/banners/{created['id']}/cancel/")
+        self.assertEqual(r.status_code, 200, r.content)
+        banner = PromoBanner.objects.get(id=created['id'])
+        self.assertEqual(banner.status, 'cancelled')
+        # Cancelled requests are hidden from the list, not just relabelled.
+        self.assertEqual(self.client.get('/api/products/banners/mine/').json(), [])
+
+    def test_cannot_cancel_a_request_thats_not_pending_payment(self):
+        created = self.client.post(
+            '/api/products/banners/request/', {'title': 'Paid', 'duration_days': 1}, format='json',
+        ).json()
+        banner = PromoBanner.objects.get(id=created['id'])
+        banner.status = 'pending_review'
+        banner.save()
+        r = self.client.post(f'/api/products/banners/{banner.id}/cancel/')
+        self.assertEqual(r.status_code, 400)
+        banner.refresh_from_db()
+        self.assertEqual(banner.status, 'pending_review')
+
+    def test_cannot_cancel_another_sellers_request(self):
+        created = self.client.post(
+            '/api/products/banners/request/', {'title': 'Mine', 'duration_days': 1}, format='json',
+        ).json()
+        other = _approved_seller('+260970000206')
+        self.client.force_authenticate(other)
+        r = self.client.post(f"/api/products/banners/{created['id']}/cancel/")
+        self.assertEqual(r.status_code, 404)
+
 
 class PromoBannerModelValidationTests(APITestCase):
     def setUp(self):

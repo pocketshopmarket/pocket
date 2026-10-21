@@ -539,7 +539,35 @@ class SellerBannerListView(APIView):
     def get(self, request):
         if request.user.role != 'seller':
             return Response({'error': 'Only sellers can access this.'}, status=status.HTTP_403_FORBIDDEN)
-        qs = PromoBanner.objects.filter(seller=request.user).order_by('-created_at')
+        # Cancelled requests are excluded rather than hard-deleted — the row
+        # stays for the record, it just stops cluttering the seller's list.
+        qs = PromoBanner.objects.filter(seller=request.user).exclude(status='cancelled').order_by('-created_at')
         return Response(
             SellerBannerSerializer(qs, many=True, context={'request': request}).data
         )
+
+
+class SellerBannerCancelView(APIView):
+    """
+    POST /api/products/banners/<pk>/cancel/
+
+    Lets a seller clear out an unpaid request they no longer want — the
+    screen gave no way to do this before, so an abandoned/test request just
+    sat there forever. Only pending_payment can be cancelled: once a payment
+    is in flight (pending_review) or the banner is live (active), cancelling
+    it here would leave money or a buyer-visible banner with nothing to
+    reconcile against, so that stays a staff-handled case instead.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        banner = get_object_or_404(PromoBanner, pk=pk, seller=request.user)
+        if banner.status != 'pending_payment':
+            return Response(
+                {'error': f'This request is "{banner.get_status_display()}" and can no longer be cancelled.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        banner.status = 'cancelled'
+        banner.save()
+        return Response({'success': True})

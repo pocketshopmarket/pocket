@@ -261,6 +261,7 @@ class PromoBanner(models.Model):
         ('active', 'Approved and live'),
         ('rejected', 'Rejected by staff'),
         ('expired', 'Expired'),
+        ('cancelled', 'Cancelled by seller before payment'),
     ]
 
     title = models.CharField(max_length=60)

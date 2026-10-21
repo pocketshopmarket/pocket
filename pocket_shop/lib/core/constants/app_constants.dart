@@ -57,6 +57,7 @@ class AppConstants {
   static const String sellerProductReviewsPrefix = 'reviews/products/';
   static const String sellerBannerRequestEndpoint = 'products/banners/request/';
   static const String sellerBannerListEndpoint = 'products/banners/mine/';
+  static const String sellerBannerPrefix = 'products/banners/';
   static const String bannerPaymentInitiateEndpoint = 'payments/banner/initiate/';
   static const String bannerPaymentStatusEndpoint = 'payments/banner/status/';
   static const String staffBannerQueueEndpoint = 'staff/banners/';

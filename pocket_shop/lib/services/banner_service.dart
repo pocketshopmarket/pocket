@@ -44,6 +44,13 @@ class BannerService {
     return [];
   }
 
+  /// Clears an unpaid request out of the seller's list. Only works while
+  /// it's still pending_payment — once money's in flight or it's live,
+  /// the server refuses and that needs staff instead.
+  Future<void> cancelBanner(int bannerId) async {
+    await _api.post('${AppConstants.sellerBannerPrefix}$bannerId/cancel/');
+  }
+
   /// Mobile-money-only. The provider is auto-detected from [payerNumber] on
   /// the server, so unlike order checkout there's no provider to pick here.
   Future<Map<String, dynamic>> initiatePayment({

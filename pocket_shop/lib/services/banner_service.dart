@@ -9,20 +9,29 @@ class BannerService {
 
   /// Submits a "promote your shop" request. Creates the banner at
   /// status=pending_payment with its price already computed server-side —
-  /// payment is a separate step via [initiatePayment].
+  /// payment is a separate step via [initiatePayment]. An uploaded image
+  /// makes it a full-bleed image banner on the buyer side instead of the
+  /// plain color+icon card (see SellerBannerRequestView, which accepts
+  /// multipart for exactly this).
   Future<SellerBanner> requestBanner({
     required String title,
     String subtitle = '',
     required int durationDays,
+    String? imagePath,
   }) async {
-    final res = await _api.post(
-      AppConstants.sellerBannerRequestEndpoint,
-      data: {
-        'title': title,
-        'subtitle': subtitle,
-        'duration_days': durationDays,
-      },
-    );
+    final data = imagePath != null && imagePath.isNotEmpty
+        ? FormData.fromMap({
+            'title': title,
+            'subtitle': subtitle,
+            'duration_days': durationDays,
+            'image': await MultipartFile.fromFile(imagePath),
+          })
+        : {
+            'title': title,
+            'subtitle': subtitle,
+            'duration_days': durationDays,
+          };
+    final res = await _api.post(AppConstants.sellerBannerRequestEndpoint, data: data);
     return SellerBanner.fromJson(res.data as Map<String, dynamic>);
   }
 

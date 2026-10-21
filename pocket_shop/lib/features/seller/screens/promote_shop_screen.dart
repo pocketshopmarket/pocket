@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/seller_banner.dart';
@@ -215,6 +218,12 @@ class _RequestBannerSheetState extends ConsumerState<_RequestBannerSheet> {
   int _durationDays = 7;
   bool _submitting = false;
   String? _error;
+  String? _imagePath;
+
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked != null) setState(() => _imagePath = picked.path);
+  }
 
   @override
   void dispose() {
@@ -238,6 +247,7 @@ class _RequestBannerSheetState extends ConsumerState<_RequestBannerSheet> {
         title: title,
         subtitle: _subtitleController.text.trim(),
         durationDays: _durationDays,
+        imagePath: _imagePath,
       );
       if (mounted) Navigator.pop(context, banner);
     } catch (e) {
@@ -284,7 +294,51 @@ class _RequestBannerSheetState extends ConsumerState<_RequestBannerSheet> {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 4),
+            const Text(
+              'Banner image (optional)',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Add your own design and it shows full-bleed with no extra text on top. '
+              'Skip it and we\'ll show a plain color card with your title instead.',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary.withValues(alpha: 0.85)),
+            ),
             const SizedBox(height: 8),
+            if (_imagePath != null)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(_imagePath!),
+                      height: 110,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _imagePath = null),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                        child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: _pickImage,
+                icon: const Icon(Icons.image_outlined, size: 18),
+                label: const Text('Add banner image'),
+              ),
+            const SizedBox(height: 12),
             const Text(
               'Duration',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),

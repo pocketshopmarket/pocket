@@ -69,6 +69,18 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     });
   }
 
+  /// A sponsored banner every 8 shops as the buyer scrolls "All shops",
+  /// rotating through whichever sponsored banners are live — so a paid
+  /// placement gets ongoing exposure, not just one shot in the top carousel.
+  /// Null outside a banner slot, or whenever there's nothing sponsored to show.
+  PromoBanner? _inFeedBannerFor(List<PromoBanner> sponsored, int shopIndex) {
+    const interval = 8;
+    if (sponsored.isEmpty) return null;
+    if ((shopIndex + 1) % interval != 0) return null;
+    final slot = (shopIndex + 1) ~/ interval - 1;
+    return sponsored[slot % sponsored.length];
+  }
+
   Future<void> _onBannerTap(PromoBanner banner) async {
     switch (banner.actionType) {
       case 'category':
@@ -353,6 +365,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     final allCategories = ref.watch(categoryProvider);
     final bannersAsync = ref.watch(bannerProvider);
     final banners = bannersAsync.valueOrNull ?? PromoBanner.defaults;
+    final sponsoredBanners = banners.where((b) => b.isSponsored).toList();
 
     // Start auto-scroll once banners are loaded
     if (banners.length >= 2 && _autoScrollTimer == null) {
@@ -706,138 +719,13 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   itemCount: banners.length,
                   itemBuilder: (_, i) {
                     final banner = banners[i];
-                    final bg = banner.backgroundColor;
-                    // Derive CTA colors from bg luminance: use dark button on light bg, light on dark.
-                    final isDark = bg.computeLuminance() < 0.4;
-                    final ctaBg = isDark ? Colors.white : Colors.black.withValues(alpha: 0.18);
-                    final ctaTextColor = isDark ? bg : Colors.white;
-                    return LayoutBuilder(
-                      builder: (context, constraints) {
-                        final compact = constraints.maxWidth < 320;
-                        final titleSize = compact ? 18.0 : 28.0;
-                        final ctaFontSize = compact ? 13.0 : 17.0;
-                        final iconSize = compact ? 44.0 : 66.0;
-                        final bannerPadding = compact ? 12.0 : 18.0;
-                        final ctaHorizontalPadding = compact ? 12.0 : 18.0;
-                        final ctaVerticalPadding = compact ? 6.0 : 8.0;
-                        return GestureDetector(
-                          onTap: () => _onBannerTap(banner),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 10),
-                            decoration: BoxDecoration(
-                              color: bg,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: Stack(
-                              children: [
-                                // Background image if available
-                                if (banner.imageUrl != null)
-                                  Positioned.fill(
-                                    child: CachedNetworkImage(
-                                      imageUrl: banner.imageUrl!,
-                                      fit: BoxFit.cover,
-                                      errorWidget: (_, _, _) => const SizedBox.shrink(),
-                                    ),
-                                  ),
-                                // Semi-transparent overlay when image is present
-                                if (banner.imageUrl != null)
-                                  Positioned.fill(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            bg.withValues(alpha: 0.75),
-                                            bg.withValues(alpha: 0.35),
-                                          ],
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                Padding(
-                                  padding: EdgeInsets.all(bannerPadding),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${banner.title}\n${banner.subtitle}',
-                                              maxLines: compact ? 3 : 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: titleSize,
-                                                height: 1.0,
-                                                fontWeight: FontWeight.w800,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            GestureDetector(
-                                              onTap: () => _onBannerTap(banner),
-                                              child: Container(
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: ctaHorizontalPadding,
-                                                  vertical: ctaVerticalPadding,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: ctaBg,
-                                                  borderRadius: BorderRadius.circular(22),
-                                                ),
-                                                child: Text(
-                                                  banner.ctaText,
-                                                  style: TextStyle(
-                                                    fontSize: ctaFontSize,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: ctaTextColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (banner.imageUrl == null) ...[
-                                        SizedBox(width: compact ? 4 : 8),
-                                        Icon(
-                                          banner.icon,
-                                          size: iconSize,
-                                          color: Colors.white70,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                if (banner.isSponsored)
-                                  Positioned(
-                                    top: 10,
-                                    right: 10,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.35),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Text(
-                                        'Sponsored',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          letterSpacing: 0.3,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
+                    // A banner with an uploaded image is treated as a finished
+                    // creative — it's never had text/gradient stamped on top
+                    // of it. Only the icon+color+text style (no image) gets
+                    // that treatment.
+                    return banner.imageUrl != null
+                        ? _ImageBannerCard(banner: banner, onTap: () => _onBannerTap(banner))
+                        : _TextBannerCard(banner: banner, onTap: () => _onBannerTap(banner));
                   },
                 ),
               ),
@@ -932,14 +820,30 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                 ),
                 const SizedBox(height: 10),
-                ...shopState.allShops.expand((shop) => [
-                      ShopSectionCard(
-                        shop: shop,
-                        onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
-                        onProductTap: (product) => context.push('/buyer/product-details', extra: product),
-                      ),
+                ...shopState.allShops.asMap().entries.expand((entry) {
+                  final index = entry.key;
+                  final shop = entry.value;
+                  final widgets = [
+                    ShopSectionCard(
+                      shop: shop,
+                      onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
+                      onProductTap: (product) => context.push('/buyer/product-details', extra: product),
+                    ),
+                    const SizedBox(height: 12),
+                  ];
+                  // A sponsored banner every few shops as the buyer scrolls —
+                  // not fully random (that risks two in a row, or a whole
+                  // session with none) and not purely sequential-only-at-top,
+                  // which is all a paid seller used to get.
+                  final inFeedBanner = _inFeedBannerFor(sponsoredBanners, index);
+                  if (inFeedBanner != null) {
+                    widgets.addAll([
+                      _InFeedBannerCard(banner: inFeedBanner, onTap: () => _onBannerTap(inFeedBanner)),
                       const SizedBox(height: 12),
-                    ]),
+                    ]);
+                  }
+                  return widgets;
+                }),
                 if (shopState.isLoadingMoreAllShops) ...[
                   const SizedBox(height: 6),
                   const Center(
@@ -955,6 +859,251 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small "Sponsored" tag — same look wherever a paid banner shows, so
+/// buyers learn to recognize it instead of mistaking it for an organic post.
+class _SponsoredBadge extends StatelessWidget {
+  const _SponsoredBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Text(
+        'Sponsored',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+/// A banner with an uploaded image, shown full-bleed with no text or
+/// gradient stamped on top — the image is a finished creative (the seller's
+/// own design, or an admin's), so adding more text on top only fights it.
+class _ImageBannerCard extends StatelessWidget {
+  const _ImageBannerCard({required this.banner, required this.onTap});
+
+  final PromoBanner banner;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: banner.backgroundColor,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CachedNetworkImage(
+                imageUrl: banner.imageUrl!,
+                fit: BoxFit.cover,
+                errorWidget: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+            if (banner.isSponsored)
+              const Positioned(top: 10, right: 10, child: _SponsoredBadge()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The original icon + color + title/subtitle + CTA card, for banners
+/// without an uploaded image.
+class _TextBannerCard extends StatelessWidget {
+  const _TextBannerCard({required this.banner, required this.onTap});
+
+  final PromoBanner banner;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = banner.backgroundColor;
+    // Derive CTA colors from bg luminance: use dark button on light bg, light on dark.
+    final isDark = bg.computeLuminance() < 0.4;
+    final ctaBg = isDark ? Colors.white : Colors.black.withValues(alpha: 0.18);
+    final ctaTextColor = isDark ? bg : Colors.white;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 320;
+        final titleSize = compact ? 18.0 : 28.0;
+        final ctaFontSize = compact ? 13.0 : 17.0;
+        final iconSize = compact ? 44.0 : 66.0;
+        final bannerPadding = compact ? 12.0 : 18.0;
+        final ctaHorizontalPadding = compact ? 12.0 : 18.0;
+        final ctaVerticalPadding = compact ? 6.0 : 8.0;
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(bannerPadding),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${banner.title}\n${banner.subtitle}',
+                              maxLines: compact ? 3 : 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: titleSize,
+                                height: 1.0,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: onTap,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: ctaHorizontalPadding,
+                                  vertical: ctaVerticalPadding,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: ctaBg,
+                                  borderRadius: BorderRadius.circular(22),
+                                ),
+                                child: Text(
+                                  banner.ctaText,
+                                  style: TextStyle(
+                                    fontSize: ctaFontSize,
+                                    fontWeight: FontWeight.w700,
+                                    color: ctaTextColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: compact ? 4 : 8),
+                      Icon(
+                        banner.icon,
+                        size: iconSize,
+                        color: Colors.white70,
+                      ),
+                    ],
+                  ),
+                ),
+                if (banner.isSponsored)
+                  const Positioned(top: 10, right: 10, child: _SponsoredBadge()),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A sponsored banner dropped into the "All shops" scroll feed. Reads as a
+/// shop card's sibling (same radius/border/shadow) rather than an ad that
+/// stands out and gets tuned out — the "Sponsored" label is what does the
+/// honesty work, not a jarring visual style. Image banners show full-bleed;
+/// banners without an image fall back to the color+icon+text treatment,
+/// stretched to one full-width card instead of the carousel's paged strip.
+class _InFeedBannerCard extends StatelessWidget {
+  const _InFeedBannerCard({required this.banner, required this.onTap});
+
+  final PromoBanner banner;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: banner.imageUrl != null ? Colors.white : banner.backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.divider.withValues(alpha: 0.9)),
+          boxShadow: const [
+            BoxShadow(color: Color(0x0D000000), blurRadius: 10, offset: Offset(0, 4)),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            if (banner.imageUrl != null)
+              Positioned.fill(
+                child: CachedNetworkImage(
+                  imageUrl: banner.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            banner.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (banner.subtitle.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              banner.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13, color: Colors.white70),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Icon(banner.icon, size: 40, color: Colors.white70),
+                  ],
+                ),
+              ),
+            const Positioned(top: 10, right: 10, child: _SponsoredBadge()),
+          ],
         ),
       ),
     );

@@ -11,8 +11,10 @@ import '../../../../providers/product_provider.dart';
 import '../../../../providers/category_provider.dart';
 import '../../../../providers/banner_provider.dart';
 import '../../../../providers/shop_provider.dart';
+import '../../../../providers/shop_type_provider.dart';
 import '../../../../services/product_service.dart';
 import '../../../../widgets/shop_section_card.dart';
+import '../../../../widgets/shimmer_loading.dart';
 import 'dart:async';
 import '../../../../models/category.dart';
 import '../../../../providers/auth_provider.dart';
@@ -44,6 +46,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   bool _showSuggestions = false;
   bool _searchLoading = false;
   bool _searchFailed = false;
+  // Suppresses the inline "Shops near you" spinner while Flutter's own
+  // pull-to-refresh spinner is already showing — otherwise both appear
+  // together and read as two competing/buggy loaders instead of one.
+  bool _isRefreshing = false;
 
   @override
   void dispose() {
@@ -379,9 +385,14 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-            ref.invalidate(bannerProvider);
-            await ref.read(shopProvider.notifier).fetchAllShops(reset: true);
-            await ref.read(shopProvider.notifier).fetchNearbyShops();
+            setState(() => _isRefreshing = true);
+            try {
+              ref.invalidate(bannerProvider);
+              await ref.read(shopProvider.notifier).fetchAllShops(reset: true);
+              await ref.read(shopProvider.notifier).fetchNearbyShops();
+            } finally {
+              if (mounted) setState(() => _isRefreshing = false);
+            }
           },
           child: ListView(
             controller: _scrollController,
@@ -749,8 +760,18 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
               const SizedBox(height: 16),
               Builder(
                 builder: (context) {
-                  final categories = ref.watch(topLevelCategoriesProvider);
-                  if (categories.isEmpty) return const SizedBox.shrink();
+                  final shopTypesState = ref.watch(shopTypesProvider);
+                  final shopTypes = shopTypesState.shopTypes;
+                  if (shopTypes.isEmpty) {
+                    if (!shopTypesState.isLoading) return const SizedBox.shrink();
+                    return const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ShopTypeChipsShimmer(),
+                        SizedBox(height: 16),
+                      ],
+                    );
+                  }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -758,19 +779,19 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         height: 36,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: 1 + categories.length,
+                          itemCount: 1 + shopTypes.length,
                           separatorBuilder: (_, _) => const SizedBox(width: 8),
                           itemBuilder: (_, index) {
                             final isAll = index == 0;
-                            final catId = isAll ? null : categories[index - 1].id;
-                            final catName = isAll ? 'All' : categories[index - 1].name;
-                            final selected = shopState.selectedCategoryId == catId;
+                            final typeId = isAll ? null : shopTypes[index - 1].id;
+                            final typeName = isAll ? 'All' : shopTypes[index - 1].name;
+                            final selected = shopState.selectedShopTypeId == typeId;
                             return ChoiceChip(
-                              label: Text(catName),
+                              label: Text(typeName),
                               selected: selected,
                               onSelected: (_) {
                                 if (!selected) {
-                                  ref.read(shopProvider.notifier).setCategory(catId);
+                                  ref.read(shopProvider.notifier).setShopType(typeId);
                                 }
                               },
                               labelStyle: TextStyle(
@@ -791,12 +812,8 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
               ),
               // "Near Me" is silently omitted (no error UI) when location is
               // denied/unavailable — confirmed product decision, not a bug.
-              if (shopState.isLoadingNearby) ...[
-                const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryCyan),
-                ),
+              if (shopState.isLoadingNearby && !_isRefreshing) ...[
+                const ShopCardShimmer(),
                 const SizedBox(height: 16),
               ] else if (shopState.nearbyShops.isNotEmpty) ...[
                 const Text(
@@ -852,9 +869,11 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 ],
                 const SizedBox(height: 6),
               ] else if (shopState.isLoadingAllShops) ...[
-                const Center(
-                  child: CircularProgressIndicator(color: AppTheme.primaryCyan),
-                ),
+                const ShopCardShimmer(),
+                const SizedBox(height: 12),
+                const ShopCardShimmer(),
+                const SizedBox(height: 12),
+                const ShopCardShimmer(),
                 const SizedBox(height: 18),
               ],
             ],

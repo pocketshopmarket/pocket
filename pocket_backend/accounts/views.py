@@ -15,6 +15,7 @@ from .models import (
     DeliveryProfile,
     PhoneOTP,
     SellerProfile,
+    ShopType,
     User,
 )
 from .pagination import ShopPagination
@@ -26,6 +27,7 @@ from .serializers import (
     ChangePasswordSerializer,
     BuyerPaymentMethodSerializer,
     ShopPublicSerializer,
+    ShopTypeSerializer,
 )
 from .otp_utils import assert_phone_otp_valid
 from .throttles import LoginRateThrottle
@@ -571,6 +573,15 @@ class SellerApplicationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class ShopTypeListView(APIView):
+    """GET /api/auth/shop-types/ — active shop types, for the Home filter chips."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        types = ShopType.objects.filter(is_active=True).order_by('name')
+        return Response(ShopTypeSerializer(types, many=True).data)
+
+
 class ShopListView(APIView):
     """
     Public shop directory for buyer-facing discovery (guest-browsable, no
@@ -639,6 +650,15 @@ class ShopListView(APIView):
                     user__products__category_id__in=category_tree_ids(category_id),
                     user__products__is_available=True,
                 ).distinct()
+
+        shop_type_param = request.query_params.get('shop_type')
+        if shop_type_param:
+            try:
+                shop_type_id = int(shop_type_param)
+            except (TypeError, ValueError):
+                shop_type_id = None
+            if shop_type_id is not None:
+                qs = qs.filter(shop_type_id=shop_type_id)
 
         shops = list(qs)
 

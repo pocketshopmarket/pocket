@@ -144,6 +144,29 @@ class BuyerPaymentMethod(models.Model):
         return f"{self.user_id} {self.provider} {self.account_phone}"
 
 
+class ShopType(models.Model):
+    """
+    What kind of store a shop is (Supermarket, Pharmacy, Electronics Store...).
+    Deliberately separate from products.Category: a shop's type is its
+    identity and doesn't change as its catalog grows, where Category exists
+    to filter products and includes deep subcategories (Liquor under
+    Groceries & Food) that make no sense as a store label. Staff assign this
+    per seller from the admin — sellers don't self-declare it.
+    """
+    name = models.CharField(max_length=80, unique=True)
+    icon_name = models.CharField(max_length=40, blank=True, help_text='Flutter Icons name for the filter chip')
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Hide from the buyer-facing filter chips without breaking shops already assigned this type.',
+    )
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class SellerProfile(models.Model):
     VERIFICATION_STATUS_CHOICES = [
         ('not_started', 'Not Started'),
@@ -153,6 +176,9 @@ class SellerProfile(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='seller_profile')
+    shop_type = models.ForeignKey(
+        ShopType, on_delete=models.SET_NULL, null=True, blank=True, related_name='shops',
+    )
     shop_name = models.CharField(max_length=200)
     shop_location = models.TextField()
     shop_lat = models.FloatField(null=True, blank=True)

@@ -14,6 +14,7 @@ from .views import (
     ShopListView,
     ShopDetailView,
     ShopCategoriesView,
+    ShopTypeListView,
 )
 
 urlpatterns = [
@@ -27,6 +28,7 @@ urlpatterns = [
     path('profile/', ProfileView.as_view(), name='profile'),
     path('seller-apply/', SellerApplicationView.as_view(), name='seller-apply'),
     path('shops/', ShopListView.as_view(), name='shop-list'),
+    path('shop-types/', ShopTypeListView.as_view(), name='shop-type-list'),
     path('shops/<int:user_id>/', ShopDetailView.as_view(), name='shop-detail'),
     path('shops/<int:user_id>/categories/', ShopCategoriesView.as_view(), name='shop-categories'),
     path('delivery-apply/', DeliveryApplicationView.as_view(), name='delivery-apply'),

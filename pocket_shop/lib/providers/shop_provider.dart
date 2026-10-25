@@ -2,9 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/utils/location_helper.dart';
 import '../models/shop.dart';
-import '../services/auth_service.dart';
 import '../services/shop_service.dart';
-import 'auth_provider.dart';
 
 /// Radius used for the Home "Near Me" section — city-scale, matches the
 /// distances between LocationService.ZAMBIA_CITY_CENTERS on the backend.
@@ -25,10 +23,11 @@ class ShopState {
   final int allShopsPage;
   final String? error;
 
-  // null = "All shops" (no category narrows the feed). Starts from the
-  // buyer's saved preferred_category and changes whenever they tap a
-  // different chip on the home screen.
-  final int? selectedCategoryId;
+  // null = "All shops" (no filter narrows the feed). Changes whenever the
+  // buyer taps a different shop-type chip on the home screen. Session-only
+  // (not persisted) — shop type is a different taxonomy from the buyer's
+  // saved preferred product category, so there's nothing to carry over.
+  final int? selectedShopTypeId;
 
   ShopState({
     this.nearbyShops = const [],
@@ -40,7 +39,7 @@ class ShopState {
     this.hasMoreAllShops = true,
     this.allShopsPage = 1,
     this.error,
-    this.selectedCategoryId,
+    this.selectedShopTypeId,
   });
 
   ShopState copyWith({
@@ -65,10 +64,10 @@ class ShopState {
       allShopsPage: allShopsPage ?? this.allShopsPage,
       error: error,
       // Deliberately not a copyWith param: changing it goes through
-      // setCategory(), which rebuilds state directly so null ("All shops")
+      // setShopType(), which rebuilds state directly so null ("All shops")
       // is reachable — a copyWith param can't distinguish "clear it" from
       // "leave it alone" when both look like a bare null.
-      selectedCategoryId: selectedCategoryId,
+      selectedShopTypeId: selectedShopTypeId,
     );
   }
 }
@@ -76,27 +75,15 @@ class ShopState {
 class ShopNotifier extends StateNotifier<ShopState> {
   final ShopService _shopService;
 
-  // ref is only needed once, to read the buyer's saved category at
-  // construction — nothing else in this class needs it, so it isn't stored.
-  ShopNotifier(this._shopService, Ref ref)
-      : super(ShopState(
-          selectedCategoryId: ref.read(userProvider)?.buyerProfile?.preferredCategoryId,
-        )) {
+  ShopNotifier(this._shopService) : super(ShopState()) {
     fetchAllShops(reset: true);
     fetchNearbyShops();
   }
 
-  /// Switches the active category filter — updates both shop lists and
-  /// saves the choice as the buyer's new default for next time they open
-  /// the app. Fire-and-forget on the save: a slow/failed save shouldn't
-  /// block the buyer from seeing their filtered list right now.
-  Future<void> setCategory(int? categoryId) async {
-    state = ShopState(selectedCategoryId: categoryId);
+  /// Switches the active shop-type filter and refreshes both shop lists.
+  Future<void> setShopType(int? shopTypeId) async {
+    state = ShopState(selectedShopTypeId: shopTypeId);
     await Future.wait([fetchAllShops(reset: true), fetchNearbyShops()]);
-    AuthService().updateProfile(
-      preferredCategoryId: categoryId,
-      updatePreferredCategory: true,
-    );
   }
 
   Future<void> fetchNearbyShops() async {
@@ -115,7 +102,7 @@ class ShopNotifier extends StateNotifier<ShopState> {
         lat: location.lat,
         lng: location.lng,
         maxKm: _nearbyRadiusKm,
-        category: state.selectedCategoryId,
+        shopType: state.selectedShopTypeId,
         pageSize: 10,
       ));
       state = state.copyWith(
@@ -140,7 +127,7 @@ class ShopNotifier extends StateNotifier<ShopState> {
       final nextPage = reset ? 1 : state.allShopsPage;
       final page = await _shopService.getShopsPage(ShopQuery(
         page: nextPage,
-        category: state.selectedCategoryId,
+        shopType: state.selectedShopTypeId,
       ));
       final merged = reset ? page.items : [...state.allShops, ...page.items];
       state = state.copyWith(
@@ -163,5 +150,5 @@ class ShopNotifier extends StateNotifier<ShopState> {
 final shopServiceProvider = Provider<ShopService>((ref) => ShopService());
 
 final shopProvider = StateNotifierProvider<ShopNotifier, ShopState>((ref) {
-  return ShopNotifier(ref.read(shopServiceProvider), ref);
+  return ShopNotifier(ref.read(shopServiceProvider));
 });

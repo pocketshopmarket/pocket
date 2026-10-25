@@ -21,6 +21,7 @@ class Shop {
   final double? distanceKm;
   final int productCount;
   final String? topCategory;
+  final String? shopType;
   final bool isVerified;
   final List<Product> productsPreview;
 
@@ -35,6 +36,7 @@ class Shop {
     this.distanceKm,
     this.productCount = 0,
     this.topCategory,
+    this.shopType,
     this.isVerified = false,
     this.productsPreview = const [],
   });
@@ -53,6 +55,7 @@ class Shop {
           ? json['product_count'] as int
           : int.tryParse('${json['product_count']}') ?? 0,
       topCategory: _parseTrimmedString(json['top_category']),
+      shopType: _parseTrimmedString(json['shop_type']),
       isVerified: json['is_verified'] == true,
       productsPreview: (json['products_preview'] is List)
           ? (json['products_preview'] as List)

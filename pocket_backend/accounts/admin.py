@@ -13,6 +13,7 @@ from .models import (
     PhoneOTP,
     SellerApiKey,
     SellerProfile,
+    ShopType,
     User,
     VerificationRequest,
 )
@@ -145,13 +146,21 @@ class BuyerProfileAdmin(admin.ModelAdmin):
     readonly_fields = ['created_at', 'updated_at']
 
 
+@admin.register(ShopType)
+class ShopTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'icon_name', 'is_active']
+    list_editable = ['icon_name', 'is_active']
+    search_fields = ['name']
+
+
 @admin.register(SellerProfile)
 class SellerProfileAdmin(admin.ModelAdmin):
     list_display = [
-        'user', 'shop_name', 'tier1_status', 'tier2_status',
+        'user', 'shop_name', 'shop_type', 'tier1_status', 'tier2_status',
         'is_approved', 'approval_date', 'created_at',
     ]
-    list_filter = ['tier1_status', 'tier2_status', 'is_approved', 'created_at']
+    list_editable = ['shop_type']
+    list_filter = ['shop_type', 'tier1_status', 'tier2_status', 'is_approved', 'created_at']
     search_fields = ['user__phone_number', 'shop_name', 'nrc_number']
     readonly_fields = [
         'created_at', 'updated_at',

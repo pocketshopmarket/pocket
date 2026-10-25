@@ -6,6 +6,7 @@ from .models import (
     BuyerProfile,
     DeliveryProfile,
     SellerProfile,
+    ShopType,
     User,
     VerificationRequest,
 )
@@ -160,6 +161,12 @@ class SellerProfileSerializer(serializers.ModelSerializer):
         ]
 
 
+class ShopTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShopType
+        fields = ['id', 'name', 'icon_name']
+
+
 class ShopPublicSerializer(serializers.ModelSerializer):
     """
     Public-safe view of a SellerProfile for buyer-facing shop discovery.
@@ -173,6 +180,7 @@ class ShopPublicSerializer(serializers.ModelSerializer):
     distance_km = serializers.SerializerMethodField()
     product_count = serializers.IntegerField(read_only=True)
     top_category = serializers.SerializerMethodField()
+    shop_type = serializers.CharField(source='shop_type.name', read_only=True, default=None)
     is_verified = serializers.BooleanField(source='is_approved', read_only=True)
     products_preview = serializers.SerializerMethodField()
 
@@ -181,7 +189,7 @@ class ShopPublicSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'shop_name', 'shop_logo', 'shop_description',
             'shop_location', 'shop_lat', 'shop_lng', 'distance_km', 'product_count',
-            'top_category', 'is_verified', 'products_preview',
+            'top_category', 'shop_type', 'is_verified', 'products_preview',
         ]
 
     def get_products_preview(self, obj):

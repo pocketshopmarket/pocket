@@ -319,7 +319,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                     ],
                   ],
                 ),
-                if (shop.topCategory != null) ...[
+                if ((shop.shopType ?? shop.topCategory) != null) ...[
                   const SizedBox(height: 3),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -328,7 +328,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      shop.topCategory!,
+                      (shop.shopType ?? shop.topCategory)!,
                       style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: AppTheme.darkCyan),
                     ),
                   ),

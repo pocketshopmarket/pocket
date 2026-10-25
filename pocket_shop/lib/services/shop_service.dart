@@ -11,6 +11,7 @@ class ShopQuery {
     this.lng,
     this.maxKm,
     this.category,
+    this.shopType,
     this.page = 1,
     this.pageSize = 20,
   });
@@ -20,6 +21,7 @@ class ShopQuery {
   final double? lng;
   final double? maxKm;
   final int? category;
+  final int? shopType;
   final int page;
   final int pageSize;
 }
@@ -79,6 +81,7 @@ class ShopService {
       if (query.lng != null) 'lng': query.lng,
       if (query.maxKm != null) 'max_km': query.maxKm,
       if (query.category != null) 'category': query.category,
+      if (query.shopType != null) 'shop_type': query.shopType,
     };
     try {
       final response = await _apiService.get(

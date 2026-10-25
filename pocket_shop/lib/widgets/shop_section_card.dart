@@ -88,7 +88,10 @@ class ShopSectionCard extends StatelessWidget {
                         const SizedBox(height: 3),
                         Row(
                           children: [
-                            if (shop.topCategory != null) ...[
+                            // shopType is the seller's declared, stable type
+                            // (set by staff in the admin). topCategory is a
+                            // computed fallback for shops nobody's typed yet.
+                            if ((shop.shopType ?? shop.topCategory) != null) ...[
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
                                 decoration: BoxDecoration(
@@ -96,7 +99,7 @@ class ShopSectionCard extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: Text(
-                                  shop.topCategory!,
+                                  (shop.shopType ?? shop.topCategory)!,
                                   style: const TextStyle(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w600,

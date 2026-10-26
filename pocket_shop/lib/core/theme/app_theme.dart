@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Colors - User Specified
@@ -17,10 +18,53 @@ class AppTheme {
   static const Color success = Color(0xFF38A169);
   static const Color warning = Color(0xFFD69E2E);
   static const Color accentOrange = Color(0xFFF97316);
+  static const Color orangeTint = Color(0xFFFFF1E6);
+
+  // Display face for headings/numbers; body face for everything else.
+  // Centralizing these two here is the fix for font sizes/weights having
+  // drifted screen-to-screen — new/rewritten screens should pull from the
+  // type scale below rather than writing their own TextStyle(fontSize: …).
+  static TextStyle display({
+    double fontSize = 20,
+    FontWeight fontWeight = FontWeight.w800,
+    Color color = textPrimary,
+    double? letterSpacing,
+    double? height,
+  }) =>
+      GoogleFonts.sora(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        letterSpacing: letterSpacing,
+        height: height,
+      );
+
+  static TextStyle body({
+    double fontSize = 14,
+    FontWeight fontWeight = FontWeight.w400,
+    Color color = textPrimary,
+    double? height,
+  }) =>
+      GoogleFonts.inter(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        color: color,
+        height: height,
+      );
+
+  // Type scale — pick from this instead of inventing a new size.
+  static TextStyle get scaleDisplay => display(fontSize: 26, height: 1.15);
+  static TextStyle get scaleHeading => display(fontSize: 20);
+  static TextStyle get scaleTitle => display(fontSize: 16);
+  static TextStyle get scaleBodyLarge => body(fontSize: 15, fontWeight: FontWeight.w500);
+  static TextStyle get scaleBody => body(fontSize: 14, fontWeight: FontWeight.w500);
+  static TextStyle get scaleCaption => body(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500);
+  static TextStyle get scaleLabel =>
+      body(fontSize: 11, color: textSecondary, fontWeight: FontWeight.w700);
 
   // Light Theme
   static ThemeData get lightTheme {
-    const baseTextTheme = TextTheme();
+    final baseTextTheme = GoogleFonts.interTextTheme();
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
@@ -42,11 +86,10 @@ class AppTheme {
         scrolledUnderElevation: 0.5,
         centerTitle: false,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: const TextStyle(
+        titleTextStyle: GoogleFonts.sora(
           color: textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
         ),
         iconTheme: const IconThemeData(color: textPrimary),
       ),
@@ -160,17 +203,17 @@ class AppTheme {
       ),
       dividerTheme: const DividerThemeData(color: divider, thickness: 1),
       textTheme: baseTextTheme.copyWith(
-        headlineSmall: const TextStyle(
+        headlineSmall: GoogleFonts.sora(
           fontSize: 24,
           fontWeight: FontWeight.w800,
           color: textPrimary,
         ),
-        titleLarge: const TextStyle(
+        titleLarge: GoogleFonts.sora(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: textPrimary,
         ),
-        titleMedium: const TextStyle(
+        titleMedium: GoogleFonts.sora(
           fontSize: 16,
           fontWeight: FontWeight.w700,
           color: textPrimary,

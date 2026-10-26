@@ -76,11 +76,7 @@ class BuyerOrdersScreen extends ConsumerWidget {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.accentBlue, AppTheme.accentPurple],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: AppTheme.textPrimary,
                     ),
                     child: Row(
                       children: [
@@ -201,23 +197,27 @@ class _OrderTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusBadgeBg(order.status),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      order.statusLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _statusBadgeFg(order.status),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: _statusColor(order.status),
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      Text(
+                        order.statusLabel,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _statusColor(order.status),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -291,17 +291,7 @@ class _OrderTile extends StatelessWidget {
     );
   }
 
-  Color _statusBadgeBg(String status) {
-    switch (status) {
-      case 'cancelled':        return AppTheme.error.withValues(alpha: 0.10);
-      case 'delivered':        return AppTheme.success.withValues(alpha: 0.10);
-      case 'payment_pending':  return const Color(0xFFF59E0B).withValues(alpha: 0.12);
-      case 'out_for_delivery': return AppTheme.accentPurple.withValues(alpha: 0.10);
-      default:                 return AppTheme.lightCyan;
-    }
-  }
-
-  Color _statusBadgeFg(String status) {
+  Color _statusColor(String status) {
     switch (status) {
       case 'cancelled':        return AppTheme.error;
       case 'delivered':        return AppTheme.success;

@@ -126,24 +126,24 @@ class CartScreen extends ConsumerWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected ? AppTheme.primaryCyan.withValues(alpha: 0.10) : Colors.white,
+            color: selected ? AppTheme.textPrimary : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppTheme.primaryCyan : AppTheme.divider,
-              width: selected ? 1.5 : 1,
+              color: selected ? AppTheme.textPrimary : AppTheme.divider,
+              width: 1,
             ),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: selected ? AppTheme.darkCyan : AppTheme.textSecondary),
+              Icon(icon, size: 18, color: selected ? Colors.white : AppTheme.textSecondary),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: selected ? AppTheme.darkCyan : AppTheme.textPrimary,
+                  color: selected ? Colors.white : AppTheme.textPrimary,
                 ),
               ),
             ],
@@ -718,11 +718,9 @@ class CartScreen extends ConsumerWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppTheme.warning.withValues(alpha: 0.08),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppTheme.warning.withValues(alpha: 0.3),
-                            ),
+                            border: Border.all(color: AppTheme.warning, width: 1.2),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -916,14 +914,14 @@ class CartScreen extends ConsumerWidget {
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryCyan.withValues(alpha: 0.10),
-                                  borderRadius: BorderRadius.circular(8),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.primaryCyan,
+                                  borderRadius: BorderRadius.all(Radius.circular(8)),
                                 ),
                                 child: const Icon(
                                   Icons.phonelink_ring_rounded,
                                   size: 16,
-                                  color: AppTheme.primaryCyan,
+                                  color: Colors.white,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -1034,11 +1032,9 @@ class CartScreen extends ConsumerWidget {
                                   vertical: 8,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.warning.withValues(alpha: 0.08),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppTheme.warning.withValues(alpha: 0.3),
-                                  ),
+                                  border: Border.all(color: AppTheme.warning, width: 1.2),
                                 ),
                                 child: Row(
                                   children: const [
@@ -1135,11 +1131,8 @@ class CartScreen extends ConsumerWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+                          color: AppTheme.darkCyan,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppTheme.primaryCyan.withValues(alpha: 0.3),
-                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1149,7 +1142,7 @@ class CartScreen extends ConsumerWidget {
                                 const Icon(
                                   Icons.local_shipping_outlined,
                                   size: 16,
-                                  color: AppTheme.primaryCyan,
+                                  color: Colors.white,
                                 ),
                                 const SizedBox(width: 6),
                                 const Text(
@@ -1157,7 +1150,7 @@ class CartScreen extends ConsumerWidget {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: AppTheme.primaryCyan,
+                                    color: Colors.white,
                                   ),
                                 ),
                               ],
@@ -1174,7 +1167,7 @@ class CartScreen extends ConsumerWidget {
                                           : 'Distance-based',
                                   style: const TextStyle(
                                     fontSize: 13,
-                                    color: AppTheme.textSecondary,
+                                    color: Colors.white70,
                                   ),
                                 ),
                                 Text(
@@ -1182,7 +1175,7 @@ class CartScreen extends ConsumerWidget {
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w800,
-                                    color: AppTheme.textPrimary,
+                                    color: Colors.white,
                                   ),
                                 ),
                               ],
@@ -1193,7 +1186,7 @@ class CartScreen extends ConsumerWidget {
                                 'Estimated arrival: ~${quoteEtaMinutes!} min',
                                 style: const TextStyle(
                                   fontSize: 12,
-                                  color: AppTheme.textSecondary,
+                                  color: Colors.white70,
                                 ),
                               ),
                             ],
@@ -2013,9 +2006,7 @@ class CartScreen extends ConsumerWidget {
         curve: Curves.easeOut,
         height: 68,
         decoration: BoxDecoration(
-          color: selected
-              ? AppTheme.primaryCyan.withValues(alpha: 0.07)
-              : const Color(0xFFF8F8F8),
+          color: selected ? Colors.white : const Color(0xFFF8F8F8),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? AppTheme.primaryCyan : AppTheme.divider,

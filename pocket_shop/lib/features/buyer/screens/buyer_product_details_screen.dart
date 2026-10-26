@@ -301,14 +301,15 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppTheme.lightCyan.withValues(alpha: 0.35),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppTheme.darkCyan, width: 1.2),
                     ),
                     child: Text(
                       product.qualityDisplayLabel,
                       style: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: AppTheme.darkCyan,
                       ),
                     ),
@@ -394,13 +395,15 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.lightCyan.withValues(alpha: 0.35),
+                              color: Colors.transparent,
                               borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: AppTheme.darkCyan, width: 1.2),
                             ),
                             child: Text(
                               '${variant.name}: ${variant.value} (${variant.stockQuantity})',
                               style: const TextStyle(
                                 fontSize: 12,
+                                fontWeight: FontWeight.w600,
                                 color: AppTheme.darkCyan,
                               ),
                             ),
@@ -418,18 +421,16 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppTheme.primaryCyan.withValues(alpha: 0.3),
-                        ),
+                        border: Border.all(color: AppTheme.divider),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.local_shipping_outlined,
                             size: 16,
-                            color: AppTheme.primaryCyan,
+                            color: AppTheme.darkCyan,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -437,8 +438,8 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                               'Delivery from ZMW ${fee.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryCyan,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                           ),

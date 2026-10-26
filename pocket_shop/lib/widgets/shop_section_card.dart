@@ -45,10 +45,10 @@ class ShopSectionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                     child: SizedBox(
-                      width: 40,
-                      height: 40,
+                      width: 52,
+                      height: 52,
                       child: shop.shopLogo != null
                           ? CachedNetworkImage(
                               imageUrl: shop.shopLogo!,
@@ -95,14 +95,15 @@ class ShopSectionCard extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+                                  color: Colors.transparent,
                                   borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(color: AppTheme.darkCyan, width: 1),
                                 ),
                                 child: Text(
                                   (shop.shopType ?? shop.topCategory)!,
                                   style: const TextStyle(
                                     fontSize: 9.5,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w700,
                                     color: AppTheme.darkCyan,
                                   ),
                                 ),

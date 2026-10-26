@@ -21,21 +21,24 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
   final List<Map<String, dynamic>> _roles = [
     {
       'title': 'Buyer',
-      'description': 'Shop from local stores',
+      'description': 'Shop from local stores near you',
       'icon': Icons.shopping_cart_outlined,
       'value': AppConstants.buyerRole,
+      'accent': AppTheme.primaryCyan,
     },
     {
       'title': 'Seller',
-      'description': 'Sell your products',
-      'icon': Icons.store_outlined,
+      'description': 'List products and run your shop',
+      'icon': Icons.storefront_outlined,
       'value': AppConstants.sellerRole,
+      'accent': AppTheme.accentOrange,
     },
     {
-      'title': 'Delivery',
-      'description': 'Deliver orders',
-      'icon': Icons.delivery_dining_outlined,
+      'title': 'Rider',
+      'description': 'Deliver orders and earn per drop',
+      'icon': Icons.pedal_bike_outlined,
       'value': AppConstants.deliveryRole,
+      'accent': AppTheme.textPrimary,
     },
   ];
 
@@ -82,131 +85,103 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
               padding: EdgeInsets.all(AppSizes.padding.w),
               child: Column(
                 children: [
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 8.h),
 
                   // Title
                   Text(
-                    "Choose Your Role",
-                    style: TextStyle(
-                      fontSize: 28.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
+                    "How will you use\nPocket Shop?",
+                    style: AppTheme.display(fontSize: 26.sp, height: 1.15),
                   ),
 
-                  SizedBox(height: AppSizes.spacingSmall.h),
+                  SizedBox(height: 8.h),
 
                   // Subtitle
                   Text(
-                    "Select how you want to use Pocket Shop",
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      color: AppTheme.textSecondary,
-                    ),
+                    "You can always add another role from your profile later.",
+                    style: AppTheme.body(fontSize: 14.sp, color: AppTheme.textSecondary),
                   ),
 
-                  SizedBox(height: AppSizes.spacingLarge.h),
+                  SizedBox(height: 28.h),
 
-                  Container(
-                    padding: EdgeInsets.all(16.w),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16.r),
-                      border: Border.all(color: AppTheme.divider),
-                    ),
-                    child: Column(
-                      children: List.generate(_roles.length, (index) {
-                        final role = _roles[index];
-                        final isSelected = _selectedRole == role['value'];
+                  Column(
+                    children: List.generate(_roles.length, (index) {
+                      final role = _roles[index];
+                      final isSelected = _selectedRole == role['value'];
+                      final Color accent = role['accent'] as Color;
 
-                        return Column(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedRole = role['value'];
-                                });
-                              },
-                              child: Container(
-                                width: double.infinity,
-                                height: 80.h,
-                                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppTheme.primaryCyan
-                                        : AppTheme.divider,
-                                    width: isSelected ? 2 : 1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(
-                                    AppSizes.radius.r,
-                                  ),
-                                  color: isSelected
-                                      ? AppTheme.lightCyan.withValues(alpha: 0.08)
-                                      : AppTheme.surfaceWhite,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      role['icon'],
-                                      size: 24.sp,
-                                      color: isSelected
-                                          ? AppTheme.primaryCyan
-                                          : AppTheme.textSecondary,
-                                    ),
-                                    SizedBox(width: 16.w),
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            role['title'],
-                                            style: TextStyle(
-                                              fontSize: 16.sp,
-                                              fontWeight: FontWeight.w600,
-                                              color: isSelected
-                                                  ? AppTheme.primaryCyan
-                                                  : AppTheme.textPrimary,
-                                            ),
-                                          ),
-                                          SizedBox(height: 2.h),
-                                          Text(
-                                            role['description'],
-                                            style: TextStyle(
-                                              fontSize: 12.sp,
-                                              color: AppTheme.textSecondary,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (isSelected)
-                                      Icon(
-                                        Icons.check_circle,
-                                        color: AppTheme.primaryCyan,
-                                        size: 20.sp,
-                                      ),
-                                  ],
-                                ),
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: index < _roles.length - 1 ? 12.h : 0),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedRole = role['value'];
+                            });
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.all(18.w),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isSelected ? accent : AppTheme.divider,
+                                width: isSelected ? 2 : 1,
                               ),
+                              borderRadius: BorderRadius.circular(18.r),
+                              color: Colors.white,
                             ),
-                            if (index < _roles.length - 1)
-                              SizedBox(height: AppSizes.roleCardSpacing.h),
-                          ],
-                        );
-                      }),
-                    ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 52.w,
+                                  height: 52.w,
+                                  decoration: BoxDecoration(
+                                    color: accent,
+                                    borderRadius: BorderRadius.circular(14.r),
+                                  ),
+                                  child: Icon(role['icon'], size: 24.sp, color: Colors.white),
+                                ),
+                                SizedBox(width: 14.w),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        role['title'],
+                                        style: AppTheme.display(fontSize: 16.sp, fontWeight: FontWeight.w700),
+                                      ),
+                                      SizedBox(height: 2.h),
+                                      Text(
+                                        role['description'],
+                                        style: AppTheme.body(fontSize: 12.5.sp, color: AppTheme.textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 24.w,
+                                  height: 24.w,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isSelected ? accent : Colors.transparent,
+                                    border: isSelected ? null : Border.all(color: AppTheme.divider, width: 2),
+                                  ),
+                                  child: isSelected
+                                      ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                                      : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
                   ),
 
-                  SizedBox(height: 40.h),
+                  SizedBox(height: 8.h),
 
                   // Continue Button
                   SizedBox(
                     width: double.infinity,
-                    height: 50.h,
+                    height: 52.h,
                     child: ElevatedButton(
                       onPressed: _handleContinue,
                       style: ElevatedButton.styleFrom(
@@ -214,18 +189,16 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
                         foregroundColor: Colors.white,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppSizes.radius.r,
-                          ),
+                          borderRadius: BorderRadius.circular(16.r),
                         ),
                       ),
                       child: Text(
                         "Continue",
-                        style: TextStyle(fontSize: 16.sp),
+                        style: AppTheme.body(fontSize: 15.sp, fontWeight: FontWeight.w700, color: Colors.white),
                       ),
                     ),
                   ),
-                  SizedBox(height: 60.h),
+                  SizedBox(height: 40.h),
                 ],
               ),
             ),

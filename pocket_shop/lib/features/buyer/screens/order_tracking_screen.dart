@@ -594,13 +594,22 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryCyan.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primaryCyan.withValues(alpha: 0.18)),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppTheme.divider),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.person_pin_rounded, size: 20, color: AppTheme.darkCyan),
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: const BoxDecoration(
+                                color: AppTheme.darkCyan,
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.person_pin_rounded, size: 18, color: Colors.white),
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
@@ -654,14 +663,14 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                             child: Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryCyan.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(10),
+                  padding: const EdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primaryCyan,
+                                    borderRadius: BorderRadius.all(Radius.circular(10)),
                                   ),
                                   child: const Icon(
                                     Icons.qr_code_rounded,
-                                    color: AppTheme.primaryCyan,
+                                    color: Colors.white,
                                     size: 22,
                                   ),
                                 ),
@@ -841,9 +850,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.35)),
+          border: Border.all(color: color, width: 1.2),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -854,7 +863,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),
@@ -886,9 +895,9 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color, width: 1.2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

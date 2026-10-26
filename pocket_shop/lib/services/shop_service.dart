@@ -137,6 +137,18 @@ class ShopService {
     if (e.response?.data is String && (e.response!.data as String).isNotEmpty) {
       return e.response!.data as String;
     }
-    return 'Request failed (${e.response?.statusCode ?? 'network error'})';
+    if (e.type == DioExceptionType.connectionError || e.type == DioExceptionType.unknown) {
+      return "Can't reach Pocket Shop. Check your internet connection and try again.";
+    }
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'That took too long. Please try again.';
+    }
+    final status = e.response?.statusCode;
+    if (status != null && status >= 500) {
+      return "Something's not right on our end — we're on it. Please try again shortly.";
+    }
+    return 'Could not load shops right now. Please try again.';
   }
 }

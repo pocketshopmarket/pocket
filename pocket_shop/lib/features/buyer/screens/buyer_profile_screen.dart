@@ -124,13 +124,13 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
             height: size,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: visual.accentColor.withValues(alpha: 0.18),
+              color: visual.accentColor,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               visual.label[0],
-              style: TextStyle(
-                color: visual.accentColor,
+              style: const TextStyle(
+                color: Colors.white,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
@@ -453,11 +453,7 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppTheme.textPrimary,
                 borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
@@ -610,6 +606,7 @@ class _BuyerProfileScreenState extends ConsumerState<BuyerProfileScreen> {
                           icon: Icons.cake_outlined,
                           label: 'Date of birth',
                           value: user.dateOfBirth ?? 'Not set — add to unlock 18+ items',
+                          valueColor: user.dateOfBirth == null ? AppTheme.accentOrange : null,
                           onTap: () => _editDateOfBirth(user.dateOfBirth),
                         ),
                         if (_isAdult(user.dateOfBirth)) ...[
@@ -975,12 +972,14 @@ class _EditableTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final Color? valueColor;
   final VoidCallback onTap;
 
   const _EditableTile({
     required this.icon,
     required this.label,
     required this.value,
+    this.valueColor,
     required this.onTap,
   });
 
@@ -1006,9 +1005,9 @@ class _EditableTile extends StatelessWidget {
                           fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
                   Text(value,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
-                          color: AppTheme.textPrimary,
+                          color: valueColor ?? AppTheme.textPrimary,
                           fontWeight: FontWeight.w600)),
                 ],
               ),

@@ -151,6 +151,33 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     return null;
   }
 
+  InputDecoration _fieldDecoration({
+    required String label,
+    String? hint,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 16.h),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: const BorderSide(color: AppTheme.divider),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: const BorderSide(color: AppTheme.divider),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: const BorderSide(color: AppTheme.primaryCyan, width: 1.5),
+      ),
+      suffixIcon: suffixIcon,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDelivery = widget.role == 'delivery';
@@ -196,19 +223,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   children: [
                     Text(
                       'Create account',
-                      style: TextStyle(
-                        fontSize: 28.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
+                      style: AppTheme.display(fontSize: 24.sp),
                     ),
-                    SizedBox(height: 8.h),
+                    SizedBox(height: 6.h),
                     Text(
-                      'Step ${_pageIndex + 1} of 2 · ${widget.role}',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        color: AppTheme.textSecondary,
-                      ),
+                      'Step ${_pageIndex + 1} of 2 · Creating your ${widget.role} account',
+                      style: AppTheme.body(fontSize: 13.5.sp, color: AppTheme.textSecondary),
                     ),
                     SizedBox(height: 16.h),
                     _StepProgressIndicator(pageIndex: _pageIndex),
@@ -247,32 +267,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           children: [
             Text(
               'About you',
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
+              style: AppTheme.display(fontSize: 18.sp, fontWeight: FontWeight.w700),
             ),
             SizedBox(height: AppSizes.spacingMedium.h),
             TextFormField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
               validator: (v) => Validators.validateRequired(v, 'Full name'),
-              decoration: InputDecoration(
-                labelText: 'Full name',
-                hintText: 'Enter your full name',
-                filled: true,
-                fillColor: AppTheme.surfaceWhite,
+              style: AppTheme.body(fontSize: 14.5.sp),
+              decoration: _fieldDecoration(
+                label: 'Full name',
+                hint: 'Enter your full name',
               ),
             ),
             SizedBox(height: AppSizes.spacingMedium.h),
             Text(
               'Gender',
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textPrimary,
-              ),
+              style: AppTheme.body(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
             ),
             SizedBox(height: 8.h),
             Semantics(
@@ -321,24 +332,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         await _pickDateOfBirth();
                         state.didChange(_dateOfBirth);
                       },
-                      borderRadius: BorderRadius.circular(AppSizes.radius.r),
+                      borderRadius: BorderRadius.circular(16.r),
                       child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: 'Date of birth',
-                          filled: true,
-                          fillColor: AppTheme.surfaceWhite,
-                          errorText: state.errorText,
-                          suffixIcon: const Icon(Icons.calendar_today_outlined),
-                        ),
+                        decoration: _fieldDecoration(
+                          label: 'Date of birth',
+                          suffixIcon: const Icon(Icons.calendar_today_outlined, color: AppTheme.textSecondary),
+                        ).copyWith(errorText: state.errorText),
                         child: Text(
                           _dateOfBirth != null
                               ? _formatDateIso(_dateOfBirth!)
                               : 'Tap to select (must be 16+)',
-                          style: TextStyle(
-                            fontSize: 16.sp,
-                            color: _dateOfBirth != null
-                                ? AppTheme.textPrimary
-                                : AppTheme.textSecondary,
+                          style: AppTheme.body(
+                            fontSize: 14.5.sp,
+                            color: _dateOfBirth != null ? AppTheme.textPrimary : AppTheme.textSecondary,
                           ),
                         ),
                       ),
@@ -350,29 +356,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             if (_isAdult) ...[
               SizedBox(height: AppSizes.spacingMedium.h),
               Container(
-                padding: EdgeInsets.all(12.w),
+                padding: EdgeInsets.all(14.w),
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceWhite,
-                  borderRadius: BorderRadius.circular(AppSizes.radius.r),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(color: AppTheme.divider),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'See alcohol products?',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                      ),
+                      style: AppTheme.display(fontSize: 14.sp, fontWeight: FontWeight.w700),
                     ),
                     SizedBox(height: 4.h),
                     Text(
                       'You can change this later in your profile.',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: AppTheme.textSecondary,
-                      ),
+                      style: AppTheme.body(fontSize: 12.sp, color: AppTheme.textSecondary),
                     ),
                     SizedBox(height: 8.h),
                     Semantics(
@@ -401,29 +401,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             if (widget.role == 'buyer') ...[
               SizedBox(height: AppSizes.spacingMedium.h),
               Container(
-                padding: EdgeInsets.all(12.w),
+                padding: EdgeInsets.all(14.w),
                 decoration: BoxDecoration(
-                  color: AppTheme.surfaceWhite,
-                  borderRadius: BorderRadius.circular(AppSizes.radius.r),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(color: AppTheme.divider),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'What do you love to shop for?',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                      ),
+                      style: AppTheme.display(fontSize: 14.sp, fontWeight: FontWeight.w700),
                     ),
                     SizedBox(height: 4.h),
                     Text(
                       'Optional — we\'ll show you that first. You can change it anytime.',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: AppTheme.textSecondary,
-                      ),
+                      style: AppTheme.body(fontSize: 12.sp, color: AppTheme.textSecondary),
                     ),
                     SizedBox(height: 8.h),
                     Consumer(
@@ -443,8 +437,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                   _preferredCategoryId = selected ? null : c.id;
                                 });
                               },
-                              labelStyle: TextStyle(
+                              labelStyle: AppTheme.body(
                                 fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
                                 color: selected ? Colors.white : AppTheme.textPrimary,
                               ),
                               selectedColor: AppTheme.primaryCyan,
@@ -461,7 +456,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             ],
             SizedBox(height: AppSizes.spacingLarge.h),
             SizedBox(
-              height: 46.h,
+              height: 52.h,
               child: AuthActionButton(
                 label: 'Continue',
                 onPressed: _onNextFromStep1,
@@ -485,11 +480,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           children: [
             Text(
               'Account',
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
+              style: AppTheme.display(fontSize: 18.sp, fontWeight: FontWeight.w700),
             ),
             if (_sendOtpBannerMessage != null) ...[
               SizedBox(height: AppSizes.spacingMedium.h),
@@ -504,28 +495,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               validator: Validators.validatePhoneNumber,
-              decoration: InputDecoration(
-                labelText: 'Phone number',
-                hintText: '097xxxxxxx',
-                filled: true,
-                fillColor: AppTheme.surfaceWhite,
-              ),
+              style: AppTheme.body(fontSize: 14.5.sp),
+              decoration: _fieldDecoration(label: 'Phone number', hint: '097xxxxxxx'),
             ),
             SizedBox(height: AppSizes.spacingMedium.h),
             TextFormField(
               controller: _passwordController,
               obscureText: !_isPasswordVisible,
               validator: Validators.validatePasswordLength,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                hintText: 'At least 6 characters',
-                filled: true,
-                fillColor: AppTheme.surfaceWhite,
+              style: AppTheme.body(fontSize: 14.5.sp),
+              decoration: _fieldDecoration(
+                label: 'Password',
+                hint: 'At least 6 characters',
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
+                    _isPasswordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                     color: AppTheme.textSecondary,
                   ),
                   onPressed: () =>
@@ -539,15 +523,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               obscureText: !_isConfirmPasswordVisible,
               validator: (v) =>
                   Validators.validatePasswordMatch(_passwordController.text, v),
-              decoration: InputDecoration(
-                labelText: 'Confirm password',
-                filled: true,
-                fillColor: AppTheme.surfaceWhite,
+              style: AppTheme.body(fontSize: 14.5.sp),
+              decoration: _fieldDecoration(
+                label: 'Confirm password',
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _isConfirmPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
+                    _isConfirmPasswordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                     color: AppTheme.textSecondary,
                   ),
                   onPressed: () => setState(
@@ -561,9 +542,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               SizedBox(height: AppSizes.spacingMedium.h),
               Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(12.w),
+                padding: EdgeInsets.all(14.w),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(16.r),
                   border: Border.all(color: AppTheme.divider),
                   color: Colors.white,
                 ),
@@ -589,9 +570,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textPrimary,
                       side: const BorderSide(color: AppTheme.divider),
-                      minimumSize: Size.fromHeight(44.h),
+                      minimumSize: Size.fromHeight(52.h),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppSizes.radius.r),
+                        borderRadius: BorderRadius.circular(16.r),
                       ),
                     ),
                     child: const Text('Back'),
@@ -601,7 +582,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 Expanded(
                   flex: 2,
                   child: SizedBox(
-                    height: 44.h,
+                    height: 52.h,
                     child: AuthActionButton(
                       label: 'Send code',
                       onPressed: _sendOtpAndContinue,
@@ -629,47 +610,20 @@ class _StepProgressIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _dot(filled: true, label: '1'),
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 6.w),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4.r),
-                    child: LinearProgressIndicator(
-                      value: pageIndex >= 1 ? 1.0 : 0.0,
-                      minHeight: 4.h,
-                      backgroundColor: AppTheme.divider,
-                      color: AppTheme.primaryCyan,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        _dot(filled: pageIndex >= 1, label: '2'),
+        _bar(filled: true),
+        SizedBox(width: 6.w),
+        _bar(filled: pageIndex >= 1),
       ],
     );
   }
 
-  Widget _dot({required bool filled, required String label}) {
-    return Container(
-      width: 28.w,
-      height: 28.w,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: filled ? AppTheme.primaryCyan : AppTheme.divider,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
+  Widget _bar({required bool filled}) {
+    return Expanded(
+      child: Container(
+        height: 4.h,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: filled ? AppTheme.primaryCyan : AppTheme.divider,
         ),
       ),
     );

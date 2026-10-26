@@ -485,11 +485,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 padding: EdgeInsets.all(isCompact ? 14 : 16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppTheme.textPrimary,
                 ),
                 child: Column(
                   children: [

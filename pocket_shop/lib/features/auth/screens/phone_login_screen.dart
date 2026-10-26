@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/constants/app_sizes.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../widgets/pocket_shop_logo.dart';
@@ -100,224 +99,195 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
     }
   }
 
+  InputDecoration _fieldDecoration({
+    required String label,
+    required String hint,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 16.h),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: const BorderSide(color: AppTheme.divider),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: const BorderSide(color: AppTheme.divider),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: const BorderSide(color: AppTheme.primaryCyan, width: 1.5),
+      ),
+      suffixIcon: suffixIcon,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.surfaceWhite,
+      backgroundColor: AppTheme.textPrimary,
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.all(AppSizes.padding.w),
-            child: Column(
-              children: [
-                SizedBox(height: 60.h),
-
-                Container(
-                  width: 120.w,
-                  height: 120.w,
-                  padding: EdgeInsets.all(8.w),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(30.r),
-                    border: Border.all(color: AppTheme.divider),
-                    color: Colors.white,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(22.r),
-                    child: PocketShopLogo(size: 120.w),
-                  ),
-                ),
-
-                SizedBox(height: AppSizes.spacingLarge.h),
-
-                // Title
-                Text(
-                  "Welcome Back",
-                  style: TextStyle(
-                    fontSize: 28.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-
-                SizedBox(height: AppSizes.spacingSmall.h),
-
-                // Subtitle
-                Text(
-                  "Login with your phone number and password",
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-
-                SizedBox(height: AppSizes.spacingLarge.h),
-
-                if (_bannerMessage != null)
-                  AuthMessageBanner(
-                    message: _bannerMessage!,
-                    isError: _bannerIsError,
-                    onDismiss: () => setState(() => _bannerMessage = null),
-                  ),
-
-                Container(
-                  padding: EdgeInsets.all(16.w),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(color: AppTheme.divider),
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          validator: Validators.validatePhoneNumber,
-                          decoration: InputDecoration(
-                            labelText: "Phone Number",
-                            hintText: "097xxxxxxx",
-                            filled: true,
-                            fillColor: AppTheme.surfaceWhite,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16.w,
-                              vertical: 16.h,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSizes.radius.r,
-                              ),
-                              borderSide: const BorderSide(
-                                color: AppTheme.divider,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSizes.radius.r,
-                              ),
-                              borderSide: const BorderSide(
-                                color: AppTheme.divider,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSizes.radius.r,
-                              ),
-                              borderSide: const BorderSide(
-                                color: AppTheme.primaryCyan,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: AppSizes.spacingMedium.h),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: !_isPasswordVisible,
-                          validator: Validators.validatePasswordLength,
-                          decoration: InputDecoration(
-                            labelText: "Password",
-                            hintText: "At least 6 characters",
-                            filled: true,
-                            fillColor: AppTheme.surfaceWhite,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16.w,
-                              vertical: 16.h,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSizes.radius.r,
-                              ),
-                              borderSide: const BorderSide(
-                                color: AppTheme.divider,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSizes.radius.r,
-                              ),
-                              borderSide: const BorderSide(
-                                color: AppTheme.divider,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSizes.radius.r,
-                              ),
-                              borderSide: const BorderSide(
-                                color: AppTheme.primaryCyan,
-                              ),
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isPasswordVisible
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                                color: AppTheme.textSecondary,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isPasswordVisible = !_isPasswordVisible;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                SizedBox(height: AppSizes.spacingLarge.h),
-
-                // Continue Button
-                SizedBox(
-                  height: 46.h,
-                  child: AuthActionButton(
-                    label: 'Login',
-                    onPressed: _handleLogin,
-                    isLoading: _isLoading,
-                    loadingLabel: 'Logging you in...',
-                  ),
-                ),
-
-                SizedBox(height: 12.h),
-
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      GoRouter.of(context).push('/forgot-password');
-                    },
-                    child: Text(
-                      'Forgot password?',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        color: AppTheme.primaryCyan,
-                        fontWeight: FontWeight.w600,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Brand band
+              Padding(
+                padding: EdgeInsets.fromLTRB(28.w, 36.h, 28.w, 32.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 56.w,
+                      height: 56.w,
+                      padding: EdgeInsets.all(6.w),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16.r),
+                        color: Colors.white,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(11.r),
+                        child: PocketShopLogo(size: 44.w),
                       ),
                     ),
-                  ),
-                ),
-
-                SizedBox(height: 8.h),
-
-                TextButton(
-                  onPressed: () {
-                    GoRouter.of(context).push('/role-selection');
-                  },
-                  child: Text(
-                    "Don't have an account? Create one",
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      color: AppTheme.primaryCyan,
-                      fontWeight: FontWeight.w600,
+                    SizedBox(height: 18.h),
+                    Text(
+                      "Welcome back",
+                      style: AppTheme.display(fontSize: 26.sp, color: Colors.white, height: 1.1),
                     ),
-                  ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      "A shop in your pocket.",
+                      style: AppTheme.body(fontSize: 13.5.sp, color: Colors.white.withValues(alpha: 0.65)),
+                    ),
+                  ],
                 ),
+              ),
 
-                SizedBox(height: 60.h),
-              ],
-            ),
+              // Form surface
+              Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: AppTheme.surfaceWhite,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 36.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_bannerMessage != null) ...[
+                      AuthMessageBanner(
+                        message: _bannerMessage!,
+                        isError: _bannerIsError,
+                        onDismiss: () => setState(() => _bannerMessage = null),
+                      ),
+                      SizedBox(height: 16.h),
+                    ],
+
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            validator: Validators.validatePhoneNumber,
+                            style: AppTheme.body(fontSize: 14.5.sp),
+                            decoration: _fieldDecoration(
+                              label: "Phone number",
+                              hint: "097xxxxxxx",
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: !_isPasswordVisible,
+                            validator: Validators.validatePasswordLength,
+                            style: AppTheme.body(fontSize: 14.5.sp),
+                            decoration: _fieldDecoration(
+                              label: "Password",
+                              hint: "At least 6 characters",
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _isPasswordVisible
+                                      ? Icons.visibility_rounded
+                                      : Icons.visibility_off_rounded,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _isPasswordVisible = !_isPasswordVisible;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {
+                                GoRouter.of(context).push('/forgot-password');
+                              },
+                              child: Text(
+                                'Forgot password?',
+                                style: AppTheme.body(
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.darkCyan,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 8.h),
+
+                    SizedBox(
+                      height: 52.h,
+                      child: AuthActionButton(
+                        label: 'Log in',
+                        onPressed: _handleLogin,
+                        isLoading: _isLoading,
+                        loadingLabel: 'Logging you in...',
+                      ),
+                    ),
+
+                    SizedBox(height: 20.h),
+
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          GoRouter.of(context).push('/role-selection');
+                        },
+                        child: RichText(
+                          text: TextSpan(
+                            style: AppTheme.body(fontSize: 13.5.sp, color: AppTheme.textSecondary),
+                            children: [
+                              const TextSpan(text: "New here? "),
+                              TextSpan(
+                                text: 'Create an account',
+                                style: AppTheme.body(
+                                  fontSize: 13.5.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.darkCyan,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

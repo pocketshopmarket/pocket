@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase
 
 from accounts.models import SellerProfile, ShopType, User
+from products.models import Category, Product
 
 
 def _seller(phone, shop_name, shop_type=None):
@@ -65,3 +66,38 @@ class ShopListShopTypeFilterTests(APITestCase):
         resp = self.client.get('/api/auth/shops/')
         by_name = {s['shop_name']: s for s in resp.json()['results']}
         self.assertIsNone(by_name['No Type Yet']['shop_type'])
+
+
+class TopCategoryFallbackTests(APITestCase):
+    """
+    top_category is the fallback badge for a shop with no staff-assigned
+    ShopType yet. A shop with only a couple of products commonly has a tied
+    count across categories — this must resolve the same way every time,
+    not flip depending on insertion order (the original bug report: the
+    badge appeared to change to match whichever product was added last).
+    """
+
+    def setUp(self):
+        self.category_a = Category.objects.create(name='Electronics', slug='electronics-topcat-test')
+        self.category_b = Category.objects.create(name='Groceries', slug='groceries-topcat-test')
+        self.seller = _seller('+260970000310', 'Tied Shop')
+        Product.objects.create(
+            name='Phone', description='d', price=10, seller=self.seller,
+            stock_quantity=5, category=self.category_b, is_available=True,
+        )
+        Product.objects.create(
+            name='Milk', description='d', price=10, seller=self.seller,
+            stock_quantity=5, category=self.category_a, is_available=True,
+        )
+
+    def test_a_tie_resolves_the_same_way_every_time(self):
+        first = self.client.get('/api/auth/shops/').json()['results'][0]['top_category']
+        for _ in range(5):
+            again = self.client.get('/api/auth/shops/').json()['results'][0]['top_category']
+            self.assertEqual(again, first)
+
+    def test_a_tie_is_broken_by_category_id_not_insertion_order(self):
+        # category_a has the lower id, so it should win the tie even though
+        # category_b's product was added to the shop first.
+        resp = self.client.get('/api/auth/shops/')
+        self.assertEqual(resp.json()['results'][0]['top_category'], self.category_a.name)

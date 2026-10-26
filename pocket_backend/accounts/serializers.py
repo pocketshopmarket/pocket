@@ -240,10 +240,14 @@ class ShopPublicSerializer(serializers.ModelSerializer):
 
     def get_top_category(self, obj):
         """
-        Shops have no category field of their own — derive one from
-        whatever category most of their available products actually sit
-        in, so a shop tile can carry a "Groceries" / "Electronics" tag
-        without sellers having to set anything.
+        Fallback for shops staff haven't assigned a ShopType to yet —
+        derive one from whatever category most of the shop's available
+        products actually sit in. Ties (the common case for a shop with
+        only a couple of products) are broken by category id, so the
+        result is deterministic. Without that tiebreak, a shop with one
+        product in each of two categories had no consistent winner —
+        the database could return either one first, which in practice
+        looked like the badge flipping to match whatever was added last.
         """
         from django.db.models import Count
         from products.models import Product
@@ -251,9 +255,9 @@ class ShopPublicSerializer(serializers.ModelSerializer):
             Product.objects.filter(
                 seller_id=obj.user_id, is_available=True, category__isnull=False
             )
-            .values('category__name')
+            .values('category_id', 'category__name')
             .annotate(n=Count('id'))
-            .order_by('-n')
+            .order_by('-n', 'category_id')
             .first()
         )
         return row['category__name'] if row else None

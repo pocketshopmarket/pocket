@@ -6,17 +6,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../models/product.dart';
 import '../../../../models/promo_banner.dart';
-import '../../../../widgets/product_list_thumbnail.dart';
 import '../../../../providers/product_provider.dart';
 import '../../../../providers/category_provider.dart';
 import '../../../../providers/banner_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import '../../../../providers/shop_type_provider.dart';
-import '../../../../services/product_service.dart';
 import '../../../../widgets/shop_section_card.dart';
 import '../../../../widgets/shimmer_loading.dart';
+import '../../../../models/shop.dart';
+import '../../../../services/shop_service.dart';
 import 'dart:async';
-import '../../../../models/category.dart';
 import '../../../../providers/auth_provider.dart';
 import '../widgets/birthday_nudge_card.dart';
 import '../../../../widgets/notification_bell.dart';
@@ -35,14 +34,11 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   final PageController _bannerController = PageController(
     viewportFraction: 0.94,
   );
-  String _selectedCategory = 'all';
-  bool _inStockOnly = false;
-  String _sortBy = 'default';
   int _activeBannerIndex = 0;
   Timer? _searchDebounce;
   Timer? _autoScrollTimer;
   final TextEditingController _searchController = TextEditingController();
-  List<Product> _searchSuggestions = [];
+  List<Shop> _searchSuggestions = [];
   bool _showSuggestions = false;
   bool _searchLoading = false;
   bool _searchFailed = false;
@@ -154,212 +150,6 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     });
   }
 
-  Widget _buildCategoryChip(String id, String label, String currentCategory, Function(String) onSelect) {
-    final selected = currentCategory == id;
-    return InkWell(
-      onTap: () => onSelect(id),
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryCyan : const Color(0xFFEEEEEE),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : AppTheme.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openFilterSortSheet(List<Category> allCategories) async {
-    final productState = ref.read(productProvider);
-    String tempCategory = _selectedCategory;
-    bool tempInStockOnly = _inStockOnly;
-    String tempSortBy = _sortBy;
-    String? tempQuality = productState.quality;
-    final minController = TextEditingController(
-      text: productState.minPrice != null ? productState.minPrice!.toStringAsFixed(0) : '',
-    );
-    final maxController = TextEditingController(
-      text: productState.maxPrice != null ? productState.maxPrice!.toStringAsFixed(0) : '',
-    );
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Filter & sort',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Category',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildCategoryChip('all', 'All', tempCategory, (val) => setModalState(() => tempCategory = val)),
-                        ...allCategories.map((cat) => _buildCategoryChip(cat.id.toString(), cat.name, tempCategory, (val) => setModalState(() => tempCategory = val))),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String?>(
-                      initialValue: tempQuality,
-                      decoration: const InputDecoration(labelText: 'Condition', isDense: true),
-                      items: const [
-                        DropdownMenuItem(value: null, child: Text('Any')),
-                        DropdownMenuItem(value: 'new', child: Text('New')),
-                        DropdownMenuItem(value: 'like_new', child: Text('Like new')),
-                        DropdownMenuItem(value: 'good', child: Text('Good')),
-                        DropdownMenuItem(value: 'fair', child: Text('Fair')),
-                        DropdownMenuItem(value: 'used', child: Text('Used')),
-                      ],
-                      onChanged: (v) => setModalState(() => tempQuality = v),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: minController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Min price (ZMW)', isDense: true),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: maxController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Max price (ZMW)', isDense: true),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('In-stock only'),
-                      value: tempInStockOnly,
-                      activeThumbColor: AppTheme.primaryCyan,
-                      onChanged: (value) => setModalState(() => tempInStockOnly = value),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Sort',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 8),
-                    ...[
-                      ('default', 'Default'),
-                      ('popular', 'Most popular'),
-                      ('latest', 'Latest'),
-                      ('price_low', 'Price: low to high'),
-                      ('price_high', 'Price: high to low'),
-                      ('name_az', 'Name: A to Z'),
-                    ].map((option) {
-                        // ignore: deprecated_member_use
-                        return RadioListTile<String>(
-                        value: option.$1,
-                        groupValue: tempSortBy,
-                        activeColor: AppTheme.primaryCyan,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(option.$2, style: const TextStyle(fontSize: 13)),
-                        onChanged: (value) {
-                          if (value != null) setModalState(() => tempSortBy = value);
-                        },
-                      );
-                    }),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () {
-                              minController.dispose();
-                              maxController.dispose();
-                              setState(() {
-                                _selectedCategory = 'all';
-                                _inStockOnly = false;
-                                _sortBy = 'default';
-                              });
-                              ref.read(productProvider.notifier).updateFilters(
-                                category: 'all',
-                                inStockOnly: false,
-                                sortBy: 'default',
-                                clearMinPrice: true,
-                                clearMaxPrice: true,
-                                clearQuality: true,
-                              );
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Reset'),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              final minVal = double.tryParse(minController.text.trim());
-                              final maxVal = double.tryParse(maxController.text.trim());
-                              minController.dispose();
-                              maxController.dispose();
-                              setState(() {
-                                _selectedCategory = tempCategory;
-                                _inStockOnly = tempInStockOnly;
-                                _sortBy = tempSortBy;
-                              });
-                              ref.read(productProvider.notifier).updateFilters(
-                                category: tempCategory,
-                                inStockOnly: tempInStockOnly,
-                                sortBy: tempSortBy,
-                                minPrice: minVal,
-                                maxPrice: maxVal,
-                                quality: tempQuality,
-                                clearMinPrice: minVal == null,
-                                clearMaxPrice: maxVal == null,
-                                clearQuality: tempQuality == null,
-                              );
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Apply'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -368,7 +158,6 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     final shopState = ref.watch(shopProvider);
     final user = ref.watch(userProvider);
     final firstName = user?.displayName.split(' ').first ?? 'Shopper';
-    final allCategories = ref.watch(categoryProvider);
     final bannersAsync = ref.watch(bannerProvider);
     final banners = bannersAsync.valueOrNull ?? PromoBanner.defaults;
     final sponsoredBanners = banners.where((b) => b.isSponsored).toList();
@@ -460,15 +249,14 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                               _showSuggestions = false;
                               _searchSuggestions = [];
                             });
-                            ref.read(productProvider.notifier).updateFilters(searchQuery: '');
                             return;
                           }
                           setState(() => _searchLoading = true);
                           _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
                             try {
-                              final service = ref.read(productServiceProvider);
-                              final page = await service.getProductsPage(
-                                ProductQuery(search: val.trim(), pageSize: 6),
+                              final service = ref.read(shopServiceProvider);
+                              final page = await service.getShopsPage(
+                                ShopQuery(search: val.trim(), pageSize: 6),
                               );
                               if (mounted) {
                                 setState(() {
@@ -492,7 +280,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         },
                         style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: 'Search products',
+                          hintText: 'Search shops',
                           hintStyle: const TextStyle(
                             fontSize: 13,
                             color: AppTheme.textSecondary,
@@ -508,27 +296,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                       _showSuggestions = false;
                                       _searchSuggestions = [];
                                     });
-                                    ref.read(productProvider.notifier).updateFilters(searchQuery: '');
                                   },
                                   child: const Icon(Icons.close_rounded, size: 18, color: AppTheme.textSecondary),
                                 )
                               : null,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _openFilterSortSheet(allCategories),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryCyan,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.tune_rounded,
-                          size: 16,
-                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -581,7 +352,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                   Text(
                                     _searchFailed
                                         ? 'Search unavailable, check your connection'
-                                        : 'No products found',
+                                        : 'No shops found',
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppTheme.textSecondary,
@@ -596,7 +367,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                               itemCount: _searchSuggestions.length,
                               separatorBuilder: (_, _) => const Divider(height: 1),
                               itemBuilder: (_, i) {
-                                final product = _searchSuggestions[i];
+                                final shop = _searchSuggestions[i];
                                 return ListTile(
                                   dense: true,
                                   leading: ClipRRect(
@@ -604,14 +375,25 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                     child: SizedBox(
                                       width: 40,
                                       height: 40,
-                                      child: ProductListThumbnail(
-                                        product: product,
-                                        compactPlaceholder: true,
-                                      ),
+                                      child: shop.shopLogo != null
+                                          ? CachedNetworkImage(
+                                              imageUrl: shop.shopLogo!,
+                                              fit: BoxFit.cover,
+                                              errorWidget: (_, _, _) => Container(
+                                                color: AppTheme.divider.withValues(alpha: 0.3),
+                                                alignment: Alignment.center,
+                                                child: const Icon(Icons.storefront_outlined, size: 18, color: AppTheme.textSecondary),
+                                              ),
+                                            )
+                                          : Container(
+                                              color: AppTheme.divider.withValues(alpha: 0.3),
+                                              alignment: Alignment.center,
+                                              child: const Icon(Icons.storefront_outlined, size: 18, color: AppTheme.textSecondary),
+                                            ),
                                     ),
                                   ),
                                   title: Text(
-                                    product.name,
+                                    shop.shopName,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -620,7 +402,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                     ),
                                   ),
                                   subtitle: Text(
-                                    'ZMW ${product.price.toStringAsFixed(2)}',
+                                    '${shop.productCount} item${shop.productCount == 1 ? '' : 's'}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -634,13 +416,70 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                                       _showSuggestions = false;
                                       _searchSuggestions = [];
                                     });
-                                    context.push('/buyer/product-details', extra: product);
+                                    context.push('/buyer/shop-details?id=${shop.id}');
                                   },
                                 );
                               },
                             ),
                 ),
               SizedBox(height: isCompact ? 10 : 12),
+              Builder(
+                builder: (context) {
+                  final shopTypesState = ref.watch(shopTypesProvider);
+                  final shopTypes = shopTypesState.shopTypes;
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SizeTransition(sizeFactor: animation, axisAlignment: -1, child: child),
+                    ),
+                    child: shopTypes.isEmpty
+                        ? (shopTypesState.isLoading
+                            ? const Padding(
+                                key: ValueKey('types-loading'),
+                                padding: EdgeInsets.only(bottom: 12),
+                                child: ShopTypeChipsShimmer(),
+                              )
+                            : const SizedBox.shrink(key: ValueKey('types-empty')))
+                        : Padding(
+                            key: const ValueKey('types-loaded'),
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: SizedBox(
+                              height: 36,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: 1 + shopTypes.length,
+                                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                                itemBuilder: (_, index) {
+                                  final isAll = index == 0;
+                                  final typeId = isAll ? null : shopTypes[index - 1].id;
+                                  final typeName = isAll ? 'All' : shopTypes[index - 1].name;
+                                  final selected = shopState.selectedShopTypeId == typeId;
+                                  return ChoiceChip(
+                                    label: Text(typeName),
+                                    selected: selected,
+                                    onSelected: (_) {
+                                      if (!selected) {
+                                        ref.read(shopProvider.notifier).setShopType(typeId);
+                                      }
+                                    },
+                                    labelStyle: TextStyle(
+                                      fontSize: 12,
+                                      color: selected ? Colors.white : AppTheme.textPrimary,
+                                    ),
+                                    selectedColor: AppTheme.primaryCyan,
+                                    backgroundColor: Colors.white,
+                                    side: const BorderSide(color: AppTheme.divider),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                  );
+                },
+              ),
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(isCompact ? 14 : 16),
@@ -758,124 +597,112 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 }),
               ),
               const SizedBox(height: 16),
-              Builder(
-                builder: (context) {
-                  final shopTypesState = ref.watch(shopTypesProvider);
-                  final shopTypes = shopTypesState.shopTypes;
-                  if (shopTypes.isEmpty) {
-                    if (!shopTypesState.isLoading) return const SizedBox.shrink();
-                    return const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ShopTypeChipsShimmer(),
-                        SizedBox(height: 16),
-                      ],
-                    );
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 36,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: 1 + shopTypes.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 8),
-                          itemBuilder: (_, index) {
-                            final isAll = index == 0;
-                            final typeId = isAll ? null : shopTypes[index - 1].id;
-                            final typeName = isAll ? 'All' : shopTypes[index - 1].name;
-                            final selected = shopState.selectedShopTypeId == typeId;
-                            return ChoiceChip(
-                              label: Text(typeName),
-                              selected: selected,
-                              onSelected: (_) {
-                                if (!selected) {
-                                  ref.read(shopProvider.notifier).setShopType(typeId);
-                                }
-                              },
-                              labelStyle: TextStyle(
-                                fontSize: 12,
-                                color: selected ? Colors.white : AppTheme.textPrimary,
-                              ),
-                              selectedColor: AppTheme.primaryCyan,
-                              backgroundColor: Colors.white,
-                              side: const BorderSide(color: AppTheme.divider),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  );
-                },
-              ),
               // "Near Me" is silently omitted (no error UI) when location is
               // denied/unavailable — confirmed product decision, not a bug.
-              if (shopState.isLoadingNearby && !_isRefreshing) ...[
-                const ShopCardShimmer(),
-                const SizedBox(height: 16),
-              ] else if (shopState.nearbyShops.isNotEmpty) ...[
-                const Text(
-                  'Shops near you',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(sizeFactor: animation, axisAlignment: -1, child: child),
                 ),
-                const SizedBox(height: 10),
-                ...shopState.nearbyShops.expand((shop) => [
-                      ShopSectionCard(
-                        shop: shop,
-                        onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
-                        onProductTap: (product) => context.push('/buyer/product-details', extra: product),
-                      ),
-                      const SizedBox(height: 12),
-                    ]),
-                const SizedBox(height: 6),
-              ],
-              if (shopState.allShops.isNotEmpty) ...[
-                const Text(
-                  'All shops',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                child: shopState.isLoadingNearby && !_isRefreshing
+                    ? const Padding(
+                        key: ValueKey('nearby-loading'),
+                        padding: EdgeInsets.only(bottom: 16),
+                        child: ShopCardShimmer(),
+                      )
+                    : shopState.nearbyShops.isNotEmpty
+                        ? Padding(
+                            key: const ValueKey('nearby-loaded'),
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Shops near you',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                                ),
+                                const SizedBox(height: 10),
+                                ...shopState.nearbyShops.expand((shop) => [
+                                      ShopSectionCard(
+                                        shop: shop,
+                                        onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
+                                        onProductTap: (product) => context.push('/buyer/product-details', extra: product),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ]),
+                              ],
+                            ),
+                          )
+                        : const SizedBox.shrink(key: ValueKey('nearby-empty')),
+              ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(sizeFactor: animation, axisAlignment: -1, child: child),
                 ),
-                const SizedBox(height: 10),
-                ...shopState.allShops.asMap().entries.expand((entry) {
-                  final index = entry.key;
-                  final shop = entry.value;
-                  final widgets = [
-                    ShopSectionCard(
-                      shop: shop,
-                      onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
-                      onProductTap: (product) => context.push('/buyer/product-details', extra: product),
-                    ),
-                    const SizedBox(height: 12),
-                  ];
-                  // A sponsored banner every few shops as the buyer scrolls —
-                  // not fully random (that risks two in a row, or a whole
-                  // session with none) and not purely sequential-only-at-top,
-                  // which is all a paid seller used to get.
-                  final inFeedBanner = _inFeedBannerFor(sponsoredBanners, index);
-                  if (inFeedBanner != null) {
-                    widgets.addAll([
-                      _InFeedBannerCard(banner: inFeedBanner, onTap: () => _onBannerTap(inFeedBanner)),
-                      const SizedBox(height: 12),
-                    ]);
-                  }
-                  return widgets;
-                }),
-                if (shopState.isLoadingMoreAllShops) ...[
-                  const SizedBox(height: 6),
-                  const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryCyan),
-                  ),
-                ],
-                const SizedBox(height: 6),
-              ] else if (shopState.isLoadingAllShops) ...[
-                const ShopCardShimmer(),
-                const SizedBox(height: 12),
-                const ShopCardShimmer(),
-                const SizedBox(height: 12),
-                const ShopCardShimmer(),
-                const SizedBox(height: 18),
-              ],
+                child: shopState.allShops.isNotEmpty
+                    ? Column(
+                        key: const ValueKey('all-shops-loaded'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'All shops',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                          ),
+                          const SizedBox(height: 10),
+                          ...shopState.allShops.asMap().entries.expand((entry) {
+                            final index = entry.key;
+                            final shop = entry.value;
+                            final widgets = [
+                              ShopSectionCard(
+                                shop: shop,
+                                onOpenShop: () => context.push('/buyer/shop-details', extra: shop),
+                                onProductTap: (product) => context.push('/buyer/product-details', extra: product),
+                              ),
+                              const SizedBox(height: 12),
+                            ];
+                            // A sponsored banner every few shops as the buyer scrolls —
+                            // not fully random (that risks two in a row, or a whole
+                            // session with none) and not purely sequential-only-at-top,
+                            // which is all a paid seller used to get.
+                            final inFeedBanner = _inFeedBannerFor(sponsoredBanners, index);
+                            if (inFeedBanner != null) {
+                              widgets.addAll([
+                                _InFeedBannerCard(banner: inFeedBanner, onTap: () => _onBannerTap(inFeedBanner)),
+                                const SizedBox(height: 12),
+                              ]);
+                            }
+                            return widgets;
+                          }),
+                          if (shopState.isLoadingMoreAllShops) ...[
+                            const SizedBox(height: 6),
+                            const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryCyan),
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                        ],
+                      )
+                    : shopState.isLoadingAllShops
+                        ? const Column(
+                            key: ValueKey('all-shops-loading'),
+                            children: [
+                              ShopCardShimmer(),
+                              SizedBox(height: 12),
+                              ShopCardShimmer(),
+                              SizedBox(height: 12),
+                              ShopCardShimmer(),
+                              SizedBox(height: 18),
+                            ],
+                          )
+                        : const SizedBox.shrink(key: ValueKey('all-shops-empty')),
+              ),
             ],
           ),
         ),

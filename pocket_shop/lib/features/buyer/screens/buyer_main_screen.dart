@@ -51,7 +51,7 @@ class BuyerMainScreen extends ConsumerWidget {
             NavigationDestination(
               icon: Icon(Icons.storefront_outlined),
               selectedIcon: Icon(Icons.storefront_rounded),
-              label: 'Shop',
+              label: 'Products',
             ),
             NavigationDestination(
               icon: _BadgeIcon(

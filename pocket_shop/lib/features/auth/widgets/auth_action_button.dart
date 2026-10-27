@@ -31,7 +31,7 @@ class AuthActionButton extends StatelessWidget {
           disabledForegroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         child: isLoading
@@ -39,8 +39,8 @@ class AuthActionButton extends StatelessWidget {
             : Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
       ),

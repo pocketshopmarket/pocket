@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -141,115 +142,114 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.textPrimary,
-      body: SafeArea(
-        bottom: false,
-        // Sheet fills the screen when the form is short, scrolls when it isn't.
-        child: CustomScrollView(
+    final insets = MediaQuery.paddingOf(context);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: AppTheme.surfaceWhite,
+        // Log in stays pinned to the bottom until the keyboard needs the room.
+        body: CustomScrollView(
           slivers: [
-              // Brand band
-              SliverToBoxAdapter(child: Padding(
-                padding: EdgeInsets.fromLTRB(28.w, 36.h, 28.w, 32.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 56.w,
-                      height: 56.w,
-                      padding: EdgeInsets.all(6.w),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16.r),
-                        color: Colors.white,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(11.r),
-                        child: PocketShopLogo(size: 44.w),
-                      ),
-                    ),
-                    SizedBox(height: 18.h),
-                    Text(
-                      "Welcome back",
-                      style: AppTheme.display(fontSize: 26.sp, color: Colors.white, height: 1.1),
-                    ),
-                    SizedBox(height: 6.h),
-                    Text(
-                      "A shop in your pocket.",
-                      style: AppTheme.body(fontSize: 13.5.sp, color: Colors.white.withValues(alpha: 0.65)),
-                    ),
-                  ],
-                ),
-              )),
-
-              // Form surface
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: AppTheme.surfaceWhite,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  24.w, 28.h, 24.w, 36.h + MediaQuery.paddingOf(context).bottom),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_bannerMessage != null) ...[
-                      AuthMessageBanner(
-                        message: _bannerMessage!,
-                        isError: _bannerIsError,
-                        onDismiss: () => setState(() => _bannerMessage = null),
-                      ),
-                      SizedBox(height: 16.h),
-                    ],
-
-                    Form(
-                      key: _formKey,
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _brandBand(insets.top),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 24.h + insets.bottom),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          PhoneNumberField(
-                            controller: _phoneController,
-                            label: "Phone number",
-                            validator: Validators.validatePhoneNumber,
-                          ),
-                          SizedBox(height: 16.h),
-                          _fieldLabel('Password'),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: !_isPasswordVisible,
-                            validator: Validators.validatePasswordLength,
-                            style: AppTheme.body(fontSize: 14.5.sp),
-                            decoration: _fieldDecoration(
-                              hint: "At least 6 characters",
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _isPasswordVisible
-                                      ? Icons.visibility_rounded
-                                      : Icons.visibility_off_rounded,
-                                  color: AppTheme.textSecondary,
+                          if (_bannerMessage != null) ...[
+                            AuthMessageBanner(
+                              message: _bannerMessage!,
+                              isError: _bannerIsError,
+                              onDismiss: () => setState(() => _bannerMessage = null),
+                            ),
+                            SizedBox(height: 4.h),
+                          ],
+                          Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                PhoneNumberField(
+                                  controller: _phoneController,
+                                  label: 'Phone number',
+                                  validator: Validators.validatePhoneNumber,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _isPasswordVisible = !_isPasswordVisible;
-                                  });
-                                },
-                              ),
+                                SizedBox(height: 16.h),
+                                _fieldLabel('Password'),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: !_isPasswordVisible,
+                                  validator: Validators.validatePasswordLength,
+                                  style: AppTheme.body(fontSize: 14.5.sp),
+                                  decoration: _fieldDecoration(
+                                    hint: 'At least 6 characters',
+                                    suffixIcon: IconButton(
+                                      tooltip: _isPasswordVisible ? 'Hide password' : 'Show password',
+                                      icon: Icon(
+                                        _isPasswordVisible
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        color: AppTheme.textSecondary,
+                                        size: 22,
+                                      ),
+                                      onPressed: () =>
+                                          setState(() => _isPasswordVisible = !_isPasswordVisible),
+                                    ),
+                                  ),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () => GoRouter.of(context).push('/forgot-password'),
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.symmetric(horizontal: 2.w, vertical: 10.h),
+                                    ),
+                                    child: Text(
+                                      'Forgot password?',
+                                      style: AppTheme.body(
+                                        fontSize: 13.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.darkCyan,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Align(
-                            alignment: Alignment.centerRight,
+                          const Spacer(),
+                          SizedBox(height: 20.h),
+                          AuthActionButton(
+                            label: 'Log in',
+                            onPressed: _handleLogin,
+                            isLoading: _isLoading,
+                            loadingLabel: 'Logging you in...',
+                            height: 52.h,
+                          ),
+                          SizedBox(height: 10.h),
+                          Center(
                             child: TextButton(
-                              onPressed: () {
-                                GoRouter.of(context).push('/forgot-password');
-                              },
-                              child: Text(
-                                'Forgot password?',
-                                style: AppTheme.body(
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.darkCyan,
+                              onPressed: () => GoRouter.of(context).push('/role-selection'),
+                              child: RichText(
+                                text: TextSpan(
+                                  style: AppTheme.body(fontSize: 13.5.sp, color: AppTheme.textSecondary),
+                                  children: [
+                                    const TextSpan(text: 'New here? '),
+                                    TextSpan(
+                                      text: 'Create an account',
+                                      style: AppTheme.body(
+                                        fontSize: 13.5.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.darkCyan,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -257,50 +257,62 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                         ],
                       ),
                     ),
-
-                    SizedBox(height: 8.h),
-
-                    SizedBox(
-                      height: 52.h,
-                      child: AuthActionButton(
-                        label: 'Log in',
-                        onPressed: _handleLogin,
-                        isLoading: _isLoading,
-                        loadingLabel: 'Logging you in...',
-                      ),
-                    ),
-
-                    SizedBox(height: 20.h),
-
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          GoRouter.of(context).push('/role-selection');
-                        },
-                        child: RichText(
-                          text: TextSpan(
-                            style: AppTheme.body(fontSize: 13.5.sp, color: AppTheme.textSecondary),
-                            children: [
-                              const TextSpan(text: "New here? "),
-                              TextSpan(
-                                text: 'Create an account',
-                                style: AppTheme.body(
-                                  fontSize: 13.5.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.darkCyan,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _brandBand(double topInset) {
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(color: AppTheme.textPrimary),
+      padding: EdgeInsets.fromLTRB(28.w, topInset + 40.h, 28.w, 30.h),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            right: -52.w,
+            top: -(topInset + 52.h),
+            child: Icon(
+              Icons.shopping_bag_outlined,
+              size: 150.w,
+              color: AppTheme.accentOrange.withValues(alpha: 0.22),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 52.w,
+                height: 52.w,
+                padding: EdgeInsets.all(5.w),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11.r),
+                  child: PocketShopLogo(size: 42.w),
+                ),
+              ),
+              SizedBox(height: 18.h),
+              Text(
+                'Welcome back',
+                style: AppTheme.display(fontSize: 26.sp, color: Colors.white, height: 1.1),
+              ),
+              SizedBox(height: 6.h),
+              Text(
+                'A shop in your pocket.',
+                style: AppTheme.body(fontSize: 13.5.sp, color: Colors.white.withValues(alpha: 0.65)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

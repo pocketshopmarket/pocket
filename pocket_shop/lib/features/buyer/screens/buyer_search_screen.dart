@@ -13,6 +13,7 @@ import '../../../../providers/product_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../services/product_service.dart';
 import '../../../../widgets/product_card.dart';
+import '../../../../widgets/shimmer_loading.dart';
 import '../../../../widgets/ui/ps_ui.dart';
 
 class BuyerSearchScreen extends ConsumerStatefulWidget {
@@ -373,11 +374,20 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                       ),
                     ),
                   if (_loading)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppTheme.primaryCyan,
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: isCompact ? 8 : 10,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: ProductCard.gridExtent(
+                            (screenWidth - 28 - (isCompact ? 8 : 10)) / 2,
+                          ),
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (_, _) => const ProductCardShimmer(),
+                          childCount: 6,
                         ),
                       ),
                     )
@@ -385,13 +395,12 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            _error!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: AppTheme.error),
-                          ),
+                        child: PsEmptyState(
+                          icon: Icons.cloud_off_rounded,
+                          title: "Couldn't load products",
+                          message: _error!,
+                          actionLabel: 'Try again',
+                          onAction: () => _fetch(reset: true),
                         ),
                       ),
                     )
@@ -453,14 +462,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                         ),
                         delegate: SliverChildBuilderDelegate((context, index) {
                           if (index >= _items.length) {
-                            return const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: AppTheme.primaryCyan,
-                                ),
-                              ),
-                            );
+                            return const ProductCardShimmer();
                           }
                           final product = _items[index];
                           final inStock =

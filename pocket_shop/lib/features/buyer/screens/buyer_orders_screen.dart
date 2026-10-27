@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../models/order.dart';
 import '../../../../providers/orders_provider.dart';
 import '../../../../widgets/ui/ps_ui.dart';
+import '../../../../widgets/shimmer_loading.dart';
 
 class BuyerOrdersScreen extends ConsumerWidget {
   const BuyerOrdersScreen({super.key});
@@ -83,9 +84,7 @@ class BuyerOrdersScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryCyan),
-        ),
+        loading: () => const ListRowsShimmer(rowHeight: 104, leading: false),
         error: (e, _) => Center(
           child: PsEmptyState(
             icon: Icons.cloud_off_rounded,

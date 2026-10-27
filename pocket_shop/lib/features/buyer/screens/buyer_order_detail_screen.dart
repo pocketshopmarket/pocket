@@ -11,6 +11,7 @@ import '../../../../providers/cart_provider.dart';
 import '../../../../providers/orders_provider.dart';
 import '../../../../services/api_service.dart';
 import '../../../../widgets/osm_route_map.dart';
+import '../../../../widgets/shimmer_loading.dart';
 
 class BuyerOrderDetailScreen extends ConsumerWidget {
   final int orderId;
@@ -774,9 +775,7 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryCyan),
-        ),
+        loading: () => const SectionsShimmer(heights: [130, 210, 160]),
         error: (e, _) {
           final isDio = e is DioException;
           final is404 = isDio && e.response?.statusCode == 404;

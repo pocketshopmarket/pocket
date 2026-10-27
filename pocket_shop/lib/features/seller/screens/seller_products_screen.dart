@@ -7,6 +7,7 @@ import '../../../models/product.dart';
 import '../../../providers/product_provider.dart';
 import '../../../services/product_service.dart';
 import '../../../widgets/product_list_thumbnail.dart';
+import '../../../widgets/shimmer_loading.dart';
 
 enum _StockFilter { all, inStock, lowStock, outOfStock }
 
@@ -176,9 +177,7 @@ class _SellerProductsScreenState extends ConsumerState<SellerProductsScreen> {
         foregroundColor: Colors.black,
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryCyan),
-            )
+          ? const ListRowsShimmer()
           : _error != null
               ? Center(
                   child: Padding(

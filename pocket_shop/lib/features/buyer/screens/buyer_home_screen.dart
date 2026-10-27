@@ -191,7 +191,11 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen>
     final user = ref.watch(userProvider);
     final firstName = user?.displayName.split(' ').first ?? 'Shopper';
     final bannersAsync = ref.watch(bannerProvider);
-    final banners = bannersAsync.valueOrNull ?? PromoBanner.defaults;
+    // The provider already falls back to built-in banners on error, so
+    // "no value yet" only ever means still loading: show a skeleton, never
+    // flash the fallbacks first.
+    final bannersLoading = !bannersAsync.hasValue;
+    final banners = bannersAsync.valueOrNull ?? const <PromoBanner>[];
     final sponsoredBanners = banners.where((b) => b.isSponsored).toList();
 
     final productState = ref.watch(productProvider);
@@ -422,6 +426,8 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen>
                                           ? CachedNetworkImage(
                                               imageUrl: shop.shopLogo!,
                                               fit: BoxFit.cover,
+                fadeInDuration: const Duration(milliseconds: 220),
+                placeholder: (_, _) => const ShimmerFill(),
                                               errorWidget: (_, _, _) => Container(
                                                 color: AppTheme.divider.withValues(alpha: 0.3),
                                                 alignment: Alignment.center,
@@ -524,6 +530,9 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen>
                 },
               ),
               const SizedBox(height: 4),
+              if (bannersLoading)
+                const BannerShimmer()
+              else if (banners.isNotEmpty)
               SizedBox(
                 height: 176,
                 child: Stack(
@@ -543,6 +552,9 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen>
                             : _HeroBannerCard(
                                 banner: banner,
                                 product: _bannerProduct(banner, i, productState),
+                                photoPending: !productState.trendingLoaded &&
+                                    !banner.isSponsored &&
+                                    const {'none', 'category', 'product'}.contains(banner.actionType),
                                 onTap: () => _onBannerTap(banner),
                               );
                       },
@@ -729,6 +741,8 @@ class _ImageBannerCard extends StatelessWidget {
               child: CachedNetworkImage(
                 imageUrl: banner.imageUrl!,
                 fit: BoxFit.cover,
+                fadeInDuration: const Duration(milliseconds: 220),
+                placeholder: (_, _) => const ShimmerFill(),
                 errorWidget: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
@@ -745,10 +759,18 @@ class _ImageBannerCard extends StatelessWidget {
 /// CTA, and a real product photo in a tilted frame with its price. Falls back
 /// to the banner's icon as a corner watermark when there's no photo to show.
 class _HeroBannerCard extends StatelessWidget {
-  const _HeroBannerCard({required this.banner, required this.product, required this.onTap});
+  const _HeroBannerCard({
+    required this.banner,
+    required this.product,
+    required this.photoPending,
+    required this.onTap,
+  });
 
   final PromoBanner banner;
   final Product? product;
+  // Keep the photo slot (shimmering) while trending products load, so the
+  // headline doesn't reflow when the photo arrives.
+  final bool photoPending;
   final VoidCallback onTap;
 
   String get _headline {
@@ -774,7 +796,8 @@ class _HeroBannerCard extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final photo = constraints.maxWidth >= 330 ? product?.imageUrl : null;
+        final url = product?.imageUrl;
+        final showFrame = constraints.maxWidth >= 330 && (url != null || photoPending);
         return Material(
           color: bg,
           borderRadius: BorderRadius.circular(20),
@@ -784,14 +807,14 @@ class _HeroBannerCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (photo == null)
+                if (!showFrame)
                   Positioned(
                     right: -24,
                     bottom: -30,
                     child: Icon(banner.icon, size: 156, color: fg.withValues(alpha: 0.16)),
                   ),
                 Padding(
-                  padding: EdgeInsets.fromLTRB(20, 32, photo != null ? 150 : 20, 18),
+                  padding: EdgeInsets.fromLTRB(20, 32, showFrame ? 150 : 20, 18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -833,13 +856,13 @@ class _HeroBannerCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (photo != null)
+                if (showFrame)
                   Positioned(
                     right: 20,
                     top: 30,
                     child: Transform.rotate(
                       angle: 0.087, // ~5 degrees
-                      child: _PhotoFrame(url: photo, price: product!.price),
+                      child: _PhotoFrame(url: url, price: url != null ? product?.price : null),
                     ),
                   ),
               ],
@@ -854,14 +877,15 @@ class _HeroBannerCard extends StatelessWidget {
 class _PhotoFrame extends StatelessWidget {
   const _PhotoFrame({required this.url, required this.price});
 
-  final String url;
-  final double price;
+  final String? url;
+  final double? price;
 
   @override
   Widget build(BuildContext context) {
-    final label = price.truncateToDouble() == price
-        ? price.toStringAsFixed(0)
-        : price.toStringAsFixed(2);
+    final p = price;
+    final label = p == null
+        ? null
+        : (p.truncateToDouble() == p ? p.toStringAsFixed(0) : p.toStringAsFixed(2));
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -878,14 +902,19 @@ class _PhotoFrame extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: CachedNetworkImage(
-              imageUrl: url,
-              fit: BoxFit.cover,
-              placeholder: (_, _) => const ColoredBox(color: AppTheme.softSurface),
-              errorWidget: (_, _, _) => const ColoredBox(color: AppTheme.softSurface),
-            ),
+            child: url == null
+                ? const ShimmerFill()
+                : CachedNetworkImage(
+                    imageUrl: url!,
+                    fit: BoxFit.cover,
+                    memCacheWidth: (132 * MediaQuery.devicePixelRatioOf(context) * 1.35).round(),
+                    fadeInDuration: const Duration(milliseconds: 220),
+                    placeholder: (_, _) => const ShimmerFill(),
+                    errorWidget: (_, _, _) => const ColoredBox(color: AppTheme.softSurface),
+                  ),
           ),
         ),
+        if (label != null)
         Positioned(
           left: -10,
           bottom: 10,
@@ -1012,6 +1041,8 @@ class _InFeedBannerCard extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: banner.imageUrl!,
                   fit: BoxFit.cover,
+                fadeInDuration: const Duration(milliseconds: 220),
+                placeholder: (_, _) => const ShimmerFill(),
                   errorWidget: (_, _, _) => const SizedBox.shrink(),
                 ),
               )

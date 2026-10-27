@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import '../../../../providers/delivery_provider.dart';
 import '../../../../providers/review_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../widgets/seller_suggestions_sheet.dart';
+import '../../../../widgets/shimmer_loading.dart';
 import '../../../../widgets/sign_in_prompt.dart';
 
 class BuyerProductDetailsScreen extends ConsumerStatefulWidget {
@@ -130,26 +132,17 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                           .map(
                             (u) => ClipRRect(
                               borderRadius: BorderRadius.circular(16),
-                              child: Image.network(
-                                u,
+                              child: CachedNetworkImage(
+                                imageUrl: u,
                                 fit: BoxFit.cover,
                                 width: double.infinity,
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
-                                  return Container(
-                                    color: AppTheme.surfaceWhite,
-                                    alignment: Alignment.center,
-                                    child: SizedBox(
-                                      width: 28,
-                                      height: 28,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppTheme.primaryCyan.withValues(alpha: 0.75),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, _, _) => Container(
+                                memCacheWidth: (MediaQuery.sizeOf(context).width *
+                                        MediaQuery.devicePixelRatioOf(context) *
+                                        1.35)
+                                    .round(),
+                                fadeInDuration: const Duration(milliseconds: 220),
+                                placeholder: (_, _) => const ShimmerFill(),
+                                errorWidget: (context, _, _) => Container(
                                   color: AppTheme.surfaceWhite,
                                   alignment: Alignment.center,
                                   padding: const EdgeInsets.all(16),

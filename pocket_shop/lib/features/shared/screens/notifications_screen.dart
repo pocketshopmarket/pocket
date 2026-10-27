@@ -7,6 +7,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/notification_provider.dart';
+import '../../../widgets/shimmer_loading.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -302,9 +303,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ],
       ),
       body: state.isLoading && notifications.isEmpty
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryCyan),
-            )
+          ? const ListRowsShimmer()
           : notifications.isEmpty
               ? _buildEmptyState()
               : RefreshIndicator(

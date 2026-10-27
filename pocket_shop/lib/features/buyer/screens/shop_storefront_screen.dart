@@ -13,6 +13,8 @@ import '../../../providers/wishlist_provider.dart';
 import '../../../services/product_service.dart';
 import '../../../services/shop_service.dart';
 import '../../../widgets/product_card.dart';
+import '../../../widgets/shimmer_loading.dart';
+import '../../../widgets/ui/ps_ui.dart';
 
 /// A single seller's public storefront: header + their full in-stock catalog.
 /// Reached from a `ShopSectionCard` tap on Home (Near Me / All Shops) — the `Shop`
@@ -186,12 +188,42 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
         title: Text(_shop?.shopName ?? 'Shop'),
       ),
       body: _loadingShop
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryCyan))
+          ? CustomScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              slivers: [
+                const SliverPadding(
+                  padding: EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  sliver: SliverToBoxAdapter(
+                    child: AppShimmer(child: SkeletonBox(height: 110, radius: 18)),
+                  ),
+                ),
+                SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: isCompact ? 8 : 10,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: ProductCard.gridExtent(
+                            (screenWidth - 28 - (isCompact ? 8 : 10)) / 2,
+                          ),
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (_, _) => const ProductCardShimmer(),
+                          childCount: 4,
+                        ),
+                      ),
+                    ),
+              ],
+            )
           : _shopError != null
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(_shopError!, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.error)),
+                  child: PsEmptyState(
+                    icon: Icons.storefront_outlined,
+                    title: "Couldn't open this shop",
+                    message: _shopError!,
+                    actionLabel: 'Try again',
+                    onAction: _loadShop,
                   ),
                 )
               : RefreshIndicator(
@@ -204,17 +236,33 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                       if (_categories.length > 1)
                         SliverToBoxAdapter(child: _buildCategoryChips()),
                       if (_loading)
-                        const SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: Center(child: CircularProgressIndicator(color: AppTheme.primaryCyan)),
-                        )
+                        SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: isCompact ? 8 : 10,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: ProductCard.gridExtent(
+                            (screenWidth - 28 - (isCompact ? 8 : 10)) / 2,
+                          ),
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (_, _) => const ProductCardShimmer(),
+                          childCount: 6,
+                        ),
+                      ),
+                    )
                       else if (_error != null)
                         SliverFillRemaining(
                           hasScrollBody: false,
                           child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: AppTheme.error)),
+                            child: PsEmptyState(
+                              icon: Icons.cloud_off_rounded,
+                              title: "Couldn't load this shop's products",
+                              message: _error!,
+                              actionLabel: 'Try again',
+                              onAction: () => _fetchProducts(reset: true),
                             ),
                           ),
                         )
@@ -249,9 +297,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
                                 if (index >= _items.length) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(color: AppTheme.primaryCyan),
-                                  );
+                                  return const ProductCardShimmer();
                                 }
                                 final product = _items[index];
                                 return ProductCard(

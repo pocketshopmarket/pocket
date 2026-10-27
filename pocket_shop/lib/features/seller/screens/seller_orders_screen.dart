@@ -14,6 +14,7 @@ import '../../../widgets/qr_identity_sheet.dart';
 import '../../shared/screens/refund_requests_screen.dart';
 import '../../shared/screens/cancellation_requests_screen.dart';
 import '../../shared/screens/transport_requests_screen.dart';
+import '../../../widgets/shimmer_loading.dart';
 
 class SellerOrdersScreen extends ConsumerStatefulWidget {
   final int? initialOrderId;
@@ -236,14 +237,7 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
                   ),
                 ),
               if (_loading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 48),
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.primaryCyan,
-                    ),
-                  ),
-                )
+                const ListRowsShimmer(padding: EdgeInsets.only(top: 4), rowHeight: 96, leading: false)
               else if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 32),

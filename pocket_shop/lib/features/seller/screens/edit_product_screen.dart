@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/category_provider.dart';
 import '../../../services/product_service.dart';
+import '../../../widgets/shimmer_loading.dart';
 
 const int _kMaxImages = 5;
 
@@ -339,9 +341,11 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                       Stack(children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            _keptImageUrls[i], width: 100, height: 100, fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _imgPlaceholder(),
+                          child: CachedNetworkImage(
+                            imageUrl: _keptImageUrls[i], width: 100, height: 100, fit: BoxFit.cover,
+                            memCacheWidth: (100 * MediaQuery.devicePixelRatioOf(context) * 1.35).round(),
+                            placeholder: (_, _) => const SizedBox(width: 100, height: 100, child: ShimmerFill()),
+                            errorWidget: (_, _, _) => _imgPlaceholder(),
                           ),
                         ),
                         Positioned(right: 2, top: 2, child: IconButton.filled(

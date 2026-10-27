@@ -6,6 +6,8 @@ import '../providers/category_provider.dart';
 class ProductState {
   final List<Product> products;
   final List<Product> trendingProducts;
+  // True once the first trending fetch has finished, success or not.
+  final bool trendingLoaded;
   final bool isLoading;
   final bool isLoadingMore;
   final bool hasMore;
@@ -23,6 +25,7 @@ class ProductState {
   ProductState({
     this.products = const [],
     this.trendingProducts = const [],
+    this.trendingLoaded = false,
     this.isLoading = false,
     this.isLoadingMore = false,
     this.hasMore = true,
@@ -41,6 +44,7 @@ class ProductState {
   ProductState copyWith({
     List<Product>? products,
     List<Product>? trendingProducts,
+    bool? trendingLoaded,
     bool? isLoading,
     bool? isLoadingMore,
     bool? hasMore,
@@ -61,6 +65,7 @@ class ProductState {
     return ProductState(
       products: products ?? this.products,
       trendingProducts: trendingProducts ?? this.trendingProducts,
+      trendingLoaded: trendingLoaded ?? this.trendingLoaded,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
@@ -180,9 +185,10 @@ class ProductNotifier extends StateNotifier<ProductState> {
       final rows = await _productService.fetchTrending(
         category: category != 'all' ? category : null,
       );
-      state = state.copyWith(trendingProducts: rows);
+      state = state.copyWith(trendingProducts: rows, trendingLoaded: true);
     } catch (_) {
       // keep trending optional
+      state = state.copyWith(trendingLoaded: true);
     }
   }
 

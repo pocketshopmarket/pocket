@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/delivery_provider.dart';
+import '../../../widgets/shimmer_loading.dart';
 
 class DeliveryOffersScreen extends ConsumerStatefulWidget {
   const DeliveryOffersScreen({super.key});
@@ -137,9 +138,7 @@ class _DeliveryOffersScreenState extends ConsumerState<DeliveryOffersScreen> {
           color: AppTheme.primaryCyan,
           onRefresh: _load,
           child: _loading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppTheme.primaryCyan),
-                )
+              ? const ListRowsShimmer(leading: false, rowHeight: 120)
               : _error != null
               ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),

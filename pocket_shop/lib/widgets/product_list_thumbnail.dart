@@ -1,9 +1,24 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/product.dart';
+import 'shimmer_loading.dart';
 
-/// Primary gallery image for list/grid/cart: loading and error handling, optional multi-photo badge.
+/// Pixel width to decode a photo at for a box this size. Sellers upload
+/// full-resolution photos; decoding those for a small tile wastes memory and
+/// stutters scrolling. The 1.35 headroom lets a landscape photo still fill a
+/// square box under BoxFit.cover without going soft.
+int? decodeWidthFor(BuildContext context, BoxConstraints constraints) {
+  final side = constraints.maxWidth.isFinite && constraints.maxHeight.isFinite
+      ? (constraints.maxWidth > constraints.maxHeight ? constraints.maxWidth : constraints.maxHeight)
+      : (constraints.maxWidth.isFinite ? constraints.maxWidth : null);
+  if (side == null || side <= 0) return null;
+  return (side * MediaQuery.devicePixelRatioOf(context) * 1.35).round();
+}
+
+/// Primary gallery image for list/grid/cart: cached on disk, decoded at display
+/// size, shimmer while loading, optional multi-photo badge.
 class ProductListThumbnail extends StatelessWidget {
   const ProductListThumbnail({
     super.key,
@@ -82,26 +97,17 @@ class ProductListThumbnail extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (primary != null && primary.isNotEmpty)
-          Image.network(
-            primary,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return ColoredBox(
-                color: AppTheme.surfaceWhite,
-                child: Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppTheme.primaryCyan.withValues(alpha: 0.75),
-                    ),
-                  ),
-                ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return CachedNetworkImage(
+                imageUrl: primary,
+                fit: BoxFit.cover,
+                memCacheWidth: decodeWidthFor(context, constraints),
+                fadeInDuration: const Duration(milliseconds: 220),
+                placeholder: (_, _) => const ShimmerFill(),
+                errorWidget: (_, _, _) => errorState(),
               );
             },
-            errorBuilder: (context, _, _) => errorState(),
           )
         else
           placeholder(),

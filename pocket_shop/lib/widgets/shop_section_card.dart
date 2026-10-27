@@ -172,9 +172,9 @@ class ShopSectionCard extends StatelessWidget {
 
   Widget _fallbackIcon() {
     return Container(
-      color: AppTheme.divider.withValues(alpha: 0.3),
+      color: AppTheme.primaryCyan,
       alignment: Alignment.center,
-      child: const Icon(Icons.storefront_outlined, size: 20, color: AppTheme.textSecondary),
+      child: const Icon(Icons.storefront_outlined, size: 22, color: Colors.white),
     );
   }
 }

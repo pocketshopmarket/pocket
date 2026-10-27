@@ -30,7 +30,8 @@ class BuyerHomeScreen extends ConsumerStatefulWidget {
   ConsumerState<BuyerHomeScreen> createState() => _BuyerHomeScreenState();
 }
 
-class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
+class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen>
+    with SingleTickerProviderStateMixin {
   String _greeting() {
     final h = DateTime.now().hour;
     if (h < 12) return 'Good morning';
@@ -39,12 +40,17 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   }
 
   final ScrollController _scrollController = ScrollController();
-  final PageController _bannerController = PageController(
-    viewportFraction: 0.94,
-  );
+  final PageController _bannerController = PageController();
   int _activeBannerIndex = 0;
+  int _bannerCount = 0;
+  // Drives both the story-style progress bars and the auto-advance.
+  late final AnimationController _bannerProgress = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 5),
+  )..addStatusListener((status) {
+      if (status == AnimationStatus.completed) _advanceBanner();
+    });
   Timer? _searchDebounce;
-  Timer? _autoScrollTimer;
   final TextEditingController _searchController = TextEditingController();
   List<Shop> _searchSuggestions = [];
   bool _showSuggestions = false;
@@ -57,7 +63,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
 
   @override
   void dispose() {
-    _autoScrollTimer?.cancel();
+    _bannerProgress.dispose();
     _scrollController.dispose();
     _bannerController.dispose();
     _searchDebounce?.cancel();
@@ -65,18 +71,36 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     super.dispose();
   }
 
-  void _startAutoScroll(int bannerCount) {
-    _autoScrollTimer?.cancel();
-    if (bannerCount < 2) return;
-    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!_bannerController.hasClients) return;
-      final next = ((_bannerController.page?.round() ?? 0) + 1) % bannerCount;
-      _bannerController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
-    });
+  void _advanceBanner() {
+    if (!_bannerController.hasClients || _bannerCount < 2) return;
+    _bannerController.animateToPage(
+      (_activeBannerIndex + 1) % _bannerCount,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  /// The product shown in a banner's photo frame. A banner that links to a
+  /// product shows that product. Only platform banners borrow a trending
+  /// product, so a paid banner never shows another seller's goods.
+  Product? _bannerProduct(PromoBanner banner, int index, ProductState ps) {
+    final withPhoto = [...ps.trendingProducts, ...ps.products]
+        .where((p) => p.imageUrl != null && p.isAvailable && p.isInStock)
+        .toList();
+    if (banner.actionType == 'product') {
+      final id = int.tryParse(banner.actionValue);
+      for (final p in withPhoto) {
+        if (p.id == id) return p;
+      }
+    }
+    final platform = !banner.isSponsored &&
+        (banner.actionType == 'none' || banner.actionType == 'category');
+    if (!platform) return null;
+    final trending = ps.trendingProducts
+        .where((p) => p.imageUrl != null && p.isAvailable && p.isInStock)
+        .toList();
+    if (trending.isEmpty) return null;
+    return trending[index % trending.length];
   }
 
   /// A sponsored banner every 8 shops as the buyer scrolls "All shops",
@@ -170,10 +194,11 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
     final banners = bannersAsync.valueOrNull ?? PromoBanner.defaults;
     final sponsoredBanners = banners.where((b) => b.isSponsored).toList();
 
-    // Start auto-scroll once banners are loaded
-    if (banners.length >= 2 && _autoScrollTimer == null) {
+    final productState = ref.watch(productProvider);
+    _bannerCount = banners.length;
+    if (banners.length >= 2 && _bannerProgress.status == AnimationStatus.dismissed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _startAutoScroll(banners.length);
+        if (mounted) _bannerProgress.forward(from: 0);
       });
     }
 
@@ -202,27 +227,41 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     style: AppTheme.display(fontSize: 21, letterSpacing: -0.4),
                   ),
                   const Spacer(),
-                  IconButton(
-                    tooltip: 'My QR code',
-                    onPressed: () {
-                      if (user == null) {
-                        SignInPrompt.showSheet(
-                          context,
-                          message: 'Sign in to get your identity QR code.',
-                        );
-                        return;
-                      }
-                      QrIdentitySheet.show(context);
-                    },
-                    icon: const Icon(
-                      Icons.qr_code_rounded,
-                      color: AppTheme.textPrimary,
+                  _HeaderTile(
+                    child: IconButton(
+                      tooltip: 'My QR code',
+                      onPressed: () {
+                        if (user == null) {
+                          SignInPrompt.showSheet(
+                            context,
+                            message: 'Sign in to get your identity QR code.',
+                          );
+                          return;
+                        }
+                        QrIdentitySheet.show(context);
+                      },
+                      icon: const Icon(
+                        Icons.qr_code_rounded,
+                        size: 19,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
                   ),
-                  const NotificationBell(),
+                  const SizedBox(width: 8),
+                  const _HeaderTile(child: NotificationBell()),
                 ],
               ),
-              SizedBox(height: isCompact ? 10 : 12),
+              const SizedBox(height: 16),
+              Text(
+                '${_greeting()}, $firstName',
+                style: AppTheme.display(fontSize: isCompact ? 20 : 22, height: 1.15),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'What are we shopping for today?',
+                style: AppTheme.body(fontSize: 13.5, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 14),
               const BirthdayNudgeCard(),
               Container(
                 width: double.infinity,
@@ -231,8 +270,9 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.softSurface,
-                  borderRadius: BorderRadius.circular(14),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(color: AppTheme.divider),
                 ),
                 child: Row(
                   children: [
@@ -281,19 +321,16 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                             }
                           });
                         },
-                        style: const TextStyle(fontSize: 14),
+                        style: AppTheme.body(fontSize: 14.5),
                         decoration: InputDecoration(
                           hintText: 'Search shops',
-                          hintStyle: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                          ),
+                          hintStyle: AppTheme.body(fontSize: 14.5, color: AppTheme.textSecondary),
                           filled: false,
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 13),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? GestureDetector(
                                   onTap: () {
@@ -486,76 +523,51 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   );
                 },
               ),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(isCompact ? 14 : 16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: AppTheme.textPrimary,
-                ),
-                child: Column(
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 176,
+                child: Stack(
                   children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '${_greeting()}, $firstName',
-                        style: AppTheme.display(
-                          fontSize: isCompact ? 22 : 25,
-                          height: 1.1,
-                          color: Colors.white,
+                    PageView.builder(
+                      controller: _bannerController,
+                      onPageChanged: (index) {
+                        setState(() => _activeBannerIndex = index);
+                        if (banners.length >= 2) _bannerProgress.forward(from: 0);
+                      },
+                      itemCount: banners.length,
+                      itemBuilder: (_, i) {
+                        final banner = banners[i];
+                        // An uploaded image is a finished creative: shown as-is.
+                        return banner.imageUrl != null
+                            ? _ImageBannerCard(banner: banner, onTap: () => _onBannerTap(banner))
+                            : _HeroBannerCard(
+                                banner: banner,
+                                product: _bannerProduct(banner, i, productState),
+                                onTap: () => _onBannerTap(banner),
+                              );
+                      },
+                    ),
+                    if (banners.length >= 2)
+                      Positioned(
+                        top: 12,
+                        left: 16,
+                        right: 16,
+                        child: IgnorePointer(
+                          child: _StoryBars(
+                            count: banners.length,
+                            active: _activeBannerIndex.clamp(0, banners.length - 1),
+                            progress: _bannerProgress,
+                            onLight: banners[_activeBannerIndex.clamp(0, banners.length - 1)]
+                                    .imageUrl == null &&
+                                banners[_activeBannerIndex.clamp(0, banners.length - 1)]
+                                        .backgroundColor
+                                        .computeLuminance() >=
+                                    0.5,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Discover quality products from trusted sellers.',
-                        style: AppTheme.body(fontSize: 13.5, color: Colors.white70, height: 1.35),
-                      ),
-                    ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                height: 168,
-                child: PageView.builder(
-                  controller: _bannerController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _activeBannerIndex = index;
-                    });
-                  },
-                  itemCount: banners.length,
-                  itemBuilder: (_, i) {
-                    final banner = banners[i];
-                    // A banner with an uploaded image is treated as a finished
-                    // creative — it's never had text/gradient stamped on top
-                    // of it. Only the icon+color+text style (no image) gets
-                    // that treatment.
-                    return banner.imageUrl != null
-                        ? _ImageBannerCard(banner: banner, onTap: () => _onBannerTap(banner))
-                        : _TextBannerCard(banner: banner, onTap: () => _onBannerTap(banner));
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(banners.length, (index) {
-                  final selected = index == _activeBannerIndex;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: selected ? 18 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: selected ? AppTheme.primaryCyan : AppTheme.divider,
-                    ),
-                  );
-                }),
               ),
               const SizedBox(height: 16),
               // "Near Me" is silently omitted (no error UI) when location is
@@ -706,9 +718,8 @@ class _ImageBannerCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(right: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           color: banner.backgroundColor,
         ),
         clipBehavior: Clip.antiAlias,
@@ -722,7 +733,7 @@ class _ImageBannerCard extends StatelessWidget {
               ),
             ),
             if (banner.isSponsored)
-              const Positioned(top: 10, right: 10, child: _SponsoredBadge()),
+              const Positioned(top: 26, right: 14, child: _SponsoredBadge()),
           ],
         ),
       ),
@@ -730,14 +741,28 @@ class _ImageBannerCard extends StatelessWidget {
   }
 }
 
-/// Banner without an uploaded image: brand color, a big title with a quieter
-/// subtitle, a pill CTA, and the banner's icon blown up as a watermark that
-/// bleeds off the corner.
-class _TextBannerCard extends StatelessWidget {
-  const _TextBannerCard({required this.banner, required this.onTap});
+/// Banner without an uploaded image: brand color, eyebrow + headline, a pill
+/// CTA, and a real product photo in a tilted frame with its price. Falls back
+/// to the banner's icon as a corner watermark when there's no photo to show.
+class _HeroBannerCard extends StatelessWidget {
+  const _HeroBannerCard({required this.banner, required this.product, required this.onTap});
 
   final PromoBanner banner;
+  final Product? product;
   final VoidCallback onTap;
+
+  String get _headline {
+    final t = banner.title.trim();
+    final sub = banner.subtitle.trim();
+    if (sub.isEmpty) return t;
+    if (t.isEmpty) return sub;
+    // "Fresh picks" + "Delivered faster" -> "Fresh picks, delivered faster",
+    // leaving acronyms and ALL-CAPS words alone.
+    final soft = sub.length > 1 && sub[1] == sub[1].toLowerCase()
+        ? sub[0].toLowerCase() + sub.substring(1)
+        : sub;
+    return '$t, $soft';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -747,75 +772,206 @@ class _TextBannerCard extends StatelessWidget {
     final ctaBg = isDark ? Colors.white : AppTheme.textPrimary;
     final ctaFg = isDark ? bg : Colors.white;
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(18),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned(
-                right: -24,
-                bottom: -30,
-                child: Icon(banner.icon, size: 156, color: fg.withValues(alpha: 0.16)),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      banner.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTheme.display(fontSize: 26, color: fg, height: 1.1),
-                    ),
-                    if (banner.subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final photo = constraints.maxWidth >= 330 ? product?.imageUrl : null;
+        return Material(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (photo == null)
+                  Positioned(
+                    right: -24,
+                    bottom: -30,
+                    child: Icon(banner.icon, size: 156, color: fg.withValues(alpha: 0.16)),
+                  ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(20, 32, photo != null ? 150 : 20, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        banner.subtitle,
+                        banner.isSponsored ? 'SPONSORED' : 'THIS WEEK ON POCKET',
+                        style: AppTheme.body(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: fg.withValues(alpha: 0.85),
+                        ).copyWith(letterSpacing: 0.8),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _headline,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTheme.body(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
-                          color: fg.withValues(alpha: 0.85),
-                          height: 1.3,
+                        style: AppTheme.display(fontSize: 22, color: fg, height: 1.15),
+                      ),
+                      const Spacer(),
+                      Container(
+                        height: 36,
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        decoration: BoxDecoration(
+                          color: ctaBg,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              banner.ctaText,
+                              style: AppTheme.body(fontSize: 13.5, fontWeight: FontWeight.w700, color: ctaFg),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(Icons.arrow_forward_rounded, size: 15, color: ctaFg),
+                          ],
                         ),
                       ),
                     ],
-                    const Spacer(),
-                    Container(
-                      height: 38,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: ctaBg,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            banner.ctaText,
-                            style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w700, color: ctaFg),
-                          ),
-                          const SizedBox(width: 6),
-                          Icon(Icons.arrow_forward_rounded, size: 16, color: ctaFg),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              if (banner.isSponsored)
-                const Positioned(top: 12, right: 12, child: _SponsoredBadge()),
+                if (photo != null)
+                  Positioned(
+                    right: 20,
+                    top: 30,
+                    child: Transform.rotate(
+                      angle: 0.087, // ~5 degrees
+                      child: _PhotoFrame(url: photo, price: product!.price),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _PhotoFrame extends StatelessWidget {
+  const _PhotoFrame({required this.url, required this.price});
+
+  final String url;
+  final double price;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = price.truncateToDouble() == price
+        ? price.toStringAsFixed(0)
+        : price.toStringAsFixed(2);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 108,
+          height: 132,
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(color: Color(0x2E000000), blurRadius: 18, offset: Offset(0, 8)),
             ],
           ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: CachedNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              placeholder: (_, _) => const ColoredBox(color: AppTheme.softSurface),
+              errorWidget: (_, _, _) => const ColoredBox(color: AppTheme.softSurface),
+            ),
+          ),
         ),
+        Positioned(
+          left: -10,
+          bottom: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.textPrimary,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'ZMW $label',
+              style: AppTheme.body(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Story-style segments: done ones full, the current one filling over the
+/// slide's time, upcoming ones faint.
+class _StoryBars extends StatelessWidget {
+  const _StoryBars({
+    required this.count,
+    required this.active,
+    required this.progress,
+    required this.onLight,
+  });
+
+  final int count;
+  final int active;
+  final Animation<double> progress;
+  final bool onLight;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = onLight ? AppTheme.textPrimary : Colors.white;
+    return AnimatedBuilder(
+      animation: progress,
+      builder: (context, _) => Row(
+        children: [
+          for (var i = 0; i < count; i++) ...[
+            if (i > 0) const SizedBox(width: 4),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: SizedBox(
+                  height: 3,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ColoredBox(color: color.withValues(alpha: 0.35)),
+                      FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: i < active ? 1 : (i == active ? progress.value : 0),
+                        child: ColoredBox(color: color),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderTile extends StatelessWidget {
+  const _HeaderTile({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 40,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: AppTheme.divider),
+        ),
+        child: child,
       ),
     );
   }

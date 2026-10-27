@@ -88,7 +88,7 @@ class PromoBanner {
       title: 'Trending deals',
       subtitle: 'Save on essentials',
       ctaText: 'View offers',
-      bgColor: '#3B82F6',
+      bgColor: '#1A1A2E',
       iconName: 'shopping_bag_outlined',
       actionType: 'none',
     ),

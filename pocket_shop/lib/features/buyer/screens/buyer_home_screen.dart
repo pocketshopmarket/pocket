@@ -21,6 +21,7 @@ import '../widgets/birthday_nudge_card.dart';
 import '../../../../widgets/notification_bell.dart';
 import '../../../../widgets/qr_identity_sheet.dart';
 import '../../../../widgets/sign_in_prompt.dart';
+import '../../../../widgets/ui/ps_ui.dart';
 
 class BuyerHomeScreen extends ConsumerStatefulWidget {
   const BuyerHomeScreen({super.key});
@@ -196,14 +197,9 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'POCKET',
-                    style: TextStyle(
-                      fontSize: 21,
-                      letterSpacing: 0.2,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.textPrimary,
-                    ),
+                    style: AppTheme.display(fontSize: 21, letterSpacing: -0.4),
                   ),
                   const Spacer(),
                   IconButton(
@@ -499,42 +495,6 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                 ),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.storefront_outlined,
-                            size: 20,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const Spacer(),
-                        Material(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(12),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => context.go('/buyer/shop'),
-                            child: const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: Icon(
-                                Icons.search_rounded,
-                                size: 22,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -547,15 +507,11 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Align(
+                    Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Discover quality products from trusted sellers.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFD1D5DB),
-                          height: 1.35,
-                        ),
+                        style: AppTheme.body(fontSize: 13.5, color: Colors.white70, height: 1.35),
                       ),
                     ),
                   ],
@@ -563,7 +519,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
               ),
               const SizedBox(height: 14),
               SizedBox(
-                height: 154,
+                height: 168,
                 child: PageView.builder(
                   controller: _bannerController,
                   onPageChanged: (index) {
@@ -625,10 +581,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Shops near you',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                                ),
+                                const PsSectionHeader(title: 'Shops near you'),
                                 const SizedBox(height: 10),
                                 ...shopState.nearbyShops.expand((shop) => [
                                       ShopSectionCard(
@@ -656,10 +609,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                         key: const ValueKey('all-shops-loaded'),
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'All shops',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                          ),
+                          const PsSectionHeader(title: 'All shops'),
                           const SizedBox(height: 10),
                           ...shopState.allShops.asMap().entries.expand((entry) {
                             final index = entry.key;
@@ -758,7 +708,7 @@ class _ImageBannerCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(right: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           color: banner.backgroundColor,
         ),
         clipBehavior: Clip.antiAlias,
@@ -780,8 +730,9 @@ class _ImageBannerCard extends StatelessWidget {
   }
 }
 
-/// The original icon + color + title/subtitle + CTA card, for banners
-/// without an uploaded image.
+/// Banner without an uploaded image: brand color, a big title with a quieter
+/// subtitle, a pill CTA, and the banner's icon blown up as a watermark that
+/// bleeds off the corner.
 class _TextBannerCard extends StatelessWidget {
   const _TextBannerCard({required this.banner, required this.onTap});
 
@@ -791,90 +742,81 @@ class _TextBannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = banner.backgroundColor;
-    // Derive CTA colors from bg luminance: use dark button on light bg, light on dark.
-    final isDark = bg.computeLuminance() < 0.4;
-    final ctaBg = isDark ? Colors.white : Colors.black.withValues(alpha: 0.18);
-    final ctaTextColor = isDark ? bg : Colors.white;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 320;
-        final titleSize = compact ? 18.0 : 28.0;
-        final ctaFontSize = compact ? 13.0 : 17.0;
-        final iconSize = compact ? 44.0 : 66.0;
-        final bannerPadding = compact ? 12.0 : 18.0;
-        final ctaHorizontalPadding = compact ? 12.0 : 18.0;
-        final ctaVerticalPadding = compact ? 6.0 : 8.0;
-        return GestureDetector(
+    final isDark = bg.computeLuminance() < 0.5;
+    final fg = isDark ? Colors.white : AppTheme.textPrimary;
+    final ctaBg = isDark ? Colors.white : AppTheme.textPrimary;
+    final ctaFg = isDark ? bg : Colors.white;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
           onTap: onTap,
-          child: Container(
-            margin: const EdgeInsets.only(right: 10),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(bannerPadding),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${banner.title}\n${banner.subtitle}',
-                              maxLines: compact ? 3 : 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: titleSize,
-                                height: 1.0,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: onTap,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: ctaHorizontalPadding,
-                                  vertical: ctaVerticalPadding,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: ctaBg,
-                                  borderRadius: BorderRadius.circular(22),
-                                ),
-                                child: Text(
-                                  banner.ctaText,
-                                  style: TextStyle(
-                                    fontSize: ctaFontSize,
-                                    fontWeight: FontWeight.w700,
-                                    color: ctaTextColor,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(
+                right: -24,
+                bottom: -30,
+                child: Icon(banner.icon, size: 156, color: fg.withValues(alpha: 0.16)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      banner.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.display(fontSize: 26, color: fg, height: 1.1),
+                    ),
+                    if (banner.subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        banner.subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.body(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: fg.withValues(alpha: 0.85),
+                          height: 1.3,
                         ),
                       ),
-                      SizedBox(width: compact ? 4 : 8),
-                      Icon(
-                        banner.icon,
-                        size: iconSize,
-                        color: Colors.white70,
-                      ),
                     ],
-                  ),
+                    const Spacer(),
+                    Container(
+                      height: 38,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: ctaBg,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            banner.ctaText,
+                            style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w700, color: ctaFg),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(Icons.arrow_forward_rounded, size: 16, color: ctaFg),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                if (banner.isSponsored)
-                  const Positioned(top: 10, right: 10, child: _SponsoredBadge()),
-              ],
-            ),
+              ),
+              if (banner.isSponsored)
+                const Positioned(top: 12, right: 12, child: _SponsoredBadge()),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -931,11 +873,7 @@ class _InFeedBannerCard extends StatelessWidget {
                             banner.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
+                            style: AppTheme.display(fontSize: 18, color: Colors.white),
                           ),
                           if (banner.subtitle.isNotEmpty) ...[
                             const SizedBox(height: 4),

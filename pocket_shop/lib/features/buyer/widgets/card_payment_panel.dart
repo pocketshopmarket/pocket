@@ -124,7 +124,7 @@ class _CardPaymentPanelState extends State<CardPaymentPanel> {
             Icons.receipt_long_rounded,
             'A card fee of about ZMW ${fee.toStringAsFixed(2)} is added to your total when you pay. '
             'It is charged by our payment provider and is not refundable.',
-            const Color(0xFFF3F4F6),
+            AppTheme.softSurface,
             AppTheme.textSecondary,
           ),
           const SizedBox(height: 14),
@@ -156,7 +156,7 @@ class _CardPaymentPanelState extends State<CardPaymentPanel> {
               hintText: '97 XXX XXXX',
               prefixText: '+260 ',
               filled: true,
-              fillColor: const Color(0xFFF8F8F8),
+              fillColor: AppTheme.softSurface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: AppTheme.divider),

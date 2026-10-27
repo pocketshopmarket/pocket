@@ -16,7 +16,6 @@ class StaffAccountScreen extends ConsumerWidget {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Account'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
       ),
@@ -28,17 +27,13 @@ class StaffAccountScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppTheme.textPrimary,
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 30,
-                  backgroundColor: AppTheme.primaryCyan.withValues(alpha: 0.2),
+                  backgroundColor: AppTheme.primaryCyan,
                   child: Text(
                     (user?.displayName.isNotEmpty == true)
                         ? user!.displayName[0].toUpperCase()
@@ -46,7 +41,7 @@ class StaffAccountScreen extends ConsumerWidget {
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
-                      color: AppTheme.primaryCyan,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -75,9 +70,9 @@ class StaffAccountScreen extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryCyan.withValues(alpha: 0.18),
+                          color: Colors.transparent,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.primaryCyan.withValues(alpha: 0.4)),
+                          border: Border.all(color: AppTheme.primaryCyan),
                         ),
                         child: const Text(
                           'Staff',

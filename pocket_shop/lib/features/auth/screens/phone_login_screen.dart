@@ -8,6 +8,7 @@ import '../../../../providers/auth_provider.dart';
 import '../../../widgets/pocket_shop_logo.dart';
 import '../widgets/auth_action_button.dart';
 import '../widgets/auth_message_banner.dart';
+import '../widgets/phone_number_field.dart';
 
 class PhoneLoginScreen extends ConsumerStatefulWidget {
   const PhoneLoginScreen({super.key});
@@ -193,15 +194,10 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          TextFormField(
+                          PhoneNumberField(
                             controller: _phoneController,
-                            keyboardType: TextInputType.phone,
+                            label: "Phone number",
                             validator: Validators.validatePhoneNumber,
-                            style: AppTheme.body(fontSize: 14.5.sp),
-                            decoration: _fieldDecoration(
-                              label: "Phone number",
-                              hint: "097xxxxxxx",
-                            ),
                           ),
                           SizedBox(height: 16.h),
                           TextFormField(

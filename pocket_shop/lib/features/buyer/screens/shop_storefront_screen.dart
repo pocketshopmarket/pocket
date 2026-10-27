@@ -12,7 +12,7 @@ import '../../../providers/cart_provider.dart';
 import '../../../providers/wishlist_provider.dart';
 import '../../../services/product_service.dart';
 import '../../../services/shop_service.dart';
-import '../../../widgets/product_list_thumbnail.dart';
+import '../../../widgets/product_card.dart';
 
 /// A single seller's public storefront: header + their full in-stock catalog.
 /// Reached from a `ShopSectionCard` tap on Home (Near Me / All Shops) — the `Shop`
@@ -241,8 +241,10 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               crossAxisSpacing: isCompact ? 8 : 10,
-                              mainAxisSpacing: 10,
-                              childAspectRatio: isCompact ? 0.66 : 0.7,
+                              mainAxisSpacing: 12,
+                              mainAxisExtent: ProductCard.gridExtent(
+                                (screenWidth - 28 - (isCompact ? 8 : 10)) / 2,
+                              ),
                             ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
@@ -252,8 +254,9 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                                   );
                                 }
                                 final product = _items[index];
-                                return _StorefrontProductCard(
+                                return ProductCard(
                                   product: product,
+                                  inStock: product.isAvailable && product.isInStock,
                                   isFavorite: wishlist.contains(product.id),
                                   onToggleFavorite: () => wishlistNotifier.toggle(product.id),
                                   onCardTap: () => context.push('/buyer/product-details', extra: product),
@@ -324,7 +327,8 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+                      color: Colors.transparent,
+                      border: Border.all(color: AppTheme.primaryCyan),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -373,7 +377,7 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFEEEEEE),
+          color: AppTheme.softSurface,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -388,7 +392,10 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search this shop',
                   hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  filled: false,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   suffixIcon: _searchController.text.isNotEmpty
@@ -425,12 +432,6 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
             label: Text(isAll ? 'All' : cat!.name),
             selected: selected,
             onSelected: (_) => _selectCategory(cat?.id),
-            selectedColor: AppTheme.primaryCyan.withValues(alpha: 0.15),
-            labelStyle: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: selected ? AppTheme.darkCyan : AppTheme.textSecondary,
-            ),
           );
         },
       ),
@@ -442,125 +443,6 @@ class _ShopStorefrontScreenState extends ConsumerState<ShopStorefrontScreen> {
       color: AppTheme.divider.withValues(alpha: 0.3),
       alignment: Alignment.center,
       child: const Icon(Icons.storefront_outlined, size: 28, color: AppTheme.textSecondary),
-    );
-  }
-}
-
-class _StorefrontProductCard extends StatelessWidget {
-  const _StorefrontProductCard({
-    required this.product,
-    required this.isFavorite,
-    required this.onToggleFavorite,
-    required this.onCardTap,
-    required this.onAdd,
-  });
-
-  final Product product;
-  final bool isFavorite;
-  final VoidCallback onToggleFavorite;
-  final VoidCallback onCardTap;
-  final Future<void> Function() onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final inStock = product.isAvailable && product.isInStock;
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.divider),
-        boxShadow: const [
-          BoxShadow(color: Color(0x0D000000), blurRadius: 10, offset: Offset(0, 4)),
-        ],
-      ),
-      child: InkWell(
-        onTap: onCardTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ProductListThumbnail(product: product, compactPlaceholder: true),
-                    ),
-                  ),
-                  Positioned(
-                    right: 6,
-                    top: 6,
-                    child: InkWell(
-                      onTap: onToggleFavorite,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.divider),
-                        ),
-                        child: Icon(
-                          isFavorite ? Icons.favorite : Icons.favorite_border,
-                          size: 16,
-                          color: isFavorite ? AppTheme.error : AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              product.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              product.qualityDisplayLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'ZMW ${product.price.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
-                  ),
-                ),
-                InkWell(
-                  onTap: inStock ? onAdd : null,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppTheme.divider),
-                    ),
-                    child: Icon(
-                      Icons.add_shopping_cart_rounded,
-                      size: 16,
-                      color: inStock ? AppTheme.darkCyan : AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

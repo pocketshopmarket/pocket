@@ -365,8 +365,11 @@ class _EditProductScreenState extends ConsumerState<EditProductScreen> {
                       ]),
                     if (totalImages < _kMaxImages)
                       Material(
-                        color: AppTheme.lightCyan.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: AppTheme.strongLine),
+                        ),
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
                           onTap: _pickImages,

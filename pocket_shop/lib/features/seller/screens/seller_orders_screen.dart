@@ -90,7 +90,6 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Seller orders'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
         actions: [
@@ -114,11 +113,7 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppTheme.textPrimary,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,10 +218,10 @@ class _SellerOrdersScreenState extends ConsumerState<SellerOrdersScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppTheme.warning.withValues(alpha: 0.12),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppTheme.warning.withValues(alpha: 0.35),
+                        color: AppTheme.warning,
                       ),
                     ),
                     child: const Text(
@@ -366,9 +361,10 @@ class _OrderCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: order.isPickup
-                            ? AppTheme.warning.withValues(alpha: 0.12)
-                            : AppTheme.accentBlue.withValues(alpha: 0.12),
+                        color: Colors.transparent,
+                        border: Border.all(
+                          color: order.isPickup ? AppTheme.accentOrange : AppTheme.darkCyan,
+                        ),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
@@ -379,7 +375,7 @@ class _OrderCard extends StatelessWidget {
                                 ? Icons.storefront_outlined
                                 : Icons.local_shipping_outlined,
                             size: 11,
-                            color: order.isPickup ? AppTheme.warning : AppTheme.accentBlue,
+                            color: order.isPickup ? AppTheme.accentOrange : AppTheme.darkCyan,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -387,7 +383,7 @@ class _OrderCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
-                              color: order.isPickup ? AppTheme.warning : AppTheme.accentBlue,
+                              color: order.isPickup ? AppTheme.accentOrange : AppTheme.darkCyan,
                             ),
                           ),
                         ],
@@ -400,7 +396,8 @@ class _OrderCard extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.lightCyan,
+                        color: Colors.transparent,
+                        border: Border.all(color: AppTheme.darkCyan),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -419,9 +416,9 @@ class _OrderCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppTheme.warning.withValues(alpha: 0.1),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                      border: Border.all(color: AppTheme.warning),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -712,9 +709,9 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.warning.withValues(alpha: 0.1),
+                  color: Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                  border: Border.all(color: AppTheme.warning),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -738,8 +735,8 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                 children: [
                   const CircleAvatar(
                     radius: 18,
-                    backgroundColor: AppTheme.lightCyan,
-                    child: Icon(Icons.person_outline_rounded, size: 18, color: AppTheme.darkCyan),
+                    backgroundColor: AppTheme.primaryCyan,
+                    child: Icon(Icons.person_outline_rounded, size: 18, color: Colors.white),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -768,7 +765,8 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppTheme.success.withValues(alpha: 0.12),
+                        color: Colors.transparent,
+                        border: Border.all(color: AppTheme.success),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(
@@ -882,9 +880,9 @@ class _SellerOrderSheetState extends ConsumerState<_SellerOrderSheet> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppTheme.warning.withValues(alpha: 0.1),
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+                      border: Border.all(color: AppTheme.warning),
                     ),
                     child: const Row(
                       children: [

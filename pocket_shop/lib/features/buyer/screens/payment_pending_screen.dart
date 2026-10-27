@@ -223,7 +223,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.error.withValues(alpha: 0.08),
+                        color: Colors.transparent,
+                        border: Border.all(color: AppTheme.error),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -356,7 +357,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
         width: 96,
         height: 96,
         decoration: BoxDecoration(
-          color: AppTheme.success.withValues(alpha: 0.12),
+          color: Colors.transparent,
+          border: Border.all(color: AppTheme.success),
           shape: BoxShape.circle,
         ),
         child: const Icon(
@@ -372,7 +374,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
         width: 96,
         height: 96,
         decoration: BoxDecoration(
-          color: AppTheme.error.withValues(alpha: 0.12),
+          color: Colors.transparent,
+          border: Border.all(color: AppTheme.error),
           shape: BoxShape.circle,
         ),
         child: const Icon(
@@ -401,7 +404,8 @@ class _PaymentPendingScreenState extends ConsumerState<PaymentPendingScreen>
             width: 86,
             height: 86,
             decoration: BoxDecoration(
-              color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+              color: Colors.transparent,
+              border: Border.all(color: AppTheme.primaryCyan),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(

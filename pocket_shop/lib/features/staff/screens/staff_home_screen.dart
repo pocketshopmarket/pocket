@@ -248,7 +248,8 @@ class _StatsGrid extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: Colors.transparent,
+          border: Border.all(color: color),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(

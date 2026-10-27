@@ -111,9 +111,9 @@ class _BirthdayNudgeCardState extends ConsumerState<BirthdayNudgeCard> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.primaryCyan.withValues(alpha: 0.25)),
+        border: Border.all(color: AppTheme.primaryCyan),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

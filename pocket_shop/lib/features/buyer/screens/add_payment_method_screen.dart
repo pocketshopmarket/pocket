@@ -118,7 +118,8 @@ class _AddPaymentMethodScreenState
         width: size, height: size,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.18),
+          color: Colors.transparent,
+          border: Border.all(color: color),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -135,7 +136,8 @@ class _AddPaymentMethodScreenState
           width: size, height: size,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.18),
+            color: Colors.transparent,
+            border: Border.all(color: color),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(provider[0],
@@ -215,7 +217,7 @@ class _AddPaymentMethodScreenState
             hintText: '097 XXXXXXX',
             prefixIcon: const Icon(Icons.phone_outlined, size: 20),
             filled: true,
-            fillColor: const Color(0xFFF3F4F6),
+            fillColor: AppTheme.softSurface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -255,9 +257,7 @@ class _AddPaymentMethodScreenState
                   color: selected ? color : AppTheme.divider,
                   width: selected ? 2 : 1,
                 ),
-                color: selected
-                    ? color.withValues(alpha: 0.07)
-                    : Colors.white,
+                color: Colors.white,
               ),
               child: Row(
                 children: [
@@ -328,7 +328,8 @@ class _AddPaymentMethodScreenState
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+            color: Colors.transparent,
+            border: Border.all(color: AppTheme.primaryCyan),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -379,7 +380,7 @@ class _AddPaymentMethodScreenState
               color: AppTheme.textSecondary.withValues(alpha: 0.4),
             ),
             filled: true,
-            fillColor: const Color(0xFFF3F4F6),
+            fillColor: AppTheme.softSurface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

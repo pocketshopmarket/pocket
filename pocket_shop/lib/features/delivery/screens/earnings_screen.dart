@@ -84,11 +84,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppTheme.textPrimary,
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +191,8 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen> {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+                          color: Colors.transparent,
+                          border: Border.all(color: AppTheme.primaryCyan),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(

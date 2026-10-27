@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../models/order.dart';
 import '../../../../providers/orders_provider.dart';
+import '../../../../widgets/ui/ps_ui.dart';
 
 class BuyerOrdersScreen extends ConsumerWidget {
   const BuyerOrdersScreen({super.key});
@@ -27,36 +28,12 @@ class BuyerOrdersScreen extends ConsumerWidget {
         data: (orders) {
           if (orders.isEmpty) {
             return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.receipt_long_outlined,
-                      size: 56,
-                      color: AppTheme.textSecondary.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No orders yet',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Browse products and checkout to see orders here.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ],
-                ),
+              child: PsEmptyState(
+                icon: Icons.receipt_long_outlined,
+                title: 'No orders yet',
+                message: 'Your first order will show up here, with live tracking once it is on the way.',
+                actionLabel: 'Start shopping',
+                onAction: () => context.go('/buyer/home'),
               ),
             );
           }
@@ -110,43 +87,12 @@ class BuyerOrdersScreen extends ConsumerWidget {
           child: CircularProgressIndicator(color: AppTheme.primaryCyan),
         ),
         error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.wifi_off_rounded,
-                  size: 52,
-                  color: AppTheme.textSecondary.withValues(alpha: 0.4),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Could not load orders',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Check your connection and try again.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: () => ref.invalidate(buyerOrdersProvider),
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Retry'),
-                ),
-              ],
-            ),
+          child: PsEmptyState(
+            icon: Icons.cloud_off_rounded,
+            title: "Couldn't load your orders",
+            message: 'Check your connection, then try again.',
+            actionLabel: 'Try again',
+            onAction: () => ref.invalidate(buyerOrdersProvider),
           ),
         ),
       ),

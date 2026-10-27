@@ -50,7 +50,8 @@ class PromoteShopScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+                color: Colors.transparent,
+                border: Border.all(color: AppTheme.primaryCyan),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -218,7 +219,8 @@ class _BannerHistoryCardState extends State<_BannerHistoryCard> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: Colors.transparent,
+                  border: Border.all(color: color),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -436,7 +438,8 @@ class _RequestBannerSheetState extends ConsumerState<_RequestBannerSheet> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+                color: Colors.transparent,
+                border: Border.all(color: AppTheme.primaryCyan),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(

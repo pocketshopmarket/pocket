@@ -13,6 +13,7 @@ import '../../../../services/auth_service.dart';
 import '../auth_navigation.dart';
 import '../widgets/auth_action_button.dart';
 import '../widgets/auth_message_banner.dart';
+import '../widgets/phone_number_field.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   final String role;
@@ -288,28 +289,37 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             SizedBox(height: 8.h),
             Semantics(
               label: 'Gender, select Male, Female, or Prefer not to say',
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment<String>(value: 'male', label: Text('Male')),
-                  ButtonSegment<String>(value: 'female', label: Text('Female')),
-                  ButtonSegment<String>(
-                    value: 'prefer_not_to_say',
-                    label: Text('Prefer not to say'),
+              child: Column(
+                children: [
+                  _GenderTile(
+                    label: 'Male',
+                    icon: Icons.male_rounded,
+                    selected: _gender == 'male',
+                    onTap: () => setState(
+                      () => _gender = _gender == 'male' ? null : 'male',
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  _GenderTile(
+                    label: 'Female',
+                    icon: Icons.female_rounded,
+                    selected: _gender == 'female',
+                    onTap: () => setState(
+                      () => _gender = _gender == 'female' ? null : 'female',
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  _GenderTile(
+                    label: 'Prefer not to say',
+                    icon: Icons.visibility_off_outlined,
+                    selected: _gender == 'prefer_not_to_say',
+                    onTap: () => setState(
+                      () => _gender = _gender == 'prefer_not_to_say'
+                          ? null
+                          : 'prefer_not_to_say',
+                    ),
                   ),
                 ],
-                showSelectedIcon: false,
-                emptySelectionAllowed: true,
-                selected: _gender != null ? {_gender!} : <String>{},
-                onSelectionChanged: (Set<String> selection) {
-                  setState(() {
-                    _gender = selection.isEmpty ? null : selection.first;
-                  });
-                },
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12.sp)),
-                ),
               ),
             ),
             SizedBox(height: 6.h),
@@ -491,12 +501,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               ),
             ],
             SizedBox(height: AppSizes.spacingMedium.h),
-            TextFormField(
+            PhoneNumberField(
               controller: _phoneController,
-              keyboardType: TextInputType.phone,
+              label: 'Phone number',
               validator: Validators.validatePhoneNumber,
-              style: AppTheme.body(fontSize: 14.5.sp),
-              decoration: _fieldDecoration(label: 'Phone number', hint: '097xxxxxxx'),
             ),
             SizedBox(height: AppSizes.spacingMedium.h),
             TextFormField(
@@ -594,6 +602,81 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               ],
             ),
             SizedBox(height: 32.h),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GenderTile extends StatelessWidget {
+  const _GenderTile({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14.r),
+      child: Container(
+        height: 52.h,
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14.r),
+          border: Border.all(
+            color: selected ? AppTheme.primaryCyan : AppTheme.divider,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32.w,
+              height: 32.w,
+              decoration: BoxDecoration(
+                color: selected ? AppTheme.primaryCyan : AppTheme.surfaceWhite,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                icon,
+                size: 17.sp,
+                color: selected ? Colors.white : AppTheme.textSecondary,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTheme.body(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            Container(
+              width: 20.w,
+              height: 20.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? AppTheme.primaryCyan : Colors.transparent,
+                border: selected ? null : Border.all(color: AppTheme.divider, width: 2),
+              ),
+              child: selected
+                  ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
+                  : null,
+            ),
           ],
         ),
       ),

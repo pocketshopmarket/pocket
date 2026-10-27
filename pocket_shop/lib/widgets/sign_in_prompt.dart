@@ -93,7 +93,8 @@ class SignInPrompt extends StatelessWidget {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+            color: Colors.transparent,
+            border: Border.all(color: AppTheme.primaryCyan),
             shape: BoxShape.circle,
           ),
           child: const Icon(

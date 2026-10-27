@@ -172,7 +172,7 @@ class _SellerPayoutMethodsScreenState
                       decoration: InputDecoration(
                         hintText: '+260 97 XXXXXXX',
                         filled: true,
-                        fillColor: const Color(0xFFF5F5F5),
+                        fillColor: AppTheme.softSurface,
                         prefixIcon: const Icon(Icons.phone_outlined, size: 20),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -347,7 +347,7 @@ class _SellerPayoutMethodsScreenState
                         counterText: '',
                         hintText: '000000',
                         filled: true,
-                        fillColor: const Color(0xFFF5F5F5),
+                        fillColor: AppTheme.softSurface,
                         prefixIcon: const Icon(Icons.pin_outlined, size: 20),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -441,7 +441,6 @@ class _SellerPayoutMethodsScreenState
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Payout methods'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
       ),
@@ -458,11 +457,7 @@ class _SellerPayoutMethodsScreenState
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppTheme.textPrimary,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -604,7 +599,8 @@ class _SellerPayoutMethodsScreenState
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+                        color: Colors.transparent,
+                        border: Border.all(color: AppTheme.primaryCyan),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(

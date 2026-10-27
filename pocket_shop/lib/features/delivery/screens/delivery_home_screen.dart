@@ -13,6 +13,8 @@ import '../../../providers/delivery_provider.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/notification_bell.dart';
 import '../../../widgets/osm_route_map.dart';
+import '../../../widgets/shimmer_loading.dart';
+import '../../../widgets/ui/ps_ui.dart';
 
 class DeliveryHomeScreen extends ConsumerStatefulWidget {
   const DeliveryHomeScreen({super.key});
@@ -90,8 +92,8 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
     } catch (e) {
       if (mounted) {
         setState(() { _loading = false; _orders = []; });
-        final msg = e is DioException ? ref.read(deliveryServiceProvider).extractErrorMessage(e) : e.toString();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? 'Could not load orders')));
+        final msg = e is DioException ? ref.read(deliveryServiceProvider).extractErrorMessage(e) : null;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? "Couldn't load deliveries. Pull down to try again.")));
       }
     }
   }
@@ -130,97 +132,176 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      final msg = e is DioException ? ref.read(deliveryServiceProvider).extractErrorMessage(e) : e.toString();
+      final msg = e is DioException ? ref.read(deliveryServiceProvider).extractErrorMessage(e) : null;
       final active = e is DioException && e.response?.data is Map ? (e.response?.data as Map)['active_assignment'] : null;
       final activeLine = active is Map && active['order_number'] != null
           ? ' Active: ${active['order_number']} (${active['status']}).' : '';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${msg ?? 'Accept failed'}$activeLine')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${msg ?? "Couldn't accept this delivery. Please try again."}$activeLine')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppTheme.surfaceWhite,
       body: SafeArea(
         child: RefreshIndicator(
           color: AppTheme.primaryCyan,
           onRefresh: _refresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
             children: [
-              _buildHeader(),
-              if (_locationNote != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.warning.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.location_off_rounded, size: 15, color: AppTheme.warning),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(_locationNote!, style: TextStyle(fontSize: 12, color: AppTheme.warning)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: OutlinedButton.icon(
-                  onPressed: () => context.push('/delivery/offers'),
-                  icon: const Icon(Icons.inbox_rounded, size: 16),
-                  label: const Text('My delivery offers'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 44),
-                    foregroundColor: AppTheme.darkCyan,
-                    side: BorderSide(color: AppTheme.primaryCyan.withValues(alpha: 0.5)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Nearby orders',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
-                    ),
-                    const Spacer(),
-                    if (_orders.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryCyan.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${_orders.length} available',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.darkCyan),
-                        ),
+              Row(
+                children: [
+                  Expanded(child: Text('Deliveries', style: AppTheme.display(fontSize: 26))),
+                  SizedBox.square(
+                    dimension: 42,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.divider),
                       ),
+                      child: const NotificationBell(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _statusCard(),
+              if (_locationNote != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.location_off_rounded, size: 16, color: AppTheme.warning),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _locationNote!,
+                        style: AppTheme.body(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.warning),
+                      ),
+                    ),
                   ],
                 ),
+              ],
+              const SizedBox(height: 12),
+              _offersRow(),
+              const SizedBox(height: 24),
+              PsSectionHeader(
+                title: 'Nearby deliveries',
+                trailing: _online && _orders.isNotEmpty
+                    ? Text(
+                        '${_orders.length} available',
+                        style: AppTheme.body(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
+                      )
+                    : null,
               ),
               const SizedBox(height: 12),
-              if (_orders.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _pickupMapCard(),
-                ),
+              if (_online && _orders.isNotEmpty) ...[
+                _pickupMapCard(),
                 const SizedBox(height: 12),
               ],
               _buildBody(),
-              const SizedBox(height: 24),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusCard() {
+    return PsHeroCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: _online ? AppTheme.success : AppTheme.placeholder,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _online ? "You're online" : "You're offline",
+                      style: AppTheme.display(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _online
+                      ? 'Looking for deliveries near you'
+                      : 'Go online to see deliveries near you',
+                  style: AppTheme.body(fontSize: 13, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _updatingOnline
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                  ),
+                )
+              : Transform.scale(
+                  scale: 1.15,
+                  child: Switch(
+                    value: _online,
+                    onChanged: _setOnlineStatus,
+                    trackColor: WidgetStateProperty.resolveWith(
+                      (s) => s.contains(WidgetState.selected) ? AppTheme.success : const Color(0xFF3A3A52),
+                    ),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _offersRow() {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () => context.push('/delivery/offers'),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.divider),
+          ),
+          child: Row(
+            children: [
+              const PsIconBadge(icon: Icons.inbox_rounded, size: 36, color: AppTheme.textPrimary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('My delivery offers', style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w700)),
+                    Text(
+                      'Deliveries sellers sent to you directly',
+                      style: AppTheme.body(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.textSecondary),
             ],
           ),
         ),
@@ -230,89 +311,51 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
 
   Widget _buildBody() {
     if (!_online) {
-      return _emptyState(
-        icon: Icons.wifi_off_rounded,
-        iconColor: AppTheme.textSecondary,
-        title: "You're offline",
-        subtitle: 'Toggle online to start receiving nearby delivery orders.',
-        action: FilledButton.icon(
-          onPressed: () => _setOnlineStatus(true),
-          icon: const Icon(Icons.toggle_on_rounded),
-          label: const Text('Go online'),
-          style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryCyan),
-        ),
+      return PsEmptyState(
+        icon: Icons.power_settings_new_rounded,
+        title: 'Taking a break?',
+        message: "Flip the switch when you're ready and nearby deliveries will show up here.",
+        actionLabel: 'Go online',
+        onAction: () => _setOnlineStatus(true),
       );
     }
 
-    if (_loading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 60),
-        child: Center(child: CircularProgressIndicator(color: AppTheme.primaryCyan)),
+    if (_loading && _orders.isEmpty) {
+      return AppShimmer(
+        child: Column(
+          children: List.generate(
+            2,
+            (_) => Container(
+              height: 150,
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+        ),
       );
     }
 
     if (_orders.isEmpty) {
-      return _emptyState(
+      return PsEmptyState(
         icon: Icons.delivery_dining_rounded,
-        iconColor: AppTheme.primaryCyan,
-        title: 'No orders nearby',
-        subtitle: 'Pull down to refresh. New orders appear here as sellers prepare them.',
-        action: OutlinedButton.icon(
-          onPressed: _refresh,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Refresh'),
-          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.darkCyan),
-        ),
+        title: 'All quiet for now',
+        message: 'New deliveries appear here as soon as sellers have them ready. We check every 30 seconds.',
+        actionLabel: 'Check again',
+        onAction: _refresh,
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(children: _orders.map(_orderCard).toList()),
-    );
-  }
-
-  Widget _emptyState({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    Widget? action,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-      child: Column(
-        children: [
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 44, color: iconColor),
-          ),
-          const SizedBox(height: 20),
-          Text(title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
-          const SizedBox(height: 8),
-          Text(subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5)),
-          if (action != null) ...[
-            const SizedBox(height: 24),
-            action,
-          ],
-        ],
-      ),
-    );
+    return Column(children: _orders.map(_orderCard).toList());
   }
 
   Widget _orderCard(Map<String, dynamic> o) {
     final number = o['order_number']?.toString() ?? '';
     final addr = o['delivery_address']?.toString() ?? '';
     final price = o['total_price']?.toString() ?? '';
-    final deliveryFee = o['delivery_fee']?.toString() ?? '';
+    final deliveryFee = double.tryParse(o['delivery_fee']?.toString() ?? '');
     final dist = o['distance_from_rider'];
     final eta = o['estimated_time'];
     final status = o['status']?.toString() ?? '';
@@ -320,216 +363,146 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
     final itemsSummary = o['items_summary']?.toString() ?? '';
     final canAccept = status == 'out_for_delivery';
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: canAccept
-                ? AppTheme.primaryCyan.withValues(alpha: 0.5)
-                : AppTheme.divider,
-            width: canAccept ? 1.5 : 1,
+    final route = [
+      if (addr.isNotEmpty) addr,
+      if (dist is num) '${dist.toStringAsFixed(1)} km',
+    ].join(', ');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sellerName.isNotEmpty ? sellerName : number,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.body(fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                    if (route.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        '→ $route',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.body(fontSize: 13, color: AppTheme.textSecondary, height: 1.35),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (deliveryFee != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'ZMW ${deliveryFee.toStringAsFixed(deliveryFee.truncateToDouble() == deliveryFee ? 0 : 2)}',
+                      style: AppTheme.display(fontSize: 19, color: AppTheme.accentOrange),
+                    ),
+                    Text(
+                      'you earn',
+                      style: AppTheme.body(fontSize: 11.5, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: (canAccept ? AppTheme.primaryCyan : Colors.black).withValues(alpha: 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              PsStatusLabel(
+                label: _statusLabel(status),
+                color: canAccept ? AppTheme.success : AppTheme.textSecondary,
+                fontSize: 12,
+              ),
+              if (eta != null) _meta(Icons.schedule_rounded, '~$eta min'),
+              if (number.isNotEmpty && sellerName.isNotEmpty) _meta(Icons.tag_rounded, number),
+              if (price.isNotEmpty) _meta(Icons.receipt_long_outlined, 'Order ZMW $price'),
+            ],
+          ),
+          if (itemsSummary.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              itemsSummary,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.body(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35),
             ),
           ],
-        ),
-        child: Column(
-          children: [
-            // Top row — order number + status badge
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          number,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
-                        ),
-                        if (sellerName.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Icon(Icons.storefront_rounded, size: 12, color: AppTheme.darkCyan),
-                              const SizedBox(width: 4),
-                              Text(sellerName,
-                                  style: const TextStyle(fontSize: 12, color: AppTheme.darkCyan, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  _statusBadge(status, canAccept),
-                ],
-              ),
-            ),
-            if (itemsSummary.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.inventory_2_rounded, size: 14, color: AppTheme.textSecondary),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(itemsSummary,
-                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.3)),
-                    ),
-                  ],
-                ),
-              ),
-            // Address
-            if (addr.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.location_on_rounded, size: 15, color: AppTheme.textSecondary),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(addr,
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.35)),
-                    ),
-                  ],
-                ),
-              ),
-            // Info chips
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Row(
-                children: [
-                  if (dist != null) ...[
-                    _infoChip(Icons.near_me_rounded, '${(dist as num).toStringAsFixed(1)} km', AppTheme.darkCyan),
-                    const SizedBox(width: 8),
-                  ],
-                  if (eta != null)
-                    _infoChip(Icons.access_time_rounded, '~$eta min', AppTheme.accentOrange),
-                  const Spacer(),
-                  if (price.isNotEmpty)
-                    Text(
-                      'ZMW $price',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
-                    ),
-                ],
-              ),
-            ),
-            if (deliveryFee.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: Row(
-                  children: [
-                    const Spacer(),
-                    Text(
-                      'Your fee: ZMW $deliveryFee',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.darkCyan, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            // Status hint
-            if (!canAccept)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightCyan.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+          if (!canAccept) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 15, color: AppTheme.textSecondary),
+                const SizedBox(width: 6),
+                Expanded(
                   child: Text(
                     _statusHint(status),
-                    style: const TextStyle(fontSize: 12, color: AppTheme.darkCyan, height: 1.4),
+                    style: AppTheme.body(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35),
                   ),
                 ),
-              ),
-            // Accept button
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: canAccept ? () => _accept(o) : null,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 46),
-                    backgroundColor: canAccept ? AppTheme.primaryCyan : null,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Text(
-                    canAccept ? 'Accept delivery' : 'Not ready yet',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
+              ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusBadge(String status, bool canAccept) {
-    final color = canAccept ? AppTheme.success : AppTheme.textSecondary;
-    final label = switch (status) {
-      'out_for_delivery' => 'Ready',
-      'preparing' => 'Preparing',
-      'accepted' => 'Accepted',
-      'pending' => 'Pending',
-      _ => status.isEmpty ? '—' : status,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 5),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: FilledButton(
+              onPressed: canAccept ? () => _accept(o) : null,
+              child: Text(canAccept ? 'Accept' : 'Not ready yet'),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _infoChip(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-        ],
-      ),
+  Widget _meta(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppTheme.textSecondary),
+        const SizedBox(width: 4),
+        Text(text, style: AppTheme.body(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+      ],
     );
   }
+
+  String _statusLabel(String status) => switch (status) {
+        'out_for_delivery' => 'Ready for pickup',
+        'preparing' => 'Preparing',
+        'accepted' => 'Accepted',
+        'pending' => 'Pending',
+        _ => status.isEmpty ? '—' : status,
+      };
 
   Widget _pickupMapCard() {
     final markers = _orders.map(_pickupMarkerFromOrder).whereType<MapMarker>().toList();
+    if (markers.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.divider),
       ),
       child: Column(
@@ -537,23 +510,24 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.map_rounded, size: 15, color: AppTheme.darkCyan),
-              const SizedBox(width: 6),
-              const Text('Pickup map', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              Text('Pickup points', style: AppTheme.body(fontSize: 13.5, fontWeight: FontWeight.w700)),
               const Spacer(),
               Text(
-                '${markers.length} point${markers.length == 1 ? '' : 's'}',
-                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                '${markers.length} shop${markers.length == 1 ? '' : 's'}',
+                style: AppTheme.body(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 160,
-            child: OsmRouteMap(
-              markers: markers,
-              showZoomControls: true,
-              refitBoundsWhenDataChanges: true,
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 160,
+              child: OsmRouteMap(
+                markers: markers,
+                showZoomControls: true,
+                refitBoundsWhenDataChanges: true,
+              ),
             ),
           ),
         ],
@@ -576,122 +550,12 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E3A4A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Delivery board',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
-                    const SizedBox(height: 3),
-                    Text(
-                      _online ? 'You are online — watching for orders' : 'You are offline',
-                      style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65)),
-                    ),
-                  ],
-                ),
-              ),
-              const NotificationBell(),
-              const SizedBox(width: 8),
-              _updatingOnline
-                  ? const SizedBox(width: 22, height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryCyan))
-                  : GestureDetector(
-                      onTap: () => _setOnlineStatus(!_online),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _online
-                              ? AppTheme.primaryCyan.withValues(alpha: 0.2)
-                              : Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _online
-                                ? AppTheme.primaryCyan.withValues(alpha: 0.5)
-                                : Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: _online ? AppTheme.primaryCyan : Colors.grey,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _online ? 'Online' : 'Offline',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _online ? AppTheme.primaryCyan : Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              _statChip(label: 'Orders', value: '${_orders.length}'),
-              const SizedBox(width: 8),
-              _statChip(label: 'Location', value: (_lat != 0 || _lng != 0) ? 'Ready' : 'Off'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statChip({required String label, required String value}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.55))),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-        ],
-      ),
-    );
-  }
-
   String _statusHint(String status) {
     return switch (status) {
-      'pending' => 'Waiting for seller to accept the order from the buyer.',
-      'accepted' => 'Seller accepted — waiting to start preparing.',
-      'preparing' => 'Being prepared. Accept once marked out for delivery.',
-      _ => 'Accept only when the order is out for delivery.',
+      'pending' => 'Waiting for the seller to accept the order.',
+      'accepted' => 'Seller accepted — they will start preparing soon.',
+      'preparing' => 'Being packed. You can accept once it is ready for pickup.',
+      _ => 'You can accept once the order is ready for pickup.',
     };
   }
 }

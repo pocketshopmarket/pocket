@@ -12,7 +12,6 @@ class SellerPayoutHistoryScreen extends StatelessWidget {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Payout history'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
       ),

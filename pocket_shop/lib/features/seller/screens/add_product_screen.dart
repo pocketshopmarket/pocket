@@ -280,7 +280,6 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Add product'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
       ),
@@ -293,11 +292,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppTheme.textPrimary,
               ),
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,8 +366,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                           ),
                         if (_images.length < _kMaxProductImages)
                           Material(
-                            color: AppTheme.lightCyan.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: AppTheme.strongLine),
+                            ),
                             clipBehavior: Clip.antiAlias,
                             child: InkWell(
                               onTap: _showImageSourceSheet,

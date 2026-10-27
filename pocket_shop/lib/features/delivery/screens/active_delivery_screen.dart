@@ -423,7 +423,8 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: Colors.transparent,
+                border: Border.all(color: color),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 42, color: color),
@@ -820,23 +821,21 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                   final isCurrent = i == _currentStepIndex;
                   return Container(
                     decoration: BoxDecoration(
-                      color: isCurrent
-                          ? AppTheme.lightCyan.withValues(alpha: 0.35)
-                          : Colors.transparent,
+                      color: isCurrent ? AppTheme.softSurface : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: ListTile(
                       leading: CircleAvatar(
                         radius: 12,
                         backgroundColor:
-                            isCurrent ? AppTheme.primaryCyan : AppTheme.lightCyan,
+                            isCurrent ? AppTheme.primaryCyan : AppTheme.softSurface,
                         child: Icon(
                           _maneuverIcon(
                             _directionSteps[i].maneuverType,
                             _directionSteps[i].maneuverModifier,
                           ),
                           size: 13,
-                          color: isCurrent ? Colors.white : AppTheme.darkCyan,
+                          color: isCurrent ? Colors.white : AppTheme.textSecondary,
                         ),
                       ),
                       title: Column(
@@ -938,7 +937,8 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryCyan.withValues(alpha: 0.1),
+                          color: Colors.transparent,
+                          border: Border.all(color: AppTheme.primaryCyan),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -1266,7 +1266,8 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+                    color: Colors.transparent,
+                    border: Border.all(color: AppTheme.primaryCyan),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -1524,9 +1525,7 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: selected
-              ? AppTheme.primaryCyan.withValues(alpha: 0.18)
-              : const Color(0xFFF3F4F6),
+          color: selected ? Colors.white : AppTheme.softSurface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? AppTheme.primaryCyan : AppTheme.divider,
@@ -1567,9 +1566,9 @@ class _ActiveDeliveryScreenState extends ConsumerState<ActiveDeliveryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

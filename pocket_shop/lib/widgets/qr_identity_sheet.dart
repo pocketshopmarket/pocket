@@ -103,7 +103,7 @@ class _QrIdentitySheetState extends State<QrIdentitySheet> {
     final roleColor = _roleColor(_role);
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
+        color: AppTheme.textPrimary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -158,10 +158,10 @@ class _QrIdentitySheetState extends State<QrIdentitySheet> {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: roleColor.withValues(alpha: 0.18),
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: roleColor.withValues(alpha: 0.4),
+                      color: roleColor,
                     ),
                   ),
                   child: Text(

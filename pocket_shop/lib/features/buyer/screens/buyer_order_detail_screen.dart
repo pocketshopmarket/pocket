@@ -265,7 +265,7 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                     decoration: InputDecoration(
                       hintText: 'Optional feedback',
                       filled: true,
-                      fillColor: const Color(0xFFEEEEEE),
+                      fillColor: AppTheme.softSurface,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -338,9 +338,9 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color),
       ),
       child: Row(
         children: [
@@ -849,7 +849,7 @@ class _WalkToShopSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0F172A),
+        color: AppTheme.textPrimary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),

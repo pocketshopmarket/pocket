@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../core/theme/app_theme.dart';
 
 /// Provides aggressive local caching for map tiles using [CachedNetworkImageProvider].
 /// Once a tile is loaded, it is saved locally and can be displayed instantly
@@ -254,7 +255,7 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
               Polyline(
                 points: widget.trailPoints,
                 strokeWidth: 4,
-                color: const Color(0xFFA3AED0),
+                color: AppTheme.placeholder,
               ),
             ],
           ),
@@ -352,7 +353,7 @@ class _OsmRouteMapState extends State<OsmRouteMap> {
           child: Icon(
             icon,
             size: 18,
-            color: onTap == null ? const Color(0xFF9CA3AF) : Colors.black87,
+            color: onTap == null ? AppTheme.placeholder : Colors.black87,
           ),
         ),
       ),

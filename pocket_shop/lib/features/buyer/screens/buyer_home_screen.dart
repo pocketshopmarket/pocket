@@ -30,6 +30,13 @@ class BuyerHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   final ScrollController _scrollController = ScrollController();
   final PageController _bannerController = PageController(
     viewportFraction: 0.94,
@@ -228,7 +235,7 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEEEEE),
+                  color: AppTheme.softSurface,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
@@ -285,7 +292,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                             fontSize: 13,
                             color: AppTheme.textSecondary,
                           ),
+                          filled: false,
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(vertical: 10),
                           suffixIcon: _searchController.text.isNotEmpty
@@ -528,11 +538,10 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Hello, $firstName',
-                        style: TextStyle(
-                          fontSize: isCompact ? 24 : 28,
-                          height: 1.0,
-                          fontWeight: FontWeight.w800,
+                        '${_greeting()}, $firstName',
+                        style: AppTheme.display(
+                          fontSize: isCompact ? 22 : 25,
+                          height: 1.1,
                           color: Colors.white,
                         ),
                       ),

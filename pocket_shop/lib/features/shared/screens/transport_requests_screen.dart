@@ -243,7 +243,8 @@ class TransportRequestsScreen extends ConsumerWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryCyan.withValues(alpha: 0.08),
+                        color: Colors.transparent,
+                        border: Border.all(color: AppTheme.primaryCyan),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -269,9 +270,8 @@ class TransportRequestsScreen extends ConsumerWidget {
                             child: OutlinedButton(
                               onPressed: () => setModalState(() => payMethod = 'mobile_money'),
                               style: OutlinedButton.styleFrom(
-                                backgroundColor: payMethod == 'mobile_money'
-                                    ? AppTheme.primaryCyan.withValues(alpha: 0.10)
-                                    : null,
+                                backgroundColor: payMethod == 'mobile_money' ? AppTheme.textPrimary : null,
+                                foregroundColor: payMethod == 'mobile_money' ? Colors.white : null,
                               ),
                               child: const Text('Mobile money'),
                             ),
@@ -281,9 +281,8 @@ class TransportRequestsScreen extends ConsumerWidget {
                             child: OutlinedButton(
                               onPressed: () => setModalState(() => payMethod = 'card'),
                               style: OutlinedButton.styleFrom(
-                                backgroundColor: payMethod == 'card'
-                                    ? AppTheme.primaryCyan.withValues(alpha: 0.10)
-                                    : null,
+                                backgroundColor: payMethod == 'card' ? AppTheme.textPrimary : null,
+                                foregroundColor: payMethod == 'card' ? Colors.white : null,
                               ),
                               child: const Text('Card'),
                             ),

@@ -13,7 +13,7 @@ import '../../../../providers/product_provider.dart';
 import '../../../../providers/wishlist_provider.dart';
 import '../../../../services/product_service.dart';
 import '../../../../widgets/product_card.dart';
-import '../../../../widgets/product_list_thumbnail.dart';
+import '../../../../widgets/ui/ps_ui.dart';
 
 class BuyerSearchScreen extends ConsumerStatefulWidget {
   const BuyerSearchScreen({super.key});
@@ -138,95 +138,50 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
         ? ref.watch(recommendedProvider)
         : null;
 
+    final activeFilters = [
+      _selectedCategory != 'all',
+      _inStockOnly,
+      _sortBy != 'latest',
+      _minPrice != null,
+      _maxPrice != null,
+      _quality != null,
+    ].where((f) => f).length;
+
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
-      appBar: AppBar(
-        title: const Text('Shop'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: () => context.go('/buyer/cart'),
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppTheme.divider),
-                    ),
-                    child: const Icon(Icons.shopping_cart_outlined, size: 20),
-                  ),
-                  if (cartCount > 0)
-                    Positioned(
-                      right: -4,
-                      top: -3,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 14,
-                          minHeight: 14,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 3,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentOrange,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          cartCount > 99 ? '99+' : '$cartCount',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: Column(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(
+              children: [
+                Expanded(child: Text('Products', style: AppTheme.display(fontSize: 26))),
+                _SquareIconButton(
+                  icon: Icons.shopping_cart_outlined,
+                  tooltip: 'Cart',
+                  count: cartCount,
+                  onTap: () => context.go('/buyer/cart'),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _searchController,
                     autofocus: true,
+                    textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      hintText: 'Search products...',
-                      hintStyle: const TextStyle(color: AppTheme.textSecondary),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppTheme.divider),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppTheme.divider),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: AppTheme.primaryCyan,
-                        ),
-                      ),
+                      hintText: 'Search products',
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
+                              tooltip: 'Clear',
                               onPressed: () {
                                 _searchController.clear();
                                 _fetch(reset: true);
@@ -238,25 +193,18 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                InkWell(
+                _SquareIconButton(
+                  icon: Icons.tune_rounded,
+                  tooltip: 'Filters',
+                  count: activeFilters,
+                  size: 50,
                   onTap: _openFilters,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.divider),
-                    ),
-                    child: const Icon(Icons.tune_rounded),
-                  ),
                 ),
               ],
             ),
           ),
           SizedBox(
-            height: 36,
+            height: 38,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
@@ -268,21 +216,13 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                     ? 'all'
                     : allCategories[index - 1].id.toString();
                 final catName = isAll ? 'All' : allCategories[index - 1].name;
-                final selected = _selectedCategory == catId;
                 return ChoiceChip(
                   label: Text(catName),
-                  selected: selected,
+                  selected: _selectedCategory == catId,
                   onSelected: (_) {
                     setState(() => _selectedCategory = catId);
                     _fetch(reset: true);
                   },
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    color: selected ? Colors.white : AppTheme.textPrimary,
-                  ),
-                  selectedColor: AppTheme.primaryCyan,
-                  backgroundColor: Colors.white,
-                  side: const BorderSide(color: AppTheme.divider),
                 );
               },
             ),
@@ -303,18 +243,11 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                           children: [
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'Trending now',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
+                              child: PsSectionHeader(title: 'Trending now'),
                             ),
                             const SizedBox(height: 8),
                             SizedBox(
-                              height: isCompact ? 230 : 248,
+                              height: isCompact ? 254 : 268,
                               child: ListView.separated(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
@@ -377,18 +310,11 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                               children: [
                                 const Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text(
-                                    'Recommended for you',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
+                                  child: PsSectionHeader(title: 'Recommended for you'),
                                 ),
                                 const SizedBox(height: 8),
                                 SizedBox(
-                                  height: isCompact ? 230 : 248,
+                                  height: isCompact ? 254 : 268,
                                   child: ListView.separated(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -520,8 +446,10 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           crossAxisSpacing: isCompact ? 8 : 10,
-                          mainAxisSpacing: 10,
-                          childAspectRatio: isCompact ? 0.66 : 0.7,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: ProductCard.gridExtent(
+                            (screenWidth - 28 - (isCompact ? 8 : 10)) / 2,
+                          ),
                         ),
                         delegate: SliverChildBuilderDelegate((context, index) {
                           if (index >= _items.length) {
@@ -538,194 +466,22 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
                           final inStock =
                               product.isAvailable && product.isInStock;
                           final isFavorite = wishlist.contains(product.id);
-                          return Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppTheme.divider),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x0D000000),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
+                          return ProductCard(
+                            product: product,
+                            inStock: inStock,
+                            isFavorite: isFavorite,
+                            onToggleFavorite: () => wishlistNotifier.toggle(product.id),
+                            onCardTap: () => context.push(
+                              '/buyer/product-details',
+                              extra: product,
                             ),
-                            child: InkWell(
-                              onTap: () => context.push(
-                                '/buyer/product-details',
-                                extra: product,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Stack(
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            child: ProductListThumbnail(
-                                              product: product,
-                                              compactPlaceholder: true,
-                                            ),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          right: 6,
-                                          top: 6,
-                                          child: _ActionIconButton(
-                                            icon: isFavorite
-                                                ? Icons.favorite
-                                                : Icons.favorite_border,
-                                            color: isFavorite
-                                                ? AppTheme.error
-                                                : AppTheme.textSecondary,
-                                            onTap: () => wishlistNotifier
-                                                .toggle(product.id),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    product.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        product.qualityDisplayLabel,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.textSecondary,
-                                        ),
-                                      ),
-                                      if (product.sellerName != null) ...[
-                                        const SizedBox(height: 2),
-                                        InkWell(
-                                          onTap: () => context.push(
-                                            '/buyer/shop-details?id=${product.sellerId}',
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.storefront_outlined,
-                                                size: 10,
-                                                color: AppTheme.textSecondary,
-                                              ),
-                                              const SizedBox(width: 3),
-                                              Expanded(
-                                                child: Text(
-                                                  product.sellerName!,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color:
-                                                        AppTheme.textSecondary,
-                                                    decoration: TextDecoration
-                                                        .underline,
-                                                    decorationColor:
-                                                        AppTheme.textSecondary,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'ZMW ${product.price.toStringAsFixed(2)}',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w700,
-                                                    color: AppTheme.textPrimary,
-                                                  ),
-                                                ),
-                                                if (product.reviewCount > 0)
-                                                  Row(
-                                                    children: [
-                                                      const Icon(
-                                                        Icons.star_rounded,
-                                                        size: 11,
-                                                        color: Color(
-                                                          0xFFF59E0B,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 2),
-                                                      Text(
-                                                        '${product.reviewAverage.toStringAsFixed(1)} (${product.reviewCount})',
-                                                        style: const TextStyle(
-                                                          fontSize: 10,
-                                                          color: AppTheme
-                                                              .textSecondary,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                          _ActionIconButton(
-                                            icon:
-                                                Icons.add_shopping_cart_rounded,
-                                            color: inStock
-                                                ? AppTheme.darkCyan
-                                                : AppTheme.textSecondary,
-                                            onTap: inStock
-                                                ? () async {
-                                                    final err =
-                                                        await cartNotifier
-                                                            .addProduct(
-                                                              product,
-                                                            );
-                                                    if (!context.mounted ||
-                                                        err == null) {
-                                                      return;
-                                                    }
-                                                    ScaffoldMessenger.of(
-                                                      context,
-                                                    ).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(err),
-                                                        backgroundColor:
-                                                            AppTheme.error,
-                                                      ),
-                                                    );
-                                                  }
-                                                : null,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                            onAdd: () async {
+                              final err = await cartNotifier.addProduct(product);
+                              if (!context.mounted || err == null) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(err), backgroundColor: AppTheme.error),
+                              );
+                            },
                           );
                         }, childCount: _items.length + (_loadingMore ? 1 : 0)),
                       ),
@@ -735,6 +491,7 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -920,31 +677,65 @@ class _BuyerSearchScreenState extends ConsumerState<BuyerSearchScreen> {
   }
 }
 
-class _ActionIconButton extends StatelessWidget {
-  const _ActionIconButton({
+class _SquareIconButton extends StatelessWidget {
+  const _SquareIconButton({
     required this.icon,
-    required this.color,
-    this.onTap,
+    required this.tooltip,
+    required this.onTap,
+    this.count = 0,
+    this.size = 42,
   });
 
   final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
+  final String tooltip;
+  final VoidCallback onTap;
+  final int count;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.divider),
-        ),
-        child: Icon(icon, size: 16, color: color),
+    return Tooltip(
+      message: tooltip,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Material(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: AppTheme.divider),
+            ),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox.square(
+                dimension: size,
+                child: Icon(icon, size: 21, color: AppTheme.textPrimary),
+              ),
+            ),
+          ),
+          if (count > 0)
+            Positioned(
+              top: -5,
+              right: -5,
+              child: IgnorePointer(
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentOrange,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppTheme.surfaceWhite, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: AppTheme.body(fontSize: 9.5, fontWeight: FontWeight.w700, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

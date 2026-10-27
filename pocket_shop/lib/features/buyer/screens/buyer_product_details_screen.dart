@@ -63,7 +63,6 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
     return Scaffold(
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         title: const Text('Product details'),
       ),
@@ -451,7 +450,7 @@ class _BuyerProductDetailsScreenState extends ConsumerState<BuyerProductDetailsS
                   error: (_, _) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
+                      color: AppTheme.softSurface,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(

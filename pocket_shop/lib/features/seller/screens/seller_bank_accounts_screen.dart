@@ -114,7 +114,6 @@ class _SellerBankAccountsScreenState extends ConsumerState<SellerBankAccountsScr
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Bank accounts'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
       ),
@@ -206,7 +205,8 @@ class _AccountCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+                    color: Colors.transparent,
+                    border: Border.all(color: AppTheme.primaryCyan),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Text(
@@ -223,7 +223,8 @@ class _AccountCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.warning.withValues(alpha: 0.10),
+                color: Colors.transparent,
+                border: Border.all(color: AppTheme.warning),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
@@ -403,7 +404,8 @@ class _AddBankAccountSheetState extends ConsumerState<_AddBankAccountSheet> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppTheme.success.withValues(alpha: 0.08),
+                  color: Colors.transparent,
+                  border: Border.all(color: AppTheme.success),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(

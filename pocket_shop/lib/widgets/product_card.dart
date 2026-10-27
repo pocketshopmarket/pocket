@@ -5,9 +5,12 @@ import '../core/theme/app_theme.dart';
 import '../models/product.dart';
 import 'product_list_thumbnail.dart';
 
-/// Shared product tile — promoted from buyer_home_screen.dart's former
-/// private `_ProductCard` so buyer_search_screen.dart's Trending/Recommended
-/// sections can reuse it instead of a third copy of this markup.
+/// The one product tile used by every product grid and rail.
+///
+/// The image flexes to fill whatever height the parent gives it while the
+/// text block below is a fixed height (names always reserve two lines), so
+/// tiles in the same grid row line up exactly. Grids should size cells with
+/// [ProductCard.gridExtent].
 class ProductCard extends StatelessWidget {
   final Product product;
   final bool inStock;
@@ -26,204 +29,173 @@ class ProductCard extends StatelessWidget {
     required this.onCardTap,
   });
 
+  static const double _bodyHeight = 98;
+
+  /// Cell height for a grid column of [cellWidth]: a square image + text.
+  static double gridExtent(double cellWidth) => cellWidth + _bodyHeight;
+
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 165;
-        final imageHeight = compact ? 108.0 : 124.0;
-        final nameSize = compact ? 12.0 : 13.0;
-        final priceSize = compact ? 14.0 : 15.0;
-        final buttonHeight = compact ? 30.0 : 32.0;
-        return InkWell(
-          onTap: onCardTap,
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppTheme.divider.withValues(alpha: 0.9),
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0D000000),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
+    final showQuality = product.quality != 'new';
+    final rating = product.reviewCount > 0
+        ? '★ ${product.reviewAverage.toStringAsFixed(1)}'
+        : null;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onCardTap,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(14),
+                    ProductListThumbnail(product: product, compactPlaceholder: true),
+                    if (showQuality || !inStock)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: _Badge(label: inStock ? product.qualityDisplayLabel : 'Sold out'),
                       ),
-                      child: SizedBox(
-                        height: imageHeight,
-                        width: double.infinity,
-                        child: ProductListThumbnail(
-                          product: product,
-                          compactPlaceholder: true,
-                        ),
-                      ),
-                    ),
                     Positioned(
                       top: 8,
                       right: 8,
-                      child: InkWell(
+                      child: _RoundIconButton(
                         onTap: onToggleFavorite,
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppTheme.divider),
-                          ),
-                          child: Icon(
-                            isFavorite ? Icons.favorite : Icons.favorite_border,
-                            size: 15,
-                            color: isFavorite
-                                ? AppTheme.error
-                                : AppTheme.textSecondary,
-                          ),
+                        tooltip: isFavorite ? 'Remove from wishlist' : 'Save to wishlist',
+                        child: Icon(
+                          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          size: 16,
+                          color: isFavorite ? AppTheme.accentOrange : AppTheme.textPrimary,
                         ),
                       ),
                     ),
+                    if (inStock)
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Tooltip(
+                          message: 'Add to cart',
+                          child: Material(
+                            color: AppTheme.primaryCyan,
+                            borderRadius: BorderRadius.circular(10),
+                            child: InkWell(
+                              onTap: onAdd,
+                              borderRadius: BorderRadius.circular(10),
+                              child: const SizedBox.square(
+                                dimension: 34,
+                                child: Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(9, 7, 9, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+              ),
+              SizedBox(
+                height: _bodyHeight,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ZMW ${product.price.toStringAsFixed(2)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.display(
+                          fontSize: 15,
+                          color: inStock ? AppTheme.textPrimary : AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      SizedBox(
+                        height: 34,
+                        child: Text(
                           product.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTheme.body(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: product.sellerName == null
+                            ? null
+                            : () => context.push('/buyer/shop-details?id=${product.sellerId}'),
+                        child: Text(
+                          [
+                            ?rating,
+                            if (product.sellerName != null) product.sellerName!,
+                          ].join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: nameSize,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
+                          style: AppTheme.body(fontSize: 11.5, color: AppTheme.textSecondary),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          product.qualityDisplayLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.darkCyan,
-                          ),
-                        ),
-                        if (product.sellerName != null) ...[
-                          const SizedBox(height: 2),
-                          InkWell(
-                            onTap: () => context.push(
-                              '/buyer/shop-details?id=${product.sellerId}',
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.storefront_outlined, size: 10, color: AppTheme.textSecondary),
-                                const SizedBox(width: 3),
-                                Expanded(
-                                  child: Text(
-                                    product.sellerName!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      color: AppTheme.textSecondary,
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 2),
-                        Text(
-                          'ZMW ${product.price.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: priceSize,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        if (product.reviewCount > 0)
-                          Row(
-                            children: [
-                              const Icon(Icons.star_rounded, size: 11, color: Color(0xFFF59E0B)),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${product.reviewAverage.toStringAsFixed(1)} (${product.reviewCount})',
-                                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
-                              ),
-                            ],
-                          ),
-                        const Spacer(),
-                        SizedBox(
-                          width: double.infinity,
-                          height: buttonHeight,
-                          child: ElevatedButton(
-                            onPressed: inStock ? onAdd : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: inStock
-                                  ? AppTheme.primaryCyan
-                                  : AppTheme.divider,
-                              foregroundColor: inStock
-                                  ? Colors.white
-                                  : AppTheme.textSecondary,
-                              elevation: 0,
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: inStock
-                                ? const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.add_shopping_cart, size: 14),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Add to cart',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : const Text(
-                                    'Unavailable',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTheme.textPrimary.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: AppTheme.body(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({required this.onTap, required this.child, required this.tooltip});
+
+  final VoidCallback onTap;
+  final Widget child;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox.square(dimension: 30, child: Center(child: child)),
+        ),
+      ),
     );
   }
 }

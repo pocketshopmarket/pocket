@@ -235,7 +235,7 @@ class _SellerProductsScreenState extends ConsumerState<SellerProductsScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEEEEEE),
+                              color: AppTheme.softSurface,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Row(
@@ -249,7 +249,10 @@ class _SellerProductsScreenState extends ConsumerState<SellerProductsScreen> {
                                     decoration: InputDecoration(
                                       hintText: 'Search my products',
                                       hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                                      filled: false,
                                       border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
                                       isDense: true,
                                       contentPadding: const EdgeInsets.symmetric(vertical: 10),
                                       suffixIcon: _searchController.text.isNotEmpty
@@ -396,7 +399,8 @@ class _ProductTile extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: stockColor.withValues(alpha: 0.12),
+                            color: Colors.transparent,
+                            border: Border.all(color: stockColor),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(

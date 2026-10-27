@@ -189,12 +189,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'order_delivered':         return AppTheme.success;
       case 'order_cancelled':         return AppTheme.error;
       case 'payment_pending':         return const Color(0xFFF59E0B);
-      case 'payment_completed':       return const Color(0xFF10B981);
-      case 'payment_failed':          return const Color(0xFFEF4444);
-      case 'payout_completed':        return const Color(0xFF10B981);
+      case 'payment_completed':       return AppTheme.success;
+      case 'payment_failed':          return AppTheme.error;
+      case 'payout_completed':        return AppTheme.success;
       case 'delivery_assigned':       return AppTheme.darkCyan;
       case 'welcome':                 return AppTheme.primaryCyan;
-      case 'announcement':            return const Color(0xFF7C3AED);
+      case 'announcement':            return AppTheme.accentPurple;
       case 'staff_alert':             return AppTheme.warning;
       default:                        return AppTheme.textSecondary;
     }
@@ -220,17 +220,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'payment_pending':
         return _BadgeConfig('Payment pending', Icons.hourglass_top_rounded, const Color(0xFFF59E0B));
       case 'payment_completed':
-        return _BadgeConfig('Payment successful', Icons.check_circle_rounded, const Color(0xFF10B981));
+        return _BadgeConfig('Payment successful', Icons.check_circle_rounded, AppTheme.success);
       case 'payment_failed':
-        return _BadgeConfig('Payment failed', Icons.cancel_rounded, const Color(0xFFEF4444));
+        return _BadgeConfig('Payment failed', Icons.cancel_rounded, AppTheme.error);
       case 'payout_completed':
-        return _BadgeConfig('Earnings paid', Icons.payments_rounded, const Color(0xFF10B981));
+        return _BadgeConfig('Earnings paid', Icons.payments_rounded, AppTheme.success);
       case 'delivery_assigned':
         return _BadgeConfig('Rider assigned', Icons.local_shipping_rounded, AppTheme.darkCyan);
       case 'welcome':
         return _BadgeConfig('Welcome', Icons.waving_hand_rounded, AppTheme.primaryCyan);
       case 'announcement':
-        return _BadgeConfig('Announcement', Icons.campaign_rounded, const Color(0xFF7C3AED));
+        return _BadgeConfig('Announcement', Icons.campaign_rounded, AppTheme.accentPurple);
       case 'staff_alert':
         return _BadgeConfig('Staff alert', Icons.admin_panel_settings_rounded, AppTheme.warning);
       default:
@@ -269,7 +269,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Notifications'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -336,7 +335,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           padding: const EdgeInsets.only(right: 20),
                           margin: const EdgeInsets.only(bottom: 7),
                           decoration: BoxDecoration(
-                            color: AppTheme.error.withValues(alpha: 0.12),
+                            color: Colors.transparent,
+                            border: Border.all(color: AppTheme.error),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -361,7 +361,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             width: 96,
             height: 96,
             decoration: BoxDecoration(
-              color: AppTheme.lightCyan.withValues(alpha: 0.5),
+              color: Colors.transparent,
+              border: Border.all(color: AppTheme.darkCyan),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -420,14 +421,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             decoration: BoxDecoration(
-              color: isRead
-                  ? Colors.white
-                  : AppTheme.lightCyan.withValues(alpha: 0.18),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isRead
-                    ? AppTheme.divider.withValues(alpha: 0.7)
-                    : AppTheme.primaryCyan.withValues(alpha: 0.25),
+                color: isRead ? AppTheme.divider : AppTheme.primaryCyan,
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -558,12 +555,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final Widget avatar = imageUrl != null
         ? CircleAvatar(
             radius: 25,
-            backgroundColor: color.withValues(alpha: 0.12),
+            backgroundColor: AppTheme.softSurface,
             backgroundImage: CachedNetworkImageProvider(imageUrl),
           )
         : CircleAvatar(
             radius: 25,
-            backgroundColor: AppTheme.lightCyan.withValues(alpha: 0.3),
+            backgroundColor: AppTheme.softSurface,
             backgroundImage:
                 const AssetImage('assets/images/logo.jpg'),
           );
@@ -623,9 +620,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(color: color),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

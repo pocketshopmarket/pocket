@@ -122,7 +122,6 @@ class _DeliveryOffersScreenState extends ConsumerState<DeliveryOffersScreen> {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Delivery offers'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
         actions: [
@@ -329,7 +328,8 @@ class _OfferCardState extends State<_OfferCard> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
+                    color: Colors.transparent,
+                    border: Border.all(color: statusColor),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -422,9 +422,9 @@ class _OfferCardState extends State<_OfferCard> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(color: color),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

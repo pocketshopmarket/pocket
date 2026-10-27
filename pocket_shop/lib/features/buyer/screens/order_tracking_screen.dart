@@ -309,7 +309,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
 
   Widget _mapPlaceholder({required bool loading}) {
     return ColoredBox(
-      color: const Color(0xFFEAF1FF),
+      color: AppTheme.softSurface,
       child: Center(
         child: loading
             ? const CircularProgressIndicator(color: AppTheme.primaryCyan)
@@ -653,7 +653,7 @@ class _OrderTrackingScreenState extends ConsumerState<OrderTrackingScreen> {
                           borderRadius: BorderRadius.circular(14),
                           child: Ink(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
+                              color: AppTheme.textPrimary,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             padding: const EdgeInsets.symmetric(

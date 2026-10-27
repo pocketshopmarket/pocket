@@ -322,9 +322,9 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
+        border: Border.all(color: color),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -586,7 +586,8 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
               height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+                color: Colors.transparent,
+                border: Border.all(color: AppTheme.primaryCyan),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.bolt_outlined, size: 18, color: AppTheme.primaryCyan),
@@ -708,11 +709,7 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.textPrimary,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -786,7 +783,8 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
+        color: Colors.transparent,
+        border: Border.all(color: color),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -823,7 +821,8 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
               height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: AppTheme.primaryCyan.withValues(alpha: 0.12),
+                color: Colors.transparent,
+                border: Border.all(color: AppTheme.primaryCyan),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, size: 18, color: AppTheme.primaryCyan),

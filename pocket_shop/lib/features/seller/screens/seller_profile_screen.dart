@@ -99,7 +99,6 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Shop & account'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
         actions: [
@@ -260,11 +259,7 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppTheme.textPrimary,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,10 +410,10 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.warning.withValues(alpha: 0.12),
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppTheme.warning.withValues(alpha: 0.35),
+                color: AppTheme.warning,
               ),
             ),
             child: const Text(
@@ -977,9 +972,9 @@ class _SellerProfileScreenState extends ConsumerState<SellerProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
+        border: Border.all(color: color),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

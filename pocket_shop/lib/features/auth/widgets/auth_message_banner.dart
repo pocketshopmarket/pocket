@@ -17,12 +17,8 @@ class AuthMessageBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = isError
-        ? AppTheme.error.withValues(alpha: 0.08)
-        : const Color(0xFFE8F5E9);
-    final border = isError
-        ? AppTheme.error.withValues(alpha: 0.35)
-        : AppTheme.success.withValues(alpha: 0.4);
+    const bg = Colors.white;
+    final border = isError ? AppTheme.error : AppTheme.success;
     final icon = isError
         ? Icons.error_outline_rounded
         : Icons.check_circle_outline_rounded;

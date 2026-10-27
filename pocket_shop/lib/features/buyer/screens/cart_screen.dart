@@ -323,7 +323,7 @@ class CartScreen extends ConsumerWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEEEEE),
+                          color: AppTheme.softSurface,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
@@ -620,7 +620,7 @@ class CartScreen extends ConsumerWidget {
                           decoration: InputDecoration(
                             hintText: 'Type area, street, or landmark',
                             filled: true,
-                            fillColor: const Color(0xFFEEEEEE),
+                            fillColor: AppTheme.softSurface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
@@ -780,7 +780,7 @@ class CartScreen extends ConsumerWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEEEEE),
+                          color: AppTheme.softSurface,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -797,7 +797,7 @@ class CartScreen extends ConsumerWidget {
                         decoration: InputDecoration(
                           labelText: 'Pickup time',
                           filled: true,
-                          fillColor: const Color(0xFFEEEEEE),
+                          fillColor: AppTheme.softSurface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -840,7 +840,7 @@ class CartScreen extends ConsumerWidget {
                       decoration: InputDecoration(
                         hintText: 'Gate code, landmarks…',
                         filled: true,
-                        fillColor: const Color(0xFFEEEEEE),
+                        fillColor: AppTheme.softSurface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -996,7 +996,7 @@ class CartScreen extends ConsumerWidget {
                               ),
                               prefixText: '+260 ',
                               filled: true,
-                              fillColor: const Color(0xFFF8F8F8),
+                              fillColor: AppTheme.softSurface,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(color: AppTheme.divider),
@@ -1065,7 +1065,7 @@ class CartScreen extends ConsumerWidget {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF3F4F6),
+                              color: AppTheme.softSurface,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -1221,7 +1221,7 @@ class CartScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
+                        color: AppTheme.softSurface,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppTheme.divider),
                       ),
@@ -2006,7 +2006,7 @@ class CartScreen extends ConsumerWidget {
         curve: Curves.easeOut,
         height: 68,
         decoration: BoxDecoration(
-          color: selected ? Colors.white : const Color(0xFFF8F8F8),
+          color: selected ? Colors.white : AppTheme.softSurface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected ? AppTheme.primaryCyan : AppTheme.divider,

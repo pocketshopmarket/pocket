@@ -168,7 +168,8 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppTheme.success.withValues(alpha: 0.12),
+                color: Colors.transparent,
+                border: Border.all(color: AppTheme.success),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -251,7 +252,6 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
       backgroundColor: AppTheme.surfaceWhite,
       appBar: AppBar(
         title: const Text('Claim Earnings'),
-        backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         foregroundColor: AppTheme.textPrimary,
       ),
@@ -292,11 +292,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                          color: AppTheme.textPrimary,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,7 +330,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                               'Earnings available',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF94A3B8),
+                                color: AppTheme.placeholder,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -440,11 +436,11 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: AppTheme.warning.withValues(alpha: 0.1),
+                            color: Colors.transparent,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color:
-                                  AppTheme.warning.withValues(alpha: 0.3),
+                                  AppTheme.warning,
                             ),
                           ),
                           child: const Row(
@@ -554,7 +550,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
                                       .withValues(alpha: 0.3),
                                 ),
                                 filled: true,
-                                fillColor: const Color(0xFFF8F9FA),
+                                fillColor: AppTheme.softSurface,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide.none,
@@ -701,9 +697,9 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppTheme.warning.withValues(alpha: 0.08),
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
+            border: Border.all(color: AppTheme.warning),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -771,7 +767,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
       Container(
         width: double.infinity,
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(10)),
+        decoration: BoxDecoration(color: AppTheme.softSurface, borderRadius: BorderRadius.circular(10)),
         child: Column(
           children: [
             _breakdownRow('Bank transfer fee', '- ZMW ${_bankFee.toStringAsFixed(2)}'),
@@ -810,7 +806,7 @@ class _PayoutScreenState extends ConsumerState<PayoutScreen> {
               label,
               style: const TextStyle(
                 fontSize: 10,
-                color: Color(0xFF94A3B8),
+                color: AppTheme.placeholder,
               ),
             ),
             const SizedBox(height: 3),

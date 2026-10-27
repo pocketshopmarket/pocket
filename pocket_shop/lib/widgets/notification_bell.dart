@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/theme/app_theme.dart';
 import '../providers/notification_provider.dart';
 
 /// Animated bell icon with an unread-count badge.
@@ -17,7 +18,7 @@ class NotificationBell extends ConsumerWidget {
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Icon(Icons.notifications_outlined, size: 26),
+          const Icon(Icons.notifications_none_rounded, size: 23),
           if (unread > 0)
             Positioned(
               right: -4,
@@ -35,17 +36,9 @@ class NotificationBell extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFF6B6B), Color(0xFFEE5A24)],
-                    ),
+                    color: AppTheme.accentOrange,
                     borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFEE5A24).withValues(alpha: 0.4),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    border: Border.all(color: Colors.white, width: 1.5),
                   ),
                   child: Text(
                     unread > 99 ? '99+' : '$unread',

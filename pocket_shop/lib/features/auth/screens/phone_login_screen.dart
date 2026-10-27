@@ -100,8 +100,20 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
     }
   }
 
+  Widget _fieldLabel(String text) => Padding(
+        padding: EdgeInsets.only(bottom: 7.h),
+        child: Text(
+          text,
+          style: AppTheme.body(
+            fontSize: 12.5.sp,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      );
+
   InputDecoration _fieldDecoration({
-    required String label,
+    String? label,
     required String hint,
     Widget? suffixIcon,
   }) {
@@ -132,12 +144,12 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
     return Scaffold(
       backgroundColor: AppTheme.textPrimary,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        bottom: false,
+        // Sheet fills the screen when the form is short, scrolls when it isn't.
+        child: CustomScrollView(
+          slivers: [
               // Brand band
-              Padding(
+              SliverToBoxAdapter(child: Padding(
                 padding: EdgeInsets.fromLTRB(28.w, 36.h, 28.w, 32.h),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,16 +179,19 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                     ),
                   ],
                 ),
-              ),
+              )),
 
               // Form surface
-              Container(
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Container(
                 width: double.infinity,
                 decoration: const BoxDecoration(
                   color: AppTheme.surfaceWhite,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
                 ),
-                padding: EdgeInsets.fromLTRB(24.w, 28.h, 24.w, 36.h),
+                padding: EdgeInsets.fromLTRB(
+                  24.w, 28.h, 24.w, 36.h + MediaQuery.paddingOf(context).bottom),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -200,13 +215,13 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                             validator: Validators.validatePhoneNumber,
                           ),
                           SizedBox(height: 16.h),
+                          _fieldLabel('Password'),
                           TextFormField(
                             controller: _passwordController,
                             obscureText: !_isPasswordVisible,
                             validator: Validators.validatePasswordLength,
                             style: AppTheme.body(fontSize: 14.5.sp),
                             decoration: _fieldDecoration(
-                              label: "Password",
                               hint: "At least 6 characters",
                               suffixIcon: IconButton(
                                 icon: Icon(
@@ -283,8 +298,8 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                   ],
                 ),
               ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

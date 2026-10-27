@@ -10,7 +10,7 @@
     <!-- Canonical & Favicon -->
     <link rel="canonical" href="https://mypocketshop.store/">
     <link rel="icon" type="image/jpeg" href="{% static 'portal/images/logo.jpg' %}">
-    <meta name="theme-color" content="#0EA5E9">
+    <meta name="theme-color" content="#F7F8FA">
 
     <!-- SEO -->
     <meta name="robots" content="index, follow">
@@ -62,7 +62,7 @@
         {
           "@type": "MobileApplication",
           "name": "Pocket Shop",
-          "operatingSystem": "Android",
+          "operatingSystem": "Android, iOS",
           "applicationCategory": "ShoppingApplication",
           "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ZMW" },
           "description": "Buy, sell, and deliver across Zambia with instant mobile money payouts.",
@@ -72,327 +72,267 @@
     }
     </script>
 
-    <!-- Fonts (non-blocking) -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"></noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
 
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{% static 'portal/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'portal/site.css' %}">
 </head>
 <body>
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="brand" href="#hero"><img src="{% static 'portal/images/logo.jpg' %}" alt="">Pocket Shop</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#roles">Shop</a>
+      <a href="#sell">Sell</a>
+      <a href="#roles" data-role="deliver">Deliver</a>
+      <a href="#how">How it works</a>
+    </nav>
+    <a class="btn btn-ink" href="#get">Get the app</a>
+    <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mnav">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+  <nav class="mobile-nav" id="mnav" aria-label="Main" hidden>
+    <a href="#roles">Shop</a>
+    <a href="#sell">Sell</a>
+    <a href="#roles" data-role="deliver">Deliver</a>
+    <a href="#how">How it works</a>
+    <a href="#get">Get the app</a>
+  </nav>
+</header>
 
-    <!-- Header -->
-    <header id="site-header">
-        <nav>
-            <a href="#" class="logo">
-                <img src="{% static 'portal/images/logo.jpg' %}" alt="Pocket Shop Logo">
-                <span>Pocket Shop</span>
-            </a>
-            <div class="nav-links" id="nav-links">
-                <a href="#features">Features</a>
-                <a href="#sellers">For Sellers</a>
-                <a href="#riders">For Riders</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="#download" class="btn btn-primary btn-nav" id="nav-cta">Download App</a>
-            </div>
-            <button class="mobile-toggle" id="mobile-toggle" aria-label="Toggle navigation">
-                <i class="fas fa-bars"></i>
-            </button>
-        </nav>
-    </header>
+<main>
+<section class="hero" id="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow"><i></i>Made in Lusaka, for Zambia</p>
+      <h1>A shop in your pocket.</h1>
+      <p class="lead">Order from shops near you, pay with mobile money, and follow your delivery all the way to your door.</p>
+      <div class="stores">
+        {% include 'portal/_store_badges.html' %}
+      </div>
+      <a class="sell-link" href="#sell">Have a shop? Sell on Pocket
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <div class="paywith">
+        <span>Pay with</span>
+        <img src="{% static 'portal/images/mtn.png' %}" alt="MTN MoMo">
+        <img src="{% static 'portal/images/airtel.png' %}" alt="Airtel Money">
+        <img src="{% static 'portal/images/zamtel.png' %}" alt="Zamtel Kwacha">
+      </div>
+    </div>
 
-    <main>
-        <!-- Hero Section -->
-        <section class="hero" id="hero">
-            <div class="hero-content reveal">
-                <p class="hero-tag">🇿🇲 Built for Zambia</p>
-                <h1>
-                    Your Marketplace.<br>
-                    <span class="text-cyan">In Your Pocket.</span>
-                </h1>
-                <p>
-                    Buy anything, sell anywhere, deliver everywhere. Pocket Shop connects buyers, sellers, and delivery agents with instant mobile money payouts — no wallets, no delays.
-                </p>
-                <div class="hero-actions">
-                    <a href="#download" class="btn btn-primary">
-                        Start Selling
-                        <i class="fas fa-arrow-right"></i>
-                    </a>
-                    <a href="#download" class="btn btn-outline">
-                        Become a Rider
-                        <i class="fas fa-motorcycle"></i>
-                    </a>
-                </div>
-                <div class="store-badges" id="download">
-                    {% include 'portal/_store_badges.html' %}
-                </div>
-            </div>
-            <div class="hero-visual reveal">
-                <div class="phone-mockup" id="phone-mockup">
-                    <div class="phone-screen">
-                        <div class="phone-notch"></div>
-                        <div class="slideshow" id="slideshow">
-                            <img src="{% static 'portal/images/slide-home.jpeg' %}" alt="Pocket Shop Home Screen" class="slide active">
-                            <img src="{% static 'portal/images/slide-login.jpeg' %}" alt="Pocket Shop Login" class="slide">
-                            <img src="{% static 'portal/images/slide-profile.jpeg' %}" alt="Payment Methods" class="slide">
-                            <img src="{% static 'portal/images/slide-delivery-map.jpeg' %}" alt="Live Delivery Tracking" class="slide">
-                            <img src="{% static 'portal/images/slide-delivery-details.jpeg' %}" alt="Delivery Route Details" class="slide">
-                        </div>
-                    </div>
-                    <div class="slide-dots" id="slide-dots">
-                        <span class="dot active" data-index="0"></span>
-                        <span class="dot" data-index="1"></span>
-                        <span class="dot" data-index="2"></span>
-                        <span class="dot" data-index="3"></span>
-                        <span class="dot" data-index="4"></span>
-                    </div>
-                </div>
-            </div>
-        </section>
+    <div class="stage" aria-label="The Pocket Shop app: home screen and live delivery tracking" role="img">
+      <div class="scr front"><div class="scr-in"><div class="a"><div class="a-pad"><div class="a-row"><span class="a-logo">POCKET</span><span class="a-tile"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM17 21h4v-3"/></svg></span><span class="a-tile"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><i class="dot"></i></span></div>
+<div class="a-h">Good morning, Chanda</div><div class="a-sub">What are we shopping for today?</div>
+<div class="a-search"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search shops</div>
+<div class="a-chips"><span class="a-chip on">All</span><span class="a-chip">Supermarket</span><span class="a-chip">Pharmacy</span><span class="a-chip">Electronics</span></div>
+<div class="a-banner"><div class="a-bars"><i></i><i></i><i></i></div>
+<div class="a-btxt"><span class="a-eyb">THIS WEEK ON POCKET</span><span class="a-bh">Fresh picks, delivered faster</span><span class="a-cta">Shop now <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+<div class="a-frame"><img src="{% static 'portal/images/product-eetsummor.jpg' %}" alt=""><span class="a-price">ZMW 50</span></div></div>
+<div class="a-sec"><b>Shops near you</b><span>See all</span></div>
+<div class="a-card"><div class="a-shop"><span class="a-badge"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9Z"/><path d="M9 21v-6h6v6"/></svg></span><div><div class="a-name">Blue Corner Shop Avondale</div><div class="a-meta"><span class="a-tag">Supermarket</span>608 items · 2.4 km</div></div></div>
+<div class="a-thumbs"><div><img src="{% static 'portal/images/product-meal.jpg' %}" alt=""><p>Breakfast Meal 25kg</p><strong>ZMW 220.00</strong></div><div><img src="{% static 'portal/images/product-shortbread.jpg' %}" alt=""><p>Chelsea Shortbread</p><strong>ZMW 40.00</strong></div><div><img src="{% static 'portal/images/product-eetsummor.jpg' %}" alt=""><p>Eet-Sum-Mor 200g</p><strong>ZMW 50.00</strong></div></div></div>
+</div><div class="a-nav"><div class="on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#00BCD4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>Home</div><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Products</div><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 0 0-7.1 0L12 6.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-9.3a5 5 0 0 0 0-7.1Z"/></svg>Wishlist</div><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>Cart</div><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 5-6 8-6s6.5 1.5 8 6"/></svg>Profile</div></div></div></div></div>
+      <div class="scr back"><div class="scr-in"><div class="a"><div class="a-map">
+<svg width="390" height="300" viewBox="0 0 390 300" style="position:absolute;inset:0"><path d="M0 70h390M0 190h390M90 0v300M260 0v300" stroke="#fff" stroke-width="12"/><path d="M-10 250 C 90 220 140 260 210 180 S 340 90 410 80" stroke="#00BCD4" stroke-width="5" fill="none" stroke-linecap="round"/></svg>
+<span style="position:absolute;left:52px;top:224px;width:30px;height:30px;border-radius:9px;background:#0097A7;display:grid;place-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9Z"/><path d="M9 21v-6h6v6"/></svg></span>
+<span style="position:absolute;left:192px;top:162px;width:34px;height:34px;border-radius:50%;background:#00BCD4;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25)"></span>
+<span style="position:absolute;left:330px;top:60px;width:30px;height:30px;border-radius:9px;background:#16A34A"></span>
+</div>
+<div class="a-sheet"><div class="a-handle"></div>
+<div style="font-size:11px;font-weight:700;letter-spacing:.04em;color:#6B7280">#PS-10482</div>
+<div style="font-family:var(--display);font-weight:800;font-size:22px;margin-top:-6px">On the way</div>
+<div style="display:flex;gap:6px"><span class="a-pill" style="color:#0097A7">ETA 12–18 min</span><span class="a-pill" style="color:#16A34A">Picked up</span></div>
+<div class="a-rider"><span class="a-badge" style="width:42px;height:42px;background:#0097A7"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 5-6 8-6s6.5 1.5 8 6"/></svg></span><div><div class="a-name">Your rider</div><div style="font-size:11.5px;color:#6B7280">Motorbike · 1.8 km away</div></div></div>
+<div class="a-btns"><div>Call rider</div><div>Show my QR</div></div>
+<div style="padding-top:10px;border-top:1px solid #ECEEF2;font-size:12.5px"><b>3 items · ZMW 245.00</b><div style="color:#6B7280;font-size:11.5px;margin-top:2px">Deliver to: Kabulonga, Lusaka</div></div>
+</div></div></div></div>
+      <div class="toast">
+        <div class="tick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div><b>Delivered to your door</b><small>Handed over with your QR code</small></div>
+      </div>
+    </div>
+  </div>
+</section>
 
-        <!-- Trust Bar -->
-        <section class="trust-bar" id="trust-bar">
-            <p>Seamlessly integrated with Zambia's leading networks</p>
-            <div class="network-logos">
-                <img src="{% static 'portal/images/mtn.png' %}" alt="MTN Mobile Money" id="logo-mtn">
-                <img src="{% static 'portal/images/airtel.png' %}" alt="Airtel Money" id="logo-airtel">
-                <img src="{% static 'portal/images/zamtel.png' %}" alt="Zamtel Kwacha" id="logo-zamtel">
-            </div>
-        </section>
+<section class="sec" id="roles" style="background:var(--surface);border-block:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">Shop · Sell · Deliver</p>
+      <h2>One app. Three ways to use it.</h2>
+      <p>Buyers, shops and riders all use the same app, so everyone sees the same order, the same map and the same status.</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Choose how you use Pocket Shop">
+      <button class="tab" role="tab" id="t-shop" aria-controls="p-shop" aria-selected="true">I'm shopping</button>
+      <button class="tab" role="tab" id="t-sell" aria-controls="p-sell" aria-selected="false" tabindex="-1">I sell</button>
+      <button class="tab" role="tab" id="t-deliver" aria-controls="p-deliver" aria-selected="false" tabindex="-1">I deliver</button>
+    </div>
 
-        <!-- Features Section -->
-        <section class="section" id="features">
-            <div class="section-header reveal">
-                <h2>Why <span class="text-cyan">Pocket Shop?</span></h2>
-                <p>We're not just another marketplace. We're a marketplace orchestrator — built to move money as fast as you move goods.</p>
-            </div>
-            <div class="features-grid">
-                <div class="feature-card reveal" id="feature-security">
-                    <div class="feature-icon">
-                        <i class="fas fa-shield-halved"></i>
-                    </div>
-                    <h3>Zero-Trust Security</h3>
-                    <p>We never hold your money. All transactions are processed by PawaPay, a licensed payment provider. Your funds stay safe, always.</p>
-                </div>
-                <div class="feature-card reveal" id="feature-payouts">
-                    <div class="feature-icon">
-                        <i class="fas fa-bolt"></i>
-                    </div>
-                    <h3>Instant Payouts</h3>
-                    <p>Sellers and delivery agents get paid the moment an order is confirmed. No waiting periods, no withdrawal requests, no hassle.</p>
-                </div>
-                <div class="feature-card reveal" id="feature-mobile">
-                    <div class="feature-icon">
-                        <i class="fas fa-mobile-screen-button"></i>
-                    </div>
-                    <h3>Mobile Money Native</h3>
-                    <p>Deep integration with MTN, Airtel, and Zamtel. Pay and get paid the way Zambia moves money — directly to your mobile.</p>
-                </div>
-                <div class="feature-card reveal" id="feature-tracking">
-                    <div class="feature-icon">
-                        <i class="fas fa-location-dot"></i>
-                    </div>
-                    <h3>Real-Time Tracking</h3>
-                    <p>Track your order from seller to doorstep with live map updates. Know exactly where your delivery is at every moment.</p>
-                </div>
-                <div class="feature-card reveal" id="feature-qr">
-                    <div class="feature-icon">
-                        <i class="fas fa-qrcode"></i>
-                    </div>
-                    <h3>Secure QR Handoff</h3>
-                    <p>Deliveries are confirmed via QR code scanning — ensuring the right person receives the right order. No disputes, no guesswork.</p>
-                </div>
-                <div class="feature-card reveal" id="feature-transparent">
-                    <div class="feature-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h3>Full Transparency</h3>
-                    <p>Every transaction is logged. Sellers and riders see exactly what they earned, per order, in real-time. No hidden fees.</p>
-                </div>
-            </div>
-        </section>
+    <div class="panel" role="tabpanel" id="p-shop" aria-labelledby="t-shop">
+      <div>
+        <h3>Everything from the shops around you.</h3>
+        <p>Browse supermarkets, pharmacies and electronics stores near you, then check out in a few taps.</p>
+        <ul class="checks">
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Pay with MTN, Airtel, Zamtel or a bank card.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>See the delivery fee before you pay.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Follow your rider on a live map.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Show your QR code at the door to receive your order.</span></li>
+        </ul>
+      </div>
+      <div class="scr"><div class="scr-in"><div class="a"><div class="a-pad">
+<div style="font-family:var(--display);font-weight:800;font-size:26px">Products</div>
+<div class="a-search" style="margin-top:12px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search products</div>
+<div class="a-chips"><span class="a-chip on">All</span><span class="a-chip">Groceries &amp; Food</span><span class="a-chip">Health</span></div>
+<div class="a-grid"><div class="a-prod"><div class="img"><img src="{% static 'portal/images/product-shortbread.jpg' %}" alt=""><span class="heart"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 0 0-7.1 0L12 6.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-9.3a5 5 0 0 0 0-7.1Z"/></svg></span><span class="plus"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div><div class="b"><strong>ZMW 40.00</strong><p>Chelsea Shortbread 175g</p><small>Blue Corner Shop</small></div></div><div class="a-prod"><div class="img"><img src="{% static 'portal/images/product-eetsummor.jpg' %}" alt=""><span class="heart"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 0 0-7.1 0L12 6.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-9.3a5 5 0 0 0 0-7.1Z"/></svg></span><span class="plus"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div><div class="b"><strong>ZMW 50.00</strong><p>Bakers Eet-Sum-Mor 200g</p><small>Blue Corner Shop</small></div></div><div class="a-prod"><div class="img"><img src="{% static 'portal/images/product-meal.jpg' %}" alt=""><span class="heart"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 0 0-7.1 0L12 6.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-9.3a5 5 0 0 0 0-7.1Z"/></svg></span><span class="plus"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div><div class="b"><strong>ZMW 220.00</strong><p>Breakfast Meal 25kg</p><small>Blue Corner Shop</small></div></div><div class="a-prod"><div class="img"><img src="{% static 'portal/images/product-shortbread.jpg' %}" alt=""><span class="heart"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 0 0-7.1 0L12 6.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-9.3a5 5 0 0 0 0-7.1Z"/></svg></span><span class="plus"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></div><div class="b"><strong>ZMW 40.00</strong><p>Chelsea Shortbread</p><small>Blue Corner Shop</small></div></div></div>
+</div><div class="a-nav"><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>Home</div><div class="on"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#00BCD4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Products</div><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5 5 0 0 0-7.1 0L12 6.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-9.3a5 5 0 0 0 0-7.1Z"/></svg>Wishlist</div><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>Cart</div><div class=""><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 5-6 8-6s6.5 1.5 8 6"/></svg>Profile</div></div></div></div></div>
+    </div>
 
-        <!-- For Sellers -->
-        <section class="persona-section" id="sellers">
-            <div class="section-header reveal" style="max-width: 1200px; margin: 0 auto 4rem;">
-                <h2>Built for Every <span class="text-cyan">Role.</span></h2>
-                <p>Whether you're selling, delivering, or buying — Pocket Shop is designed around you.</p>
-            </div>
-            <div class="persona-container">
-                <div class="persona-card reveal" id="persona-seller">
-                    <div class="persona-header" style="background-color: #E0F7FA; padding: 2.5rem 3rem 1.5rem;">
-                        <i class="fas fa-store" style="font-size: 2.25rem; color: var(--primary);"></i>
-                        <h3 style="margin-top: 1rem;">For Sellers</h3>
-                    </div>
-                    <div class="persona-body">
-                        <p style="color: var(--text-secondary);">Open your shop to all of Zambia. List products, manage orders, and get paid instantly.</p>
-                        <ul>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Instant payouts to your mobile money</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Real-time order management dashboard</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Reach buyers across your city</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>No upfront fees — pay only on sales</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="persona-card reveal" id="persona-rider">
-                    <div class="persona-header" style="background-color: #FFF3E0; padding: 2.5rem 3rem 1.5rem;">
-                        <i class="fas fa-motorcycle" style="font-size: 2.25rem; color: var(--accent);"></i>
-                        <h3 style="margin-top: 1rem;">For Delivery Agents</h3>
-                    </div>
-                    <div class="persona-body">
-                        <p style="color: var(--text-secondary);">Pick up orders, deliver, and earn. You choose when, where, and how much you work.</p>
-                        <ul>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Fair delivery fee bidding system</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Get paid instantly after each delivery</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Flexible — work on your own schedule</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>GPS-optimized routes for efficiency</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="persona-card reveal" id="persona-buyer">
-                    <div class="persona-header" style="background-color: #E3F2FD; padding: 2.5rem 3rem 1.5rem;">
-                        <i class="fas fa-cart-shopping" style="font-size: 2.25rem; color: #2196F3;"></i>
-                        <h3 style="margin-top: 1rem;">For Buyers</h3>
-                    </div>
-                    <div class="persona-body">
-                        <p style="color: var(--text-secondary);">Discover products from local sellers, pay with mobile money, and track your delivery live.</p>
-                        <ul>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Secure mobile money checkout</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Real-time delivery tracking</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>Verified sellers and product listings</span>
-                            </li>
-                            <li>
-                                <i class="fas fa-check-circle"></i>
-                                <span>QR-confirmed delivery for peace of mind</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </section>
+    <div class="panel" role="tabpanel" id="p-sell" aria-labelledby="t-sell" hidden>
+      <div>
+        <h3>Your shop, open to the whole city.</h3>
+        <p>List your products with photos, take orders on your phone and see what you've earned at a glance.</p>
+        <ul class="checks">
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Add products, prices and stock in minutes.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>New orders and low stock flagged on your dashboard.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Claim earnings to mobile money or your bank account.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Promote your shop with a banner on the home screen.</span></li>
+        </ul>
+      </div>
+      <div class="scr"><div class="scr-in"><div class="a"><div class="a-pad">
+<div class="a-row"><div style="flex:1"><div style="font-family:var(--display);font-weight:800;font-size:26px">Dashboard</div><div class="a-sub">Good morning, Mwansa.</div></div><span class="a-tile"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM17 21h4v-3"/></svg></span><span class="a-tile"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span></div>
+<div class="a-stats"><div class="a-stat"><small>All orders</small><b>142</b></div><div class="a-stat hot"><small>Pending</small><b>6</b></div><div class="a-stat"><small>Revenue (delivered)</small><b>ZMW 18,420</b></div><div class="a-stat hot"><small>Low stock (≤5)</small><b>3</b></div></div>
+<div class="a-add">+ Add product</div>
+<div class="a-sec"><b>Recent orders</b><span>See all</span></div>
+<div class="a-order"><div class="l"><b>#PS-10482 · Natasha B.</b><small>2 items · 12 min ago</small></div><div class="r">ZMW 245.00<br><span class="a-st" style="color:#F97316"><i></i>Pending</span></div></div>
+<div class="a-order"><div class="l"><b>#PS-10479 · Chanda M.</b><small>4 items · 1 hr ago</small></div><div class="r">ZMW 612.00<br><span class="a-st" style="color:#0097A7"><i></i>Preparing</span></div></div>
+</div><div class="a-nav"><div class="on">Dashboard</div><div>Products</div><div>Orders</div><div>Shop</div></div></div></div></div>
+    </div>
 
-        <!-- How it Works -->
-        <section class="section workflow" id="how-it-works">
-            <div class="section-header reveal">
-                <h2>How It <span class="text-cyan">Works.</span></h2>
-                <p>From order to payout in four simple steps. No complexity, no surprises.</p>
-            </div>
-            <div class="steps">
-                <div class="step reveal" id="step-1">
-                    <div class="step-number">1</div>
-                    <div class="step-icon"><i class="fas fa-shopping-cart" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
-                    <h3>Order</h3>
-                    <p style="color: var(--text-secondary);">Buyer selects a product and pays via mobile money. Funds are held securely by the payment gateway.</p>
-                </div>
-                <div class="step reveal" id="step-2">
-                    <div class="step-number">2</div>
-                    <div class="step-icon"><i class="fas fa-box" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
-                    <h3>Prepare</h3>
-                    <p style="color: var(--text-secondary);">Seller receives the order notification and prepares the product. A delivery agent is matched.</p>
-                </div>
-                <div class="step reveal" id="step-3">
-                    <div class="step-number">3</div>
-                    <div class="step-icon"><i class="fas fa-truck-fast" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
-                    <h3>Deliver</h3>
-                    <p style="color: var(--text-secondary);">Rider picks up the order and delivers it. Buyer scans the QR code to confirm handoff.</p>
-                </div>
-                <div class="step reveal" id="step-4">
-                    <div class="step-number">4</div>
-                    <div class="step-icon"><i class="fas fa-money-bill-transfer" style="font-size:2rem; color: var(--primary); margin-bottom:1rem;"></i></div>
-                    <h3>Payout</h3>
-                    <p style="color: var(--text-secondary);">Seller gets the product price, rider gets the delivery fee — instantly to their mobile money.</p>
-                </div>
-            </div>
-        </section>
+    <div class="panel" role="tabpanel" id="p-deliver" aria-labelledby="t-deliver" hidden>
+      <div>
+        <h3>Deliver when it suits you.</h3>
+        <p>Go online when you're free and pick up deliveries from shops near you.</p>
+        <ul class="checks">
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>See what you'll earn before you accept.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Pickup points and routes on the map.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Confirm each drop by scanning the buyer's QR code.</span></li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00838F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Track your earnings and payouts in the app.</span></li>
+        </ul>
+      </div>
+      <div class="scr"><div class="scr-in"><div class="a"><div class="a-pad">
+<div class="a-row"><div style="flex:1;font-family:var(--display);font-weight:800;font-size:26px">Deliveries</div><span class="a-tile"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span></div>
+<div class="a-online"><div class="l"><b>● You're online</b><small>Looking for deliveries near you</small></div><span class="a-switch"></span></div>
+<div class="a-sec"><b>Nearby deliveries</b><span style="color:#6B7280">2 available</span></div>
+<div class="a-job"><div class="t"><div><div class="a-name">Blue Corner Shop Avondale</div><div style="font-size:13px;color:#6B7280;margin-top:3px">→ Kabulonga, 3.2 km</div></div><div class="earn">ZMW 38<small>you earn</small></div></div><div class="a-accept">Accept</div></div>
+<div class="a-job"><div class="t"><div><div class="a-name">Chalala Pharmacy</div><div style="font-size:13px;color:#6B7280;margin-top:3px">→ Avondale, 1.6 km</div></div><div class="earn">ZMW 25<small>you earn</small></div></div><div class="a-accept">Accept</div></div>
+</div><div class="a-nav"><div class="on">Home</div><div>Active</div><div>Earnings</div><div>Account</div></div></div></div></div>
+    </div>
+  </div>
+</section>
 
-        <!-- CTA Section -->
-        <section class="cta-section" id="get-app">
-            <div class="cta-container reveal">
-                <h2>Ready to Join <span class="text-cyan">Pocket Shop?</span></h2>
-                <p>Download the app and start buying, selling, or delivering across Zambia today.</p>
-                <div class="store-badges">
-                    {% include 'portal/_store_badges.html' %}
-                </div>
-            </div>
-        </section>
-    </main>
+<section class="sec" id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">How it works</p>
+      <h2>How an order gets to you.</h2>
+    </div>
+    <ol class="track">
+      <li><span class="n">1</span><h3>Order and pay</h3><p>Pick what you need and pay with mobile money or card.</p></li>
+      <li><span class="n">2</span><h3>The shop packs it</h3><p>The seller confirms your order and gets it ready.</p></li>
+      <li><span class="n">3</span><h3>A rider picks it up</h3><p>A nearby rider accepts and heads to the shop. Follow them on the map.</p></li>
+      <li><span class="n">4</span><h3>Hand-off by QR</h3><p>Show your QR code at the door so the right order reaches the right person.</p></li>
+      <li><span class="n">5</span><h3>Everyone gets paid</h3><p>The shop and the rider see their earnings in the app.</p></li>
+    </ol>
+  </div>
+</section>
 
-    <!-- Footer -->
-    <footer>
-        <div class="footer-grid">
-            <div class="footer-brand">
-                <h3>Pocket Shop</h3>
-                <p>Zambia's mobile-first marketplace orchestrator. Connecting buyers, sellers, and delivery agents with instant, transparent mobile money payouts.</p>
-                <div class="footer-store-badges">
-                    {% include 'portal/_store_badges.html' %}
-                </div>
-            </div>
-            <div class="footer-col">
-                <h4>Platform</h4>
-                <a href="#features">Features</a>
-                <a href="#how-it-works">How It Works</a>
-                <a href="#sellers">For Sellers</a>
-                <a href="#riders">For Riders</a>
-            </div>
-            <div class="footer-col">
-                <h4>Company</h4>
-                <a href="{% url 'portal:privacy' %}">Privacy Policy</a>
-                <a href="{% url 'portal:terms' %}">Terms of Service</a>
-            </div>
-            <div class="footer-col">
-                <h4>Contact</h4>
-                {% include 'portal/_footer_contact.html' %}
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <span>&copy; 2026 Pocketshop Market Limited. All rights reserved.</span>
-            <div class="social-links">
-                <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
-                <a href="#" aria-label="Twitter"><i class="fab fa-x-twitter"></i></a>
-                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
-            </div>
-        </div>
-    </footer>
+<section class="sec" id="trust" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="kicker">Safe by design</p>
+      <h2>Built so you can trust every order.</h2>
+    </div>
+    <div class="trust">
+      <div>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 8.3 8 9 4.6-.7 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+        <h3>Payments through licensed providers</h3>
+        <p>Your money moves through licensed mobile money and card providers. Pocket Shop never asks for your PIN.</p>
+      </div>
+      <div>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM21 14v.01M14 21h.01M17 21h4v-3"/></svg>
+        <h3>Every hand-off confirmed</h3>
+        <p>Riders scan your QR code at the door, so there's a record that the right person received the order.</p>
+      </div>
+      <div>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A1A2E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h10"/></svg>
+        <h3>Prices you can see</h3>
+        <p>Item prices, the delivery fee and any service fee are shown before you pay. No surprises at the door.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <!-- Custom JS -->
-    <script src="{% static 'portal/app.js' %}"></script>
+<section id="sell" style="padding-bottom:96px">
+  <div class="wrap">
+    <div class="band">
+      <div>
+        <h2>Have a shop? Bring it to Pocket.</h2>
+        <p>Put your shop in front of buyers across the city. No setup fee: sign up in the app and start listing today.</p>
+        <a class="btn btn-orange" href="#get">Open your shop</a>
+      </div>
+      <ul>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00BCD4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Your own shop page with your products and photos</span></li>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00BCD4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Orders, stock and earnings on one dashboard</span></li>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00BCD4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Riders nearby to deliver for you</span></li>
+        <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00BCD4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span>Paid out to mobile money or your bank</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec get" id="get" style="padding-top:0">
+  <div class="wrap">
+    <h2>Get Pocket Shop</h2>
+    <p>Free on Android and iPhone.</p>
+    <div class="stores">{% include 'portal/_store_badges.html' %}</div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#hero"><img src="{% static 'portal/images/logo.jpg' %}" alt="">Pocket Shop</a>
+        <p class="about">A marketplace for Zambia: local shops, mobile money and riders in one app.</p>
+      </div>
+      <div>
+        <h4>Pocket Shop</h4>
+        <a href="#roles">Shop</a>
+        <a href="#sell">Sell</a>
+        <a href="#roles" data-role="deliver">Deliver</a>
+        <a href="#how">How it works</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="{% url 'portal:privacy' %}">Privacy policy</a>
+        <a href="{% url 'portal:terms' %}">Terms of service</a>
+        <a href="{% url 'portal:delete-account' %}">Delete my account</a>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <address>31295 Mwansabombwe Road, Chalala, Lusaka</address>
+        <a href="mailto:pocketshopmarket@gmail.com">pocketshopmarket@gmail.com</a>
+        <a href="tel:+260779685867">+260 77 968 5867</a>
+      </div>
+    </div>
+    <p class="legal">© 2026 Pocketshop Market Limited</p>
+  </div>
+</footer>
+
+<script src="{% static 'portal/app.js' %}"></script>
 </body>
 </html>

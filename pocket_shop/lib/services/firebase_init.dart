@@ -12,6 +12,16 @@ import 'api_service.dart';
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
 
+/// Bumped when a rider gets a delivery offer (or is set offline) so the rider
+/// home screen refreshes straight away instead of on its next 30-second poll.
+final ValueNotifier<int> riderJobsSignal = ValueNotifier<int>(0);
+
+const _riderJobTypes = {'delivery_offer', 'delivery_open', 'rider_offline'};
+
+void _signalRiderJobs(RemoteMessage message) {
+  if (_riderJobTypes.contains(message.data['type'])) riderJobsSignal.value++;
+}
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -39,6 +49,7 @@ Future<void> initFirebaseIfSupported() async {
     await fcm.requestPermission(alert: true, badge: true, sound: true);
 
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    FirebaseMessaging.onMessageOpenedApp.listen(_signalRiderJobs);
     // Registered before the initial getToken() attempt below so a failure
     // there (e.g. APNS token not ready yet on iOS) doesn't leave this
     // unregistered for the rest of the app session.
@@ -118,6 +129,7 @@ Future<void> _initLocalNotifications() async {
 }
 
 Future<void> _handleForegroundMessage(RemoteMessage message) async {
+  _signalRiderJobs(message);
   final notification = message.notification;
   if (notification == null) return;
 

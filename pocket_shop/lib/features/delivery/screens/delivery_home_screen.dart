@@ -6,11 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/location_helper.dart';
 import '../../../providers/delivery_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../services/firebase_init.dart';
 import '../../../widgets/notification_bell.dart';
 import '../../../widgets/osm_route_map.dart';
 import '../../../widgets/shimmer_loading.dart';
@@ -24,7 +23,8 @@ class DeliveryHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
-  bool _online = true;
+  /// null until the server tells us (it can set riders offline after missed offers).
+  bool? _online;
   bool _updatingOnline = false;
   bool _loading = false;
   String? _locationNote;
@@ -32,28 +32,62 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
   double _lat = 0;
   double _lng = 0;
   Timer? _autoRefreshTimer;
+  Timer? _countdownTimer;
+  // Offer countdowns run from when the list was fetched, using the server's
+  // seconds-left, so a phone with the wrong clock still counts down correctly.
+  DateTime _fetchedAt = DateTime.now();
+  final Set<int> _busyOrderIds = {};
+  bool _refreshSoon = false;
+
+  bool get _isOnline => _online == true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tickOffers());
+    riderJobsSignal.addListener(_refresh);
   }
 
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    _countdownTimer?.cancel();
+    riderJobsSignal.removeListener(_refresh);
     super.dispose();
+  }
+
+  int _secondsLeft(Map<String, dynamic> o) {
+    final total = (o['offer_seconds_left'] as num?)?.toInt() ?? 0;
+    final left = total - DateTime.now().difference(_fetchedAt).inSeconds;
+    return left < 0 ? 0 : left;
+  }
+
+  void _tickOffers() {
+    if (!mounted) return;
+    final offers = _orders.where((o) => o['is_offer'] == true).toList();
+    if (offers.isEmpty) return;
+    setState(() {});
+    // An offer just ran out: ask again shortly to see what happens next.
+    if (!_refreshSoon && offers.any((o) => _secondsLeft(o) == 0)) {
+      _refreshSoon = true;
+      Future.delayed(const Duration(seconds: 2), () {
+        _refreshSoon = false;
+        _refresh();
+      });
+    }
   }
 
   Future<void> _ensureLocation() async {
     final result = await LocationHelper.getCurrentPositionOrFallback();
+    if (!mounted) return;
     switch (result.status) {
       case LocationStatus.servicesDisabled:
-        setState(() { _locationNote = 'Turn on location for distance estimates.'; _lat = 0; _lng = 0; });
+        setState(() { _locationNote = "Turn on location. You won't get deliveries while it's off."; _lat = 0; _lng = 0; });
         return;
       case LocationStatus.permissionDenied:
-        setState(() { _locationNote = 'Location permission denied — distances may be hidden.'; _lat = 0; _lng = 0; });
+        setState(() { _locationNote = 'Allow location so we can send you deliveries nearby.'; _lat = 0; _lng = 0; });
         return;
       case LocationStatus.error:
         setState(() { _locationNote = 'Could not determine your location.'; _lat = 0; _lng = 0; });
@@ -65,37 +99,87 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
   }
 
   Future<void> _setOnlineStatus(bool value) async {
-    setState(() { _online = value; _updatingOnline = true; });
+    setState(() => _updatingOnline = true);
+    if (value) {
+      await _ensureLocation();
+      if (!mounted) return;
+      if (_lat == 0 && _lng == 0) {
+        setState(() => _updatingOnline = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Turn on your location to go online. We only send deliveries to riders we can see nearby.'),
+        ));
+        return;
+      }
+    }
+    final svc = ref.read(deliveryServiceProvider);
     try {
-      await ApiService().put(AppConstants.profileEndpoint, data: {'is_available': value});
-    } catch (_) {
+      final online = await svc.setOnline(online: value, lat: _lat, lng: _lng);
+      if (!mounted) return;
+      setState(() {
+        _online = online;
+        if (!online) _orders = [];
+      });
+    } catch (e) {
       if (mounted) {
-        setState(() => _online = !value);
+        final msg = e is DioException ? svc.extractErrorMessage(e) : null;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not update status. Please try again.')),
+          SnackBar(content: Text(msg ?? 'Could not update status. Please try again.')),
         );
       }
     } finally {
       if (mounted) setState(() => _updatingOnline = false);
     }
-    if (value) { _refresh(); } else { setState(() => _orders = []); }
+    if (_isOnline) _refresh();
   }
 
+  /// Checks in with the server (keeps our location fresh and learns if we are
+  /// still online), then loads offers and open deliveries.
   Future<void> _refresh() async {
-    if (!_online) return;
+    if (!mounted || _updatingOnline) return;
     setState(() => _loading = true);
-    await _ensureLocation();
+    if (_online != false) await _ensureLocation();
     if (!mounted) return;
+    final svc = ref.read(deliveryServiceProvider);
     try {
-      final list = await ref.read(deliveryServiceProvider).fetchAvailableOrders(lat: _lat, lng: _lng);
-      if (mounted) setState(() { _orders = list; _loading = false; });
+      final online = await svc.checkIn(lat: _lat, lng: _lng);
+      if (!online) {
+        if (mounted) setState(() { _online = false; _orders = []; _loading = false; });
+        return;
+      }
+      final list = await svc.fetchAvailableOrders(lat: _lat, lng: _lng);
+      if (mounted) {
+        setState(() {
+          _online = true;
+          _orders = list;
+          _fetchedAt = DateTime.now();
+          _loading = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
-        setState(() { _loading = false; _orders = []; });
-        final msg = e is DioException ? ref.read(deliveryServiceProvider).extractErrorMessage(e) : null;
+        setState(() => _loading = false);
+        final msg = e is DioException ? svc.extractErrorMessage(e) : null;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? "Couldn't load deliveries. Pull down to try again.")));
       }
     }
+  }
+
+  Future<void> _decline(Map<String, dynamic> order) async {
+    final offerId = (order['offer_id'] as num?)?.toInt();
+    final orderId = (order['id'] as num?)?.toInt();
+    if (offerId == null || orderId == null) return;
+    setState(() => _busyOrderIds.add(orderId));
+    try {
+      await ref.read(deliveryServiceProvider).declineOffer(offerId);
+    } catch (_) {
+      // Nothing to fix: the offer runs out on its own anyway.
+    }
+    if (!mounted) return;
+    setState(() {
+      _busyOrderIds.remove(orderId);
+      _orders.removeWhere((o) => o['id'] == order['id']);
+    });
+    _refresh();
   }
 
   Future<void> _accept(Map<String, dynamic> order) async {
@@ -123,8 +207,14 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
       return;
     }
 
+    setState(() => _busyOrderIds.add(id));
     try {
-      await ref.read(deliveryServiceProvider).acceptOrder(orderId: id, lat: _lat, lng: _lng);
+      await ref.read(deliveryServiceProvider).acceptOrder(
+        orderId: id,
+        lat: _lat,
+        lng: _lng,
+        offerId: (order['offer_id'] as num?)?.toInt(),
+      );
       if (mounted) {
         ref.read(activeDeliveryReloadTriggerProvider.notifier).state++;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delivery accepted')));
@@ -137,6 +227,9 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
       final activeLine = active is Map && active['order_number'] != null
           ? ' Active: ${active['order_number']} (${active['status']}).' : '';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${msg ?? "Couldn't accept this delivery. Please try again."}$activeLine')));
+      _refresh();
+    } finally {
+      if (mounted) setState(() => _busyOrderIds.remove(id));
     }
   }
 
@@ -190,7 +283,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
               const SizedBox(height: 24),
               PsSectionHeader(
                 title: 'Nearby deliveries',
-                trailing: _online && _orders.isNotEmpty
+                trailing: _isOnline && _orders.isNotEmpty
                     ? Text(
                         '${_orders.length} available',
                         style: AppTheme.body(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
@@ -198,7 +291,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
                     : null,
               ),
               const SizedBox(height: 12),
-              if (_online && _orders.isNotEmpty) ...[
+              if (_isOnline && _orders.isNotEmpty) ...[
                 _pickupMapCard(),
                 const SizedBox(height: 12),
               ],
@@ -226,29 +319,29 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
                       width: 9,
                       height: 9,
                       decoration: BoxDecoration(
-                        color: _online ? AppTheme.success : AppTheme.placeholder,
+                        color: _isOnline ? AppTheme.success : AppTheme.placeholder,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _online ? "You're online" : "You're offline",
+                      _online == null ? 'Checking…' : (_isOnline ? "You're online" : "You're offline"),
                       style: AppTheme.display(fontSize: 17, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _online
-                      ? 'Looking for deliveries near you'
-                      : 'Go online to see deliveries near you',
+                  _isOnline
+                      ? 'We send you deliveries near you. Keep location on.'
+                      : 'Go online with location on to get deliveries',
                   style: AppTheme.body(fontSize: 13, color: Colors.white70),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          _updatingOnline
+          _updatingOnline || _online == null
               ? const Padding(
                   padding: EdgeInsets.all(12),
                   child: SizedBox(
@@ -260,7 +353,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
               : Transform.scale(
                   scale: 1.15,
                   child: Switch(
-                    value: _online,
+                    value: _isOnline,
                     onChanged: _setOnlineStatus,
                     trackColor: WidgetStateProperty.resolveWith(
                       (s) => s.contains(WidgetState.selected) ? AppTheme.success : const Color(0xFF3A3A52),
@@ -293,9 +386,9 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('My delivery offers', style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w700)),
+                    Text('Offer history', style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w700)),
                     Text(
-                      'Deliveries sellers sent to you directly',
+                      'Offers sent to you and what happened',
                       style: AppTheme.body(fontSize: 12, color: AppTheme.textSecondary),
                     ),
                   ],
@@ -310,7 +403,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
   }
 
   Widget _buildBody() {
-    if (!_online) {
+    if (_online == false) {
       return PsEmptyState(
         icon: Icons.power_settings_new_rounded,
         title: 'Taking a break?',
@@ -320,7 +413,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
       );
     }
 
-    if (_loading && _orders.isEmpty) {
+    if ((_loading || _online == null) && _orders.isEmpty) {
       return AppShimmer(
         child: Column(
           children: List.generate(
@@ -342,7 +435,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
       return PsEmptyState(
         icon: Icons.delivery_dining_rounded,
         title: 'All quiet for now',
-        message: 'New deliveries appear here as soon as sellers have them ready. We check every 30 seconds.',
+        message: "When a shop near you has an order ready, we'll send it to you. Keep the app open and location on.",
         actionLabel: 'Check again',
         onAction: _refresh,
       );
@@ -361,7 +454,10 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
     final status = o['status']?.toString() ?? '';
     final sellerName = o['seller_name']?.toString() ?? '';
     final itemsSummary = o['items_summary']?.toString() ?? '';
-    final canAccept = status == 'out_for_delivery';
+    final isOffer = o['is_offer'] == true;
+    final secondsLeft = isOffer ? _secondsLeft(o) : 0;
+    final busy = _busyOrderIds.contains((o['id'] as num?)?.toInt());
+    final canAccept = status == 'out_for_delivery' && (!isOffer || secondsLeft > 0) && !busy;
 
     final route = [
       if (addr.isNotEmpty) addr,
@@ -374,11 +470,41 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.divider),
+        border: Border.all(
+          color: isOffer ? AppTheme.textPrimary : AppTheme.divider,
+          width: isOffer ? 1.5 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isOffer) ...[
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: AppTheme.accentOrange, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Offered to you',
+                    style: AppTheme.body(fontSize: 13, fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Text(
+                  secondsLeft > 0 ? '${secondsLeft}s left' : "Time's up",
+                  style: AppTheme.body(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: secondsLeft > 10 ? AppTheme.textPrimary : AppTheme.error,
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -446,7 +572,7 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
               style: AppTheme.body(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.35),
             ),
           ],
-          if (!canAccept) ...[
+          if (status != 'out_for_delivery') ...[
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,13 +589,40 @@ class _DeliveryHomeScreenState extends ConsumerState<DeliveryHomeScreen> {
             ),
           ],
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: FilledButton(
-              onPressed: canAccept ? () => _accept(o) : null,
-              child: Text(canAccept ? 'Accept' : 'Not ready yet'),
-            ),
+          Row(
+            children: [
+              if (isOffer && secondsLeft > 0) ...[
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: busy ? null : () => _decline(o),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textPrimary,
+                        side: const BorderSide(color: AppTheme.divider),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('No thanks'),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 46,
+                  child: FilledButton(
+                    onPressed: canAccept ? () => _accept(o) : null,
+                    child: Text(
+                      status != 'out_for_delivery'
+                          ? 'Not ready yet'
+                          : (isOffer && secondsLeft == 0 ? "Time's up" : 'Accept'),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

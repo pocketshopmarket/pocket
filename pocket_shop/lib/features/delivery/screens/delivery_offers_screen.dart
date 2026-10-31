@@ -283,10 +283,10 @@ class _OfferCardState extends State<_OfferCard> {
     };
     final statusLabel = switch (status) {
       'accepted' => 'Accepted',
-      'expired' => 'Expired',
-      'taken' => 'Taken',
-      'declined' => 'Declined',
-      _ => _isExpired ? 'Expired' : 'Pending',
+      'expired' => 'Missed',
+      'taken' => 'Another rider took it',
+      'declined' => 'You said no',
+      _ => _isExpired ? 'Missed' : 'Waiting for you',
     };
 
     return Padding(

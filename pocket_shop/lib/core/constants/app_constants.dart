@@ -20,6 +20,7 @@ class AppConstants {
   static const String sellerDashboardStatsEndpoint = 'orders/seller/dashboard-stats/';
   static const String deliveryTrackPrefix = 'delivery/track/';
   static const String deliveryAvailableEndpoint = 'delivery/orders/available/';
+  static const String deliveryRiderStatusEndpoint = 'delivery/rider/status/';
   static const String deliveryAcceptEndpoint = 'delivery/orders/accept/';
   static const String deliveryLocationEndpoint = 'delivery/location/update/';
   static const String deliveryAssignmentStatusPrefix = 'delivery/assignment/';

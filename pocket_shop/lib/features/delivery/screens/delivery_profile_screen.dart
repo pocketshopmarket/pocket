@@ -1,12 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/location_helper.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../services/api_service.dart';
+import '../../../providers/delivery_provider.dart';
 import '../../../widgets/qr_identity_sheet.dart';
 import '../../shared/delete_account_flow.dart';
 
@@ -620,21 +621,33 @@ class _DeliveryProfileScreenState extends ConsumerState<DeliveryProfileScreen> {
     );
   }
 
+  /// Same rule as the Deliveries tab: going online needs your location.
   Future<void> _updateAvailability(bool value) async {
-    setState(() {
-      _isAvailable = value;
-      _updatingAvailability = true;
-    });
+    setState(() => _updatingAvailability = true);
+    double? lat;
+    double? lng;
+    if (value) {
+      final loc = await LocationHelper.getCurrentPositionOrFallback();
+      if (!mounted) return;
+      if (loc.status != LocationStatus.success) {
+        setState(() => _updatingAvailability = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Turn on your location to go online. We only send deliveries to riders we can see nearby.'),
+        ));
+        return;
+      }
+      lat = loc.lat;
+      lng = loc.lng;
+    }
+    final svc = ref.read(deliveryServiceProvider);
     try {
-      await ApiService().put(
-        AppConstants.profileEndpoint,
-        data: {'is_available': value},
-      );
-    } catch (_) {
+      final online = await svc.setOnline(online: value, lat: lat, lng: lng);
+      if (mounted) setState(() => _isAvailable = online);
+    } catch (e) {
       if (mounted) {
-        setState(() => _isAvailable = !value);
+        final msg = e is DioException ? svc.extractErrorMessage(e) : null;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not update availability. Please try again.')),
+          SnackBar(content: Text(msg ?? 'Could not update availability. Please try again.')),
         );
       }
     } finally {

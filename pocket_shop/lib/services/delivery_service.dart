@@ -104,6 +104,42 @@ class DeliveryService {
     return null;
   }
 
+  /// Go online (the server needs a location) or offline. Returns the server's answer.
+  Future<bool> setOnline({required bool online, double? lat, double? lng}) async {
+    final response = await _api.post(
+      AppConstants.deliveryRiderStatusEndpoint,
+      data: {
+        'online': online,
+        if (lat != null && lng != null && !(lat == 0 && lng == 0)) ...{
+          'lat': double.parse(lat.toStringAsFixed(8)),
+          'lng': double.parse(lng.toStringAsFixed(8)),
+        },
+      },
+    );
+    final data = response.data;
+    return data is Map && data['online'] == true;
+  }
+
+  /// Location check-in while the app is open. Returns whether the server still has
+  /// the rider online (it sets riders offline after too many missed offers).
+  Future<bool> checkIn({double lat = 0, double lng = 0}) async {
+    final response = await _api.post(
+      AppConstants.deliveryRiderStatusEndpoint,
+      data: {
+        if (!(lat == 0 && lng == 0)) ...{
+          'lat': double.parse(lat.toStringAsFixed(8)),
+          'lng': double.parse(lng.toStringAsFixed(8)),
+        },
+      },
+    );
+    final data = response.data;
+    return data is Map && data['online'] == true;
+  }
+
+  Future<void> declineOffer(int offerId) async {
+    await _api.post('${AppConstants.deliveryOffersEndpoint}$offerId/decline/');
+  }
+
   Future<List<Map<String, dynamic>>> fetchOffers() async {
     final response = await _api.get(AppConstants.deliveryOffersEndpoint);
     final data = response.data;

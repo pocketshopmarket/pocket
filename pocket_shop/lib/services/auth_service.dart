@@ -153,6 +153,7 @@ class AuthService {
     String? dateOfBirth,
     bool? showAlcoholProducts,
     int? preferredCategoryId,
+    String? referralCode,
   }) async {
     final formattedPhone = _formatPhoneOrNull(phoneNumber) ?? _formatPhone(phoneNumber);
     await _ensureInitialized();
@@ -174,6 +175,9 @@ class AuthService {
     }
     if (preferredCategoryId != null) {
       data['preferred_category'] = preferredCategoryId;
+    }
+    if (referralCode != null && referralCode.trim().isNotEmpty) {
+      data['referral_code'] = referralCode.trim().toUpperCase();
     }
 
     try {

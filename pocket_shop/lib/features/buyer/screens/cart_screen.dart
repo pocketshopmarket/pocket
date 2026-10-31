@@ -19,6 +19,7 @@ import '../../../../providers/transport_requests_provider.dart';
 import '../../../../widgets/sign_in_prompt.dart';
 import '../../../providers/payment_options_provider.dart';
 import '../../../services/card_payment_service.dart';
+import '../../../services/promo_service.dart';
 import '../widgets/card_payment_panel.dart';
 import 'card_checkout_screen.dart';
 
@@ -76,6 +77,41 @@ class CartScreen extends ConsumerWidget {
     // Must live outside the sheet builder: the builder re-runs when the
     // keyboard opens (viewInsets change) and would reset this to step 1.
     int step = 1;
+    // Discount on the review step. Asked from the server so the preview always
+    // matches what order creation charges (one discount per order, bigger wins).
+    final promoController = TextEditingController();
+    DiscountQuote discount = DiscountQuote.none;
+    String appliedPromo = '';
+    String? promoError;
+    String? promoNote;
+    bool promoChecking = false;
+    bool sheetOpen = true;
+
+    Future<void> loadDiscount(StateSetter setModalState, {String? code}) async {
+      final typed = (code ?? '').trim().toUpperCase();
+      setModalState(() {
+        promoChecking = true;
+        promoError = null;
+        promoNote = null;
+      });
+      final quote = await PromoService().checkDiscount(code: typed);
+      if (!sheetOpen) return;
+      setModalState(() {
+        promoChecking = false;
+        discount = quote;
+        if (typed.isEmpty) {
+          appliedPromo = '';
+        } else if (!quote.valid) {
+          appliedPromo = '';
+          promoError = quote.error;
+        } else if (quote.kind == 'promo') {
+          appliedPromo = quote.code ?? typed;
+        } else {
+          appliedPromo = '';
+          promoNote = quote.note.isNotEmpty ? quote.note : null;
+        }
+      });
+    }
 
     // Always fetch fresh payment methods so the number pre-fill reflects
     // any methods the user just registered before opening checkout.
@@ -1218,6 +1254,117 @@ class CartScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    if (appliedPromo.isEmpty)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: promoController,
+                              textCapitalization: TextCapitalization.characters,
+                              autocorrect: false,
+                              maxLength: 20,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                              decoration: InputDecoration(
+                                hintText: 'Promo code',
+                                counterText: '',
+                                isDense: true,
+                                filled: true,
+                                fillColor: Colors.white,
+                                prefixIcon: const Icon(Icons.local_offer_outlined, size: 18, color: AppTheme.textSecondary),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: AppTheme.divider),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(color: promoError != null ? AppTheme.error : AppTheme.divider),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: AppTheme.primaryCyan, width: 1.5),
+                                ),
+                              ),
+                              onChanged: (_) {
+                                if (promoError != null || promoNote != null) {
+                                  setModalState(() {
+                                    promoError = null;
+                                    promoNote = null;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 46,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.textPrimary,
+                                side: const BorderSide(color: AppTheme.textPrimary),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: promoChecking
+                                  ? null
+                                  : () {
+                                      final code = promoController.text.trim();
+                                      if (code.isEmpty) return;
+                                      FocusScope.of(context).unfocus();
+                                      loadDiscount(setModalState, code: code);
+                                    },
+                              child: promoChecking
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text('Apply'),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.textPrimary),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.local_offer_outlined, size: 18, color: AppTheme.textPrimary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '$appliedPromo applied',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: promoChecking
+                                  ? null
+                                  : () {
+                                      promoController.clear();
+                                      loadDiscount(setModalState);
+                                    },
+                              child: const Text('Remove'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (promoError != null || promoNote != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        promoError ?? promoNote!,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: promoError != null ? FontWeight.w600 : FontWeight.w400,
+                          color: promoError != null ? AppTheme.error : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -1273,6 +1420,28 @@ class CartScreen extends ConsumerWidget {
                               ],
                             ),
                           ],
+                          if (discount.amount > 0) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  discount.kind == 'promo'
+                                      ? 'Promo ${discount.code ?? ''}'.trim()
+                                      : 'Welcome discount',
+                                  style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                                ),
+                                Text(
+                                  '− ZMW ${discount.amount.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
                             child: Divider(height: 1),
@@ -1289,7 +1458,7 @@ class CartScreen extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                'ZMW ${(ref.read(cartProvider).totalAmount + (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0) + (ref.read(cartProvider).totalAmount * buyerServiceFeeRateForAmount(ref, ref.read(cartProvider).totalAmount))).toStringAsFixed(2)}',
+                                'ZMW ${(ref.read(cartProvider).totalAmount + (fulfillmentType == 'delivery' ? (quoteFee ?? 0) : 0) + (ref.read(cartProvider).totalAmount * buyerServiceFeeRateForAmount(ref, ref.read(cartProvider).totalAmount)) - discount.amount).clamp(0, double.infinity).toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
@@ -1416,6 +1585,7 @@ class CartScreen extends ConsumerWidget {
                               return;
                             }
                             setModalState(() => step = 3);
+                            loadDiscount(setModalState, code: appliedPromo);
                             return;
                           }
                           if (payerNumberController.text.trim().isEmpty) {
@@ -1438,6 +1608,7 @@ class CartScreen extends ConsumerWidget {
                           }
                           payerNumberController.text = num;
                           setModalState(() => step = 3);
+                          loadDiscount(setModalState, code: appliedPromo);
                           return;
                         }
                         Navigator.pop(ctx, 'checkout');
@@ -1460,6 +1631,7 @@ class CartScreen extends ConsumerWidget {
       },
     );
     manualSearchDebounce?.cancel();
+    sheetOpen = false;
 
     if (ok == null || !context.mounted) return;
 
@@ -1566,6 +1738,7 @@ class CartScreen extends ConsumerWidget {
           paymentProvider: payMethod == 'card' ? null : selectedProvider,
           payerNumber: payMethod == 'card' ? null : payerNumberController.text,
           cardRefundPhone: payMethod == 'card' ? cardDraft.verified?.phone : null,
+          promoCode: appliedPromo.isEmpty ? null : appliedPromo,
         );
 
     if (!context.mounted) return;

@@ -78,6 +78,7 @@ class OrderService {
     double? deliveryLat,
     double? deliveryLng,
     String? pickupTimeSlot,
+    String? promoCode,
   }) async {
     final metadata = <String, dynamic>{
       'fulfillment_type': fulfillmentType,
@@ -100,6 +101,7 @@ class OrderService {
       data: {
         'delivery_address': deliveryAddress,
         'special_instructions': mergedInstructions,
+        if (promoCode != null && promoCode.isNotEmpty) 'promo_code': promoCode,
       },
     );
     final data = response.data;

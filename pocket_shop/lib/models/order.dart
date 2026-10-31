@@ -87,6 +87,13 @@ class Order {
   final int sellerId;
   final String? sellerName;
   final double totalPrice;
+  /// Welcome discount or promo code taken off what the buyer paid.
+  final double discountAmount;
+  /// '', 'welcome' or 'promo'.
+  final String discountKind;
+  final String? promoCode;
+  /// What the buyer was charged: items + delivery + service fee - discount.
+  final double? grandTotal;
   final String status;
   final String deliveryAddress;
   final String specialInstructions;
@@ -124,6 +131,10 @@ class Order {
     required this.sellerId,
     this.sellerName,
     required this.totalPrice,
+    this.discountAmount = 0,
+    this.discountKind = '',
+    this.promoCode,
+    this.grandTotal,
     required this.status,
     required this.deliveryAddress,
     required this.specialInstructions,
@@ -182,6 +193,10 @@ class Order {
       sellerId: json['seller'] as int,
       sellerName: json['seller_name']?.toString(),
       totalPrice: double.parse(json['total_price'].toString()),
+      discountAmount: double.tryParse('${json['discount_amount'] ?? 0}') ?? 0,
+      discountKind: json['discount_kind']?.toString() ?? '',
+      promoCode: json['promo_code']?.toString(),
+      grandTotal: double.tryParse('${json['grand_total'] ?? ''}'),
       status: json['status']?.toString() ?? 'pending',
       deliveryAddress: json['delivery_address']?.toString() ?? '',
       specialInstructions: parsedInstructions.cleanedInstructions,
@@ -227,6 +242,13 @@ class Order {
       default:                return status;
     }
   }
+
+  bool get hasDiscount => discountAmount > 0;
+
+  String get discountLabel =>
+      discountKind == 'promo' && (promoCode?.isNotEmpty ?? false)
+          ? 'Promo $promoCode'
+          : 'Welcome discount';
 
   bool get isPickup => fulfillmentType == 'pickup';
   bool get isDelivery => !isPickup;

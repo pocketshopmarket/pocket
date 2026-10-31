@@ -245,6 +245,7 @@ class CartNotifier extends StateNotifier<CartState> {
     // When set, the order is paid by card instead of mobile money, and any
     // refund is sent to this (already checked) mobile money number.
     String? cardRefundPhone,
+    String? promoCode,
   }) async {
     if (state.items.isEmpty) {
       return {'success': false, 'message': 'No items in cart.'};
@@ -271,6 +272,7 @@ class CartNotifier extends StateNotifier<CartState> {
         deliveryLat: deliveryLat,
         deliveryLng: deliveryLng,
         pickupTimeSlot: pickupTimeSlot,
+        promoCode: promoCode,
       );
 
       Map<String, dynamic>? paymentResult;

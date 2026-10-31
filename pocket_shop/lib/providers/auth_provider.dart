@@ -161,6 +161,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? dateOfBirth,
     bool? showAlcoholProducts,
     int? preferredCategoryId,
+    String? referralCode,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
 
@@ -175,6 +176,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         dateOfBirth: dateOfBirth,
         showAlcoholProducts: showAlcoholProducts,
         preferredCategoryId: preferredCategoryId,
+        referralCode: referralCode,
       );
       
       if (result['success']) {

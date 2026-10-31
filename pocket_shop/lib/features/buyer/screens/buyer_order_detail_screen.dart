@@ -498,6 +498,23 @@ class BuyerOrderDetailScreen extends ConsumerWidget {
                         color: AppTheme.textPrimary,
                       ),
                     ),
+                    if (order.hasDiscount) ...[
+                      const SizedBox(height: 6),
+                      Text.rich(
+                        TextSpan(
+                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                          children: [
+                            TextSpan(text: '${order.discountLabel} '),
+                            TextSpan(
+                              text: '−ZMW ${order.discountAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.success),
+                            ),
+                            if (order.grandTotal != null)
+                              TextSpan(text: '  ·  Total paid ZMW ${order.grandTotal!.toStringAsFixed(2)}'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

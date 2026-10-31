@@ -10,6 +10,7 @@ import '../../../../core/utils/validators.dart';
 import '../../../../models/category.dart';
 import '../../../../providers/category_provider.dart';
 import '../../../../services/auth_service.dart';
+import '../../../../services/promo_service.dart';
 import '../auth_navigation.dart';
 import '../widgets/auth_action_button.dart';
 import '../widgets/auth_message_banner.dart';
@@ -34,6 +35,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  // Buyer-only partner code. Checked with the server before the OTP is sent.
+  final TextEditingController _inviteController = TextEditingController();
+  String? _inviteError;
+  String? _invitedBy;
 
   String? _gender;
   DateTime? _dateOfBirth;
@@ -57,6 +62,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _inviteController.dispose();
     super.dispose();
   }
 
@@ -112,7 +118,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     setState(() {
       _isLoading = true;
       _sendOtpBannerMessage = null;
+      _inviteError = null;
     });
+
+    final inviteCode = widget.role == 'buyer' ? _inviteController.text.trim() : '';
+    if (inviteCode.isNotEmpty) {
+      final lookup = await PromoService().checkReferralCode(inviteCode);
+      if (!mounted) return;
+      if (!lookup.valid) {
+        setState(() {
+          _isLoading = false;
+          _inviteError = lookup.error;
+          _invitedBy = null;
+        });
+        return;
+      }
+      setState(() => _invitedBy = lookup.partnerName);
+    }
 
     final authService = AuthService();
     final result = await authService.sendOtp(_phoneController.text);
@@ -134,6 +156,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           if (_isAdult) 'show_alcohol_products': _showAlcoholProducts,
           if (widget.role == 'buyer' && _preferredCategoryId != null)
             'preferred_category': _preferredCategoryId,
+          if (inviteCode.isNotEmpty) 'referral_code': inviteCode.toUpperCase(),
         },
       );
     } else {
@@ -546,6 +569,39 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
               ),
             ),
+            if (widget.role == 'buyer') ...[
+              SizedBox(height: AppSizes.spacingMedium.h),
+              TextFormField(
+                controller: _inviteController,
+                textCapitalization: TextCapitalization.characters,
+                autocorrect: false,
+                maxLength: 20,
+                style: AppTheme.body(fontSize: 14.5.sp),
+                onChanged: (_) {
+                  if (_inviteError != null || _invitedBy != null) {
+                    setState(() {
+                      _inviteError = null;
+                      _invitedBy = null;
+                    });
+                  }
+                },
+                decoration: _fieldDecoration(
+                  label: 'Invite code (optional)',
+                  hint: 'e.g. YOMAPS',
+                ).copyWith(
+                  counterText: '',
+                  errorText: _inviteError,
+                  helperText: _invitedBy != null
+                      ? 'Invited by $_invitedBy'
+                      : 'Got a code from a friend or creator? Enter it here.',
+                  helperStyle: AppTheme.body(
+                    fontSize: 12.sp,
+                    color: _invitedBy != null ? AppTheme.success : AppTheme.textSecondary,
+                    fontWeight: _invitedBy != null ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
             if (isDelivery || isSeller) ...[
               SizedBox(height: AppSizes.spacingMedium.h),
               Container(

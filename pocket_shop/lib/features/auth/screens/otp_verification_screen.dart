@@ -21,6 +21,7 @@ class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String? dateOfBirth;
   final bool? showAlcoholProducts;
   final int? preferredCategoryId;
+  final String? referralCode;
 
   /// When null, uses [AuthService.sendOtp] for [phoneNumber].
   final Future<Map<String, dynamic>> Function()? resendOtp;
@@ -36,6 +37,7 @@ class OtpVerificationScreen extends ConsumerStatefulWidget {
     this.dateOfBirth,
     this.showAlcoholProducts,
     this.preferredCategoryId,
+    this.referralCode,
     this.resendOtp,
     this.resendCooldownSeconds = 60,
   });
@@ -146,6 +148,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
             dateOfBirth: widget.dateOfBirth,
             showAlcoholProducts: widget.showAlcoholProducts,
             preferredCategoryId: widget.preferredCategoryId,
+            referralCode: widget.referralCode,
           );
 
       if (mounted) {

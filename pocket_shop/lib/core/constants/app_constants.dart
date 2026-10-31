@@ -15,6 +15,8 @@ class AppConstants {
   static const String ordersCartEndpoint = 'orders/cart/';
   static const String ordersCreateEndpoint = 'orders/orders/create/';
   static const String ordersListEndpoint = 'orders/orders/';
+  static const String promoCheckEndpoint = 'promotions/check/';
+  static const String referralCheckPrefix = 'promotions/referral/';
   static const String sellerDashboardStatsEndpoint = 'orders/seller/dashboard-stats/';
   static const String deliveryTrackPrefix = 'delivery/track/';
   static const String deliveryAvailableEndpoint = 'delivery/orders/available/';

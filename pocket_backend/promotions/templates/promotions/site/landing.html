@@ -1,0 +1,55 @@
+{% extends "promotions/site/base.html" %}
+{% block title %}Partner program{% endblock %}
+{% block meta %}<link rel="canonical" href="https://mypocketshop.store/partners/">{% endblock %}
+{% block content %}
+<div class="pp-hero">
+  <div>
+    <p class="eyebrow pp-eyebrow"><i></i>Pocket Shop partners</p>
+    <h1>Share Pocket Shop. Earn on every delivered order.</h1>
+    <p class="pp-lead">Get your own code. When people sign up with it and their orders are delivered, you earn part of our service fee. We pay you by mobile money or bank.</p>
+
+    <div class="pp-facts">
+      <div class="pp-fact"><b>{{ rate_percent }}%</b><span>of the service fee on each delivered order</span></div>
+      <div class="pp-fact"><b>{{ window_days }} days</b><span>you earn from each person after they sign up</span></div>
+      <div class="pp-fact"><b>K{{ min_payout }}</b><span>is all you need to ask for payment</span></div>
+    </div>
+
+    <section class="pp-section">
+      <h2 class="pp-h2">How it works</h2>
+      <ol class="pp-steps">
+        <li><div><b>Apply below</b><p>Tell us where you will share Pocket Shop. We check every application, usually within two working days.</p></div></li>
+        <li><div><b>Share your code</b><p>Post your code and link on TikTok, Facebook, WhatsApp or anywhere your people are.{% if welcome %} New buyers also get {{ welcome }} on their first order.{% endif %}</p></div></li>
+        <li><div><b>Earn and get paid</b><p>See your sign-ups and earnings on your own partner page. Ask for payment when you have K{{ min_payout }} or more. We email you an update every month.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="pp-section">
+      <h2 class="pp-h2">Good to know</h2>
+      <ol class="pp-steps pp-plain">
+        <li><div><b>Only delivered orders count</b><p>If an order is cancelled or refunded, it doesn't earn. New earnings wait {{ hold_days }} days before you can ask for them.</p></div></li>
+        <li><div><b>Shops and riders are not affected</b><p>Your share comes from Pocket Shop's service fee. Sellers and riders are paid in full.</p></div></li>
+      </ol>
+      <p class="pp-note">Read the full <a href="{% url 'promotions:rules' %}">partner rules</a>.</p>
+    </section>
+  </div>
+
+  <div class="pp-card pp-sticky" id="apply">
+    <h2 class="pp-h2">Apply to be a partner</h2>
+    <p>It's free. We will email you when you're approved.</p>
+    <form class="pp-form" method="post" action="{% url 'promotions:landing' %}#apply" novalidate>
+      {% csrf_token %}
+      {% for e in form.non_field_errors %}<p class="pp-alert">{{ e }}</p>{% endfor %}
+      {% include "promotions/site/_field.html" with field=form.name %}
+      {% include "promotions/site/_field.html" with field=form.email %}
+      {% include "promotions/site/_field.html" with field=form.phone %}
+      {% include "promotions/site/_field.html" with field=form.promotes_on %}
+      {% include "promotions/site/_field.html" with field=form.code %}
+      {% include "promotions/site/_field.html" with field=form.payout_method radio=True %}
+      {% include "promotions/site/_field.html" with field=form.payout_details %}
+      {% include "promotions/site/_agree.html" %}
+      <div class="pp-hp" aria-hidden="true"><label for="id_website">Leave this empty</label>{{ form.website }}</div>
+      <button class="btn btn-ink" type="submit">Send my application</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

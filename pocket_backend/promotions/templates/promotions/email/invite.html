@@ -1,0 +1,9 @@
+{% extends "promotions/email/base.html" %}
+{% block body %}
+<h1 style="margin:0 0 12px;font-size:22px">Hi {{ partner.name }}, you're invited 🎉</h1>
+<p style="margin:0 0 12px">We'd like you to join the <b>Pocket Shop partner program</b>.</p>
+<p style="margin:0 0 12px">Your code is <b style="font-size:17px">{{ partner.code }}</b>. When people sign up with it, you earn a share of every order they make.</p>
+<p style="margin:0 0 20px">Press the button to accept. You'll tell us where to send your money and agree to the partner rules.</p>
+<a href="{{ accept_url }}" style="display:inline-block;background:#00BCD4;color:#ffffff;text-decoration:none;font-weight:bold;padding:13px 22px;border-radius:10px">Accept invite</a>
+<p style="margin:20px 0 0;font-size:13px;color:#5B6172">This link works for 7 days. If it stops working, ask us to send a new one.</p>
+{% endblock %}

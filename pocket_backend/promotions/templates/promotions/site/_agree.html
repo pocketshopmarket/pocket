@@ -1,0 +1,4 @@
+<div class="pp-field">
+  <label class="pp-check">{{ form.agree }} <span>I have read and agree to the <a href="{% url 'promotions:rules' %}" target="_blank" rel="noopener">partner rules</a>.</span></label>
+  {% for e in form.agree.errors %}<p class="pp-err">{{ e }}</p>{% endfor %}
+</div>

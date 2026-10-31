@@ -297,6 +297,18 @@ class CreateOrderView(APIView):
                 service_fee_rate = get_buyer_service_fee_rate(line_total)
                 service_fee_val = (_Decimal(str(line_total)) * service_fee_rate).quantize(_Decimal('0.01'))
 
+                # ---------- Discount: promo code or welcome discount, whichever is bigger ----------
+                from promotions.services import PromoError, best_discount
+                try:
+                    discount = best_discount(
+                        request.user, line_total, serializer.validated_data.get('promo_code'),
+                    )
+                except PromoError as exc:
+                    return Response(
+                        {'error': str(exc), 'promo_code_error': str(exc)},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 # Create order after stock validation passes.
                 order = Order.objects.create(
                     buyer=request.user,
@@ -304,6 +316,9 @@ class CreateOrderView(APIView):
                     total_price=line_total,
                     delivery_fee=delivery_fee_val,
                     service_fee=service_fee_val,
+                    discount_amount=discount.amount,
+                    discount_kind=discount.kind,
+                    promo_code=discount.promo,
                     fulfillment_type=fulfillment_type,
                     delivery_address=delivery_address,
                     special_instructions=special_instructions,

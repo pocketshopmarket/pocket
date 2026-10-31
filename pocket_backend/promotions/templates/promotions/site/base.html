@@ -1,0 +1,51 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Partner program{% endblock %} | Pocket Shop</title>
+  <meta name="description" content="{% block description %}Share Pocket Shop with your followers and earn on every delivered order.{% endblock %}">
+  {% block meta %}{% endblock %}
+  <link rel="icon" type="image/jpeg" href="{% static 'portal/images/logo.jpg' %}">
+  <meta name="theme-color" content="#F7F8FA">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="{% static 'portal/site.css' %}?v=20261027">
+  <link rel="stylesheet" href="{% static 'promotions/partners.css' %}?v=20261029">
+</head>
+<body>
+<header class="top scrolled">
+  <div class="wrap">
+    <a class="brand" href="{% url 'portal:index' %}"><img src="{% static 'portal/images/logo.jpg' %}" alt="">Pocket Shop</a>
+    <a class="top-link" href="{% url 'promotions:landing' %}">Partner program</a>
+    <a class="btn btn-ink" href="{% url 'portal:index' %}#get">Get the app</a>
+  </div>
+</header>
+
+<main class="pp-main">
+  <div class="wrap">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<footer class="pp-foot">
+  <div class="wrap">
+    <span>© 2026 Pocketshop Market Limited</span>
+    <a href="{% url 'promotions:rules' %}">Partner rules</a>
+    <a href="{% url 'portal:privacy' %}">Privacy</a>
+    <a href="{% url 'portal:terms' %}">Terms</a>
+    <a href="mailto:pocketshopmarket@gmail.com">pocketshopmarket@gmail.com</a>
+  </div>
+</footer>
+<script>
+document.querySelectorAll('[data-copy]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var text = btn.getAttribute('data-copy');
+    var done = function () { var t = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = t; }, 1600); };
+    if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () {}); }
+  });
+});
+</script>
+</body>
+</html>

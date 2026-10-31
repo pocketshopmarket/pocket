@@ -186,6 +186,8 @@ class VerifyOTPView(APIView):
                 if role == 'buyer':
                     preferred_category_id = serializer.validated_data.get('preferred_category')
                     BuyerProfile.objects.create(user=user, preferred_category=preferred_category_id)
+                    from promotions.services import attach_referral
+                    attach_referral(user, request.data.get('referral_code'))
                 elif role == 'seller':
                     SellerProfile.objects.create(
                         user=user,

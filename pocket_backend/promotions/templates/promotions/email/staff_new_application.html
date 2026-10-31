@@ -1,0 +1,10 @@
+{% extends "promotions/email/base.html" %}
+{% block body %}
+<h1 style="margin:0 0 12px;font-size:20px">New partner application</h1>
+<p style="margin:0 0 4px"><b>Name:</b> {{ partner.name }}</p>
+<p style="margin:0 0 4px"><b>Code they want:</b> {{ partner.code }}</p>
+<p style="margin:0 0 4px"><b>Email:</b> {{ partner.email }}</p>
+<p style="margin:0 0 4px"><b>Phone:</b> {{ partner.phone|default:"—" }}</p>
+<p style="margin:0 0 16px"><b>Where they'll share it:</b> {{ partner.promotes_on|default:"—" }}</p>
+<a href="{{ admin_url }}" style="display:inline-block;background:#1A1A2E;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:10px">Review in admin</a>
+{% endblock %}

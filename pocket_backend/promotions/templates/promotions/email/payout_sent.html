@@ -1,0 +1,8 @@
+{% extends "promotions/email/base.html" %}
+{% block body %}
+<h1 style="margin:0 0 12px;font-size:22px">We sent you K{{ payout.paid_amount }} 💸</h1>
+<p style="margin:0 0 6px">Hi {{ partner.name }}, your payment is on its way to: <b>{{ partner.payout_details|default:"your saved details" }}</b>.</p>
+{% if payout.reference %}<p style="margin:0 0 6px;color:#5B6172">Reference: {{ payout.reference }}</p>{% endif %}
+<p style="margin:12px 0 20px">Thank you for sharing Pocket Shop. Keep it up!</p>
+<a href="{{ partner_url }}" style="display:inline-block;background:#00BCD4;color:#ffffff;text-decoration:none;font-weight:bold;padding:13px 22px;border-radius:10px">Open my partner page</a>
+{% endblock %}

@@ -66,6 +66,14 @@ class Order(models.Model):
         max_digits=10, decimal_places=2, default=0,
         help_text='Buyer service fee, snapshotted at order creation time from portal.models.get_buyer_service_fee_rate (a tiered rate by order subtotal, or the flat PlatformSettings.buyer_service_fee_rate if no tiers are configured).',
     )
+    # Lowers only what the buyer pays; payouts use total_price/delivery_fee, so Pocket absorbs it.
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_kind = models.CharField(
+        max_length=10, blank=True, choices=[('welcome', 'Welcome discount'), ('promo', 'Promo code')],
+    )
+    promo_code = models.ForeignKey(
+        'promotions.PromoCode', null=True, blank=True, on_delete=models.SET_NULL, related_name='orders',
+    )
     fulfillment_type = models.CharField(
         max_length=10, choices=FULFILLMENT_CHOICES, default='delivery',
     )
@@ -91,13 +99,18 @@ class Order(models.Model):
 
     @property
     def grand_total(self):
-        """Items + delivery fee + service fee — the actual amount the buyer is charged."""
+        """Items + delivery fee + service fee − discount: the amount the buyer is charged.
+
+        Payments and refunds both use this, so a refund returns what was paid.
+        """
         from decimal import Decimal
-        return (
+        total = (
             self.total_price
             + (self.delivery_fee or Decimal('0'))
             + (self.service_fee or Decimal('0'))
+            - (self.discount_amount or Decimal('0'))
         )
+        return max(total, Decimal('0'))
     
     class Meta:
         ordering = ['-created_at']

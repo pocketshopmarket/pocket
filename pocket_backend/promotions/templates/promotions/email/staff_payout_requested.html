@@ -1,0 +1,10 @@
+{% extends "promotions/email/base.html" %}
+{% block body %}
+<h1 style="margin:0 0 12px;font-size:20px">A partner asked to be paid</h1>
+<p style="margin:0 0 4px"><b>Partner:</b> {{ partner.name }} ({{ partner.code }})</p>
+<p style="margin:0 0 4px"><b>Amount:</b> K{{ payout.amount_requested }}</p>
+<p style="margin:0 0 4px"><b>Pay them by:</b> {{ partner.get_payout_method_display|default:"—" }}</p>
+<p style="margin:0 0 16px"><b>Details:</b> {{ partner.payout_details|default:"—" }}</p>
+<p style="margin:0 0 16px">Pay them outside the app, then open the request and mark it <b>Paid</b> with the amount and reference. They'll get an email.</p>
+<a href="{{ admin_url }}" style="display:inline-block;background:#1A1A2E;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 20px;border-radius:10px">Open the request</a>
+{% endblock %}

@@ -90,6 +90,21 @@ DEBUG = ENVIRONMENT == 'development'
 # Local + ngrok: set PUBLIC_BACKEND_URL=https://YOUR.ngrok-free.app when your tunnel changes.
 # AWS later: set DJANGO_ALLOWED_HOSTS, DJANGO_CSRF_TRUSTED_ORIGINS, PUBLIC_BACKEND_URL in the console.
 PUBLIC_BACKEND_URL = os.environ.get('PUBLIC_BACKEND_URL', '').rstrip('/')
+# Public website address used in links inside emails.
+SITE_URL = os.environ.get('SITE_URL', 'https://mypocketshop.store').rstrip('/')
+
+# Email: Gmail SMTP when EMAIL_HOST_PASSWORD is set (server .env), else printed to the console.
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'pocketshopmarket@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 30
+EMAIL_BACKEND = (
+    'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST_PASSWORD
+    else 'django.core.mail.backends.console.EmailBackend'
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', f'Pocket Shop <{EMAIL_HOST_USER}>')
 
 _allowed = os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip()
 _railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
@@ -140,6 +155,8 @@ REST_FRAMEWORK = {
         'qr_verify': '10/minute',
         'bank_resolve': '10/minute',
         'partner_api': '60/minute',
+        'referral_check': '20/minute',
+        'promo_check': '30/minute',
     },
 }
 
@@ -186,6 +203,7 @@ INSTALLED_APPS = [
     'payments',
     'portal',
     'notifications',
+    'promotions',
     'corsheaders',
 ]
 

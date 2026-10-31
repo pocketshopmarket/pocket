@@ -1,0 +1,103 @@
+{% extends "promotions/site/base.html" %}
+{% block title %}My partner page{% endblock %}
+{% block meta %}<meta name="robots" content="noindex, nofollow"><meta name="referrer" content="no-referrer">{% endblock %}
+{% block content %}
+<div class="pp-head">
+  <div>
+    <p class="eyebrow pp-eyebrow"><i></i>Partner page{% if partner.status == 'paused' %} <span class="pp-pill warn">Paused</span>{% elif partner.status == 'applied' %} <span class="pp-pill">Waiting for approval</span>{% endif %}</p>
+    <h1>Hi {{ partner.name }}</h1>
+    <div class="pp-share">Your link <code>{{ share_url }}</code> <button class="pp-copy" type="button" data-copy="{{ share_url }}">Copy link</button></div>
+  </div>
+  <div>
+    <div class="pp-code">{{ partner.code }} <button class="pp-copy" type="button" data-copy="{{ partner.code }}">Copy</button></div>
+  </div>
+</div>
+
+{% if partner.status == 'paused' %}<p class="pp-alert" style="margin-top:20px">Your code is paused, so new orders don't earn right now. Email pocketshopmarket@gmail.com to sort it out.</p>{% endif %}
+{% if requested %}<p class="pp-ok" style="margin-top:20px">Done. We got your payment request. We will email you when it's paid.</p>{% endif %}
+{% if error %}<p class="pp-alert" style="margin-top:20px">{{ error }}</p>{% endif %}
+
+<div class="pp-money">
+  <div class="main"><small>We owe you</small><b>K{{ balances.owed }}</b><p>All you've earned (K{{ balances.earned }}) minus what we've paid (K{{ balances.paid }}).</p></div>
+  <div><small>Ready to request</small><b>K{{ balances.requestable }}</b><p>{% if balances.requested %}K{{ balances.requested }} already requested.{% else %}You can ask from K{{ min_payout }}.{% endif %}</p></div>
+  <div><small>Waiting</small><b>K{{ balances.on_hold }}</b><p>New earnings wait {{ hold_days }} days in case an order is refunded.</p></div>
+</div>
+
+<div class="pp-pay">
+  <p>We pay you by <b>{{ partner.get_payout_method_display|default:"—" }}</b>: {{ partner.payout_details|default:"no details yet" }}. To change this, email pocketshopmarket@gmail.com.</p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="request_payment">
+    <button class="btn btn-ink" type="submit"{% if not can_request %} disabled{% endif %}>Request K{{ balances.requestable }}</button>
+  </form>
+</div>
+
+<div class="pp-grid2">
+  <section class="pp-card">
+    <h2 class="pp-h2">This month</h2>
+    <table class="pp-stats">
+      <tr><td>People who signed up</td><td>{{ this_month.signups }}</td></tr>
+      <tr><td>Delivered orders</td><td>{{ this_month.orders }}</td></tr>
+      <tr><td>You earned</td><td>K{{ this_month.earned }}</td></tr>
+    </table>
+  </section>
+  <section class="pp-card">
+    <h2 class="pp-h2">All time</h2>
+    <table class="pp-stats">
+      <tr><td>People who signed up</td><td>{{ all_time.signups }}</td></tr>
+      <tr><td>Delivered orders</td><td>{{ all_time.orders }}</td></tr>
+      <tr><td>You earned</td><td>K{{ all_time.earned }}</td></tr>
+    </table>
+  </section>
+</div>
+
+<section class="pp-card" style="margin-top:20px">
+  <h2 class="pp-h2">Your earnings</h2>
+  <p>You get {{ rate_percent }}% of the service fee on delivered orders, for {{ window_days }} days after each person signs up.</p>
+  {% if earnings %}
+  <div class="pp-table-wrap">
+    <table class="pp-table">
+      <thead><tr><th>Date</th><th>Order</th><th class="num">Service fee</th><th class="num">You earn</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for e in earnings %}
+        <tr>
+          <td>{{ e.created_at|date:"j M Y" }}</td>
+          <td class="pp-muted">{{ e.order.order_number }}</td>
+          <td class="num">K{{ e.service_fee }}</td>
+          <td class="num{% if e.status == 'reversed' %} pp-strike{% endif %}">K{{ e.amount }}</td>
+          <td>{% if e.status == 'reversed' %}Refunded, removed{% elif e.available_at > now %}Ready {{ e.available_at|date:"j M" }}{% else %}Ready{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="pp-empty">Nothing yet. Share your code and your earnings will show here when orders are delivered.</p>
+  {% endif %}
+</section>
+
+<section class="pp-card" style="margin-top:20px">
+  <h2 class="pp-h2">Payments</h2>
+  {% if payouts %}
+  <div class="pp-table-wrap">
+    <table class="pp-table">
+      <thead><tr><th>Asked on</th><th class="num">Asked for</th><th>Status</th><th class="num">Paid</th><th>Reference</th></tr></thead>
+      <tbody>
+      {% for p in payouts %}
+        <tr>
+          <td>{{ p.requested_at|date:"j M Y" }}</td>
+          <td class="num">K{{ p.amount_requested }}</td>
+          <td>{% if p.status == 'paid' %}Paid {{ p.paid_at|date:"j M" }}{% elif p.status == 'requested' %}Waiting{% else %}Cancelled{% endif %}</td>
+          <td class="num">{% if p.paid_amount is not None %}K{{ p.paid_amount }}{% else %}—{% endif %}</td>
+          <td class="pp-muted">{{ p.reference|default:"—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="pp-empty">No payments yet. When you have K{{ min_payout }} ready, press Request above.</p>
+  {% endif %}
+</section>
+<p class="pp-note">Keep this page link private. It shows your earnings and payment details. Read the <a href="{% url 'promotions:rules' %}">partner rules</a>.</p>
+{% endblock %}

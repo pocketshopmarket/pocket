@@ -32,7 +32,7 @@ class BuyerRoleCheckoutTests(APITestCase):
             name='Headphones',
             description='Noise cancelling',
             price=350,
-            category='electronics',
+            category=Category.objects.get_or_create(slug='electronics', defaults={'name': 'Electronics'})[0],
             seller=self.seller_user,
             stock_quantity=8,
         )

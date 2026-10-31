@@ -93,6 +93,8 @@ def sitemap(request):
     today = datetime.now().strftime('%Y-%m-%d')
     pages = [
         ('/', '1.0', 'weekly'),
+        ('/partners/', '0.6', 'monthly'),
+        ('/partners/rules/', '0.3', 'monthly'),
         ('/terms/', '0.3', 'monthly'),
         ('/privacy/', '0.3', 'monthly'),
     ]
@@ -116,6 +118,8 @@ def robots(request):
         'Disallow: /admin/\n'
         'Disallow: /api/\n'
         'Disallow: /manual/\n'
+        'Disallow: /partners/p/\n'
+        'Disallow: /partners/invite/\n'
         '\n'
         f'Sitemap: {_BASE_URL}/sitemap.xml\n'
     )

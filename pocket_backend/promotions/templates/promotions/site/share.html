@@ -1,0 +1,30 @@
+{% extends "promotions/site/base.html" %}
+{% block title %}{% if partner %}{{ partner.name }} invited you{% else %}Get the app{% endif %}{% endblock %}
+{% block description %}{% if partner %}Sign up on Pocket Shop with code {{ partner.code }}.{% else %}Shop from local stores in Zambia and pay with mobile money.{% endif %}{% endblock %}
+{% block meta %}
+<meta property="og:title" content="{% if partner %}{{ partner.name }} invited you to Pocket Shop{% else %}Pocket Shop{% endif %}">
+<meta property="og:description" content="{% if partner %}Sign up with code {{ partner.code }}.{% endif %}{% if welcome %} New buyers get {{ welcome }} on their first order.{% endif %}">
+<meta property="og:image" content="https://mypocketshop.store/static/portal/images/logo.jpg">
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block content %}
+<div class="pp-share-hero">
+  {% if partner %}
+  <p class="eyebrow pp-eyebrow"><i></i>{{ partner.name }} invited you</p>
+  <h1 class="pp-title">Shop local stores. Pay with mobile money.</h1>
+  <p class="pp-lead">Get the Pocket Shop app and use this code when you sign up.</p>
+  <div class="pp-code">{{ partner.code }} <button class="pp-copy" type="button" data-copy="{{ partner.code }}">Copy</button></div>
+  {% else %}
+  <p class="eyebrow pp-eyebrow"><i></i>Pocket Shop</p>
+  <h1 class="pp-title">Shop local stores. Pay with mobile money.</h1>
+  <p class="pp-lead">The code {{ code }} isn't active anymore, but you can still join and shop.</p>
+  {% endif %}
+  <div class="stores">{% include 'portal/_store_badges.html' %}</div>
+</div>
+
+<ol class="pp-steps pp-share-steps">
+  <li><div><b>Download Pocket Shop</b><p>Free on the App Store and Google Play.</p></div></li>
+  <li><div><b>Sign up with your phone number</b><p>{% if partner %}Type <b>{{ partner.code }}</b> in "Invite code" when you sign up.{% else %}It takes a minute.{% endif %}</p></div></li>
+  <li><div><b>Order and pay with mobile money</b><p>{% if welcome %}You get {{ welcome }} on your first order. {% endif %}MTN, Airtel and Zamtel all work.</p></div></li>
+</ol>
+{% endblock %}

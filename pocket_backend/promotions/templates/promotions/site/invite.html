@@ -1,0 +1,34 @@
+{% extends "promotions/site/base.html" %}
+{% block title %}Join as a partner{% endblock %}
+{% block meta %}<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer">{% endblock %}
+{% block content %}
+<div class="pp-hero">
+  <div>
+    <p class="eyebrow pp-eyebrow"><i></i>You're invited</p>
+    <h1>Hi {{ partner.name }}, join the Pocket Shop partner program.</h1>
+    <p class="pp-lead">Your code is ready. Check your details, tell us where to send your money, and you're in.</p>
+    <div class="pp-code">{{ partner.code }}</div>
+
+    <div class="pp-facts">
+      <div class="pp-fact"><b>{{ rate_percent }}%</b><span>of the service fee on each delivered order</span></div>
+      <div class="pp-fact"><b>{{ window_days }} days</b><span>you earn from each person after they sign up</span></div>
+      <div class="pp-fact"><b>K{{ min_payout }}</b><span>is all you need to ask for payment</span></div>
+    </div>
+    <p class="pp-note">Read the full <a href="{% url 'promotions:rules' %}" target="_blank" rel="noopener">partner rules</a>.</p>
+  </div>
+
+  <div class="pp-card pp-sticky">
+    <h2 class="pp-h2">Confirm your details</h2>
+    <p>Invite for {{ partner.email }}</p>
+    <form class="pp-form" method="post" novalidate>
+      {% csrf_token %}
+      {% include "promotions/site/_field.html" with field=form.name %}
+      {% include "promotions/site/_field.html" with field=form.phone %}
+      {% include "promotions/site/_field.html" with field=form.payout_method radio=True %}
+      {% include "promotions/site/_field.html" with field=form.payout_details %}
+      {% include "promotions/site/_agree.html" %}
+      <button class="btn btn-ink" type="submit">Accept and open my partner page</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

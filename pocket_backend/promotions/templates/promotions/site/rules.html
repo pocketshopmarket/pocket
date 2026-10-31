@@ -1,0 +1,44 @@
+{% extends "promotions/site/base.html" %}
+{% block title %}Partner rules{% endblock %}
+{% block description %}The simple rules of the Pocket Shop partner program.{% endblock %}
+{% block content %}
+<div class="pp-narrow">
+  <p class="eyebrow pp-eyebrow"><i></i>Pocket Shop partners</p>
+  <h1 class="pp-title sm">Partner rules</h1>
+  <p class="pp-lead">Simple rules so everyone is treated fairly. By joining, you agree to them.</p>
+
+  <div class="pp-prose">
+    <h2>What you earn</h2>
+    <ol>
+      <li>You earn {{ rate_percent }}% of Pocket Shop's service fee on each delivered order from a buyer who signed up with your code.</li>
+      <li>You earn on a buyer's orders for {{ window_days }} days after they sign up.</li>
+      <li>Only delivered orders count. Cancelled or refunded orders don't earn, and if an order is refunded later, that earning is removed.</li>
+      <li>New earnings wait {{ hold_days }} days before you can ask for them, in case an order is refunded.</li>
+      <li>Sellers and riders are always paid in full. Your share comes from our service fee.</li>
+    </ol>
+
+    <h2>Getting paid</h2>
+    <ol>
+      <li>Ask for payment on your partner page once you have K{{ min_payout }} or more ready.</li>
+      <li>We pay you by mobile money or bank to the details you gave us, and email you when it's sent.</li>
+      <li>To change where we pay you, email <a href="mailto:pocketshopmarket@gmail.com">pocketshopmarket@gmail.com</a> from the email you joined with.</li>
+    </ol>
+
+    <h2>Sharing your code</h2>
+    <ol>
+      <li>Be honest about Pocket Shop. Don't promise prices, deals or delivery times we don't offer.</li>
+      <li>Don't sign up with your own code, make fake accounts, or pay people to sign up. These earnings are removed.</li>
+      <li>Don't spam people or post your code where it isn't allowed.</li>
+      <li>Don't run paid ads that use the name "Pocket Shop" without asking us first.</li>
+    </ol>
+
+    <h2>Other things</h2>
+    <ol>
+      <li>A buyer belongs to the first code they sign up with. It can't be changed later.</li>
+      <li>We can change the rates or rules. We will email you before a change starts, and it won't affect money you already earned.</li>
+      <li>We can pause or end a partner account that breaks these rules. Money earned honestly before that is still paid.</li>
+    </ol>
+    <p>Questions? Email <a href="mailto:pocketshopmarket@gmail.com">pocketshopmarket@gmail.com</a>.</p>
+  </div>
+</div>
+{% endblock %}

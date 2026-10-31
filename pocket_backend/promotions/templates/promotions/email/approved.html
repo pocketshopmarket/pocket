@@ -1,0 +1,13 @@
+{% extends "promotions/email/base.html" %}
+{% block body %}
+<h1 style="margin:0 0 12px;font-size:22px">Welcome aboard, {{ partner.name }}!</h1>
+<p style="margin:0 0 16px">You're now a Pocket Shop partner. Here's everything you need:</p>
+<table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 18px">
+  <tr><td style="padding:10px 0;border-bottom:1px solid #E6E8EC;color:#5B6172">Your code</td><td style="padding:10px 0;border-bottom:1px solid #E6E8EC;text-align:right"><b style="font-size:17px">{{ partner.code }}</b></td></tr>
+  <tr><td style="padding:10px 0;border-bottom:1px solid #E6E8EC;color:#5B6172">Your share link</td><td style="padding:10px 0;border-bottom:1px solid #E6E8EC;text-align:right"><a href="{{ share_url }}" style="color:#00838F">{{ share_url }}</a></td></tr>
+  <tr><td style="padding:10px 0;color:#5B6172">You earn</td><td style="padding:10px 0;text-align:right">{{ rate_percent }}% of our service fee, on orders people make in their first {{ window_days }} days</td></tr>
+</table>
+<p style="margin:0 0 12px"><b>How it works:</b> share your link. People download the app and type <b>{{ partner.code }}</b> when they sign up. Every time their order is delivered, you earn.</p>
+<p style="margin:0 0 20px">Your partner page shows your sign-ups, orders and money. Keep this email so you can find it.</p>
+<a href="{{ partner_url }}" style="display:inline-block;background:#00BCD4;color:#ffffff;text-decoration:none;font-weight:bold;padding:13px 22px;border-radius:10px">Open my partner page</a>
+{% endblock %}

@@ -98,6 +98,9 @@ class OrderSerializer(serializers.ModelSerializer):
     )
     service_fee = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     grand_total = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    discount_amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    discount_kind = serializers.CharField(read_only=True)
+    promo_code = serializers.SlugRelatedField(slug_field='code', read_only=True)
     refund_request_status = serializers.SerializerMethodField()
     cancellation_refund = serializers.SerializerMethodField()
 
@@ -106,7 +109,8 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ['id', 'order_number', 'buyer', 'buyer_name', 'seller', 'seller_name',
                  'total_price', 'fulfillment_type', 'status',
                  'delivery_address', 'delivery_lat', 'delivery_lng',
-                 'quoted_delivery_fee', 'service_fee', 'grand_total',
+                 'quoted_delivery_fee', 'service_fee', 'discount_amount', 'discount_kind', 'promo_code',
+                 'grand_total',
                  'pickup_time_slot', 'quoted_distance_km', 'quoted_eta_minutes',
                  'special_instructions', 'payment_method_id',
                  'delivery_assignment_id',
@@ -197,6 +201,7 @@ class OrderSerializer(serializers.ModelSerializer):
 class CreateOrderSerializer(serializers.Serializer):
     delivery_address = serializers.CharField(max_length=500)
     special_instructions = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    promo_code = serializers.CharField(max_length=20, required=False, allow_blank=True)
     
     def validate(self, attrs):
         user = self.context['request'].user

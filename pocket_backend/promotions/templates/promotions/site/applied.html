@@ -1,0 +1,11 @@
+{% extends "promotions/site/base.html" %}
+{% block title %}Application sent{% endblock %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<div class="pp-narrow">
+  <p class="eyebrow pp-eyebrow"><i></i>Pocket Shop partners</p>
+  <h1 class="pp-title sm">Thank you. We got your application.</h1>
+  <p class="pp-lead">We check every application, usually within two working days.{% if email %} We will email <b>{{ email }}</b> when you're approved, with your code and your partner page.{% endif %}</p>
+  <p class="pp-note">Didn't get an email after two days? Check your spam folder, or write to <a href="mailto:pocketshopmarket@gmail.com">pocketshopmarket@gmail.com</a>.</p>
+</div>
+{% endblock %}

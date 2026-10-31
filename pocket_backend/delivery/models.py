@@ -273,6 +273,7 @@ class DeliveryOffer(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='delivery_offers')
     rider = models.ForeignKey(User, on_delete=models.CASCADE, related_name='delivery_offers')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    round = models.PositiveSmallIntegerField(default=1)
     rider_distance_km = models.FloatField(null=True, blank=True)
     expires_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -288,6 +289,77 @@ class DeliveryOffer(models.Model):
     @property
     def is_expired(self):
         return timezone.now() > self.expires_at
+
+
+class DispatchSettings(models.Model):
+    """How ready orders are offered to riders. One row, edited in the admin."""
+
+    riders_per_round = models.PositiveSmallIntegerField(
+        default=2, help_text='How many riders get each offer at the same time.',
+    )
+    seconds_per_round = models.PositiveIntegerField(
+        default=45, help_text='How long those riders have to accept before the next riders get it.',
+    )
+    rounds_before_open = models.PositiveSmallIntegerField(
+        default=3, help_text='After this many rounds with no taker, every nearby online rider can accept it.',
+    )
+    max_distance_km = models.FloatField(
+        default=5.0, help_text='Only riders this close to the shop get offers or see the order.',
+    )
+    location_fresh_minutes = models.PositiveIntegerField(
+        default=15, help_text="A rider's location must be newer than this to get offers.",
+    )
+    wait_cap_minutes = models.PositiveIntegerField(
+        default=60, help_text='Fairness: waiting time counts up to this many minutes.',
+    )
+    km_penalty = models.FloatField(
+        default=5.0, help_text='Fairness: points taken off per km from the shop. Higher = closer riders first.',
+    )
+    missed_offers_limit = models.PositiveSmallIntegerField(
+        default=3, help_text='Riders who let this many offers in a row run out are set offline. 0 = never.',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Rider dispatch settings'
+        verbose_name_plural = 'Rider dispatch settings'
+
+    def __str__(self):
+        return 'Rider dispatch settings'
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class DeliveryDispatch(models.Model):
+    """Where an order is in the offer rounds. Created when the seller marks it ready."""
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name='dispatch')
+    round = models.PositiveSmallIntegerField(default=0)
+    round_ends_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(
+        null=True, blank=True, help_text='When every nearby online rider could accept it.',
+    )
+    finished_at = models.DateTimeField(
+        null=True, blank=True, help_text='When a rider took it, or the order stopped needing one.',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['finished_at', 'opened_at', 'round_ends_at'])]
+
+    def __str__(self):
+        return f'Dispatch for {self.order.order_number}'
+
+    @property
+    def is_open(self):
+        return self.opened_at is not None
 
 
 class DeliveryHandoffToken(models.Model):

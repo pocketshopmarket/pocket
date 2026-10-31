@@ -26,7 +26,7 @@ from .serializers import (
 )
 from products.models import Product, ProductImage, ProductVariant, product_blocked_for_user
 from delivery.coordinates import resolve_delivery_coordinates
-from delivery.utils import create_delivery_offers_for_order
+from delivery.dispatch import start_dispatch
 from delivery.models import DeliveryAssignment
 from payments.models import Transaction
 from payments.services.pawapay import PawaPayService
@@ -455,7 +455,7 @@ class UpdateOrderStatusView(APIView):
             order.status = new_status
             order.save()
             if new_status == 'out_for_delivery' and order.fulfillment_type == 'delivery':
-                create_delivery_offers_for_order(order)
+                start_dispatch(order)
             elif new_status == 'cancelled':
                 # Use the shared cancel service (handles refund + stock restore).
                 cancel_order_with_refund(

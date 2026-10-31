@@ -328,6 +328,10 @@ class DeliveryProfile(models.Model):
     is_approved = models.BooleanField(default=False)
     current_location_lat = models.FloatField(null=True, blank=True)
     current_location_lng = models.FloatField(null=True, blank=True)
+    # Dispatch: only riders who are online with a recent location get offers.
+    location_updated_at = models.DateTimeField(null=True, blank=True)
+    online_since = models.DateTimeField(null=True, blank=True)
+    missed_offers_in_a_row = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

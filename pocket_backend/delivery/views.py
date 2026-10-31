@@ -12,12 +12,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import (
     DeliveryAssignment,
+    DeliveryDispatch,
     DeliveryHandoffToken,
     DeliveryOffer,
     DeliverySpeedProfile,
     DeliveryTelemetrySegment,
     DeliveryTracking,
     DeliveryZone,
+    DispatchSettings,
 )
 from .serializers import (
     AcceptDeliverySerializer,
@@ -30,7 +32,7 @@ from .serializers import (
     UpdateDeliveryStatusSerializer,
     UpdateLocationSerializer,
 )
-from accounts.models import SellerProfile
+from accounts.models import DeliveryProfile, SellerProfile
 from accounts.permissions import IsApprovedDelivery
 from notifications.signals import create_delivery_assignment_notification
 from orders.models import Order
@@ -41,6 +43,7 @@ from .coordinates import (
     resolve_delivery_coordinates,
     resolve_pickup_coordinates,
 )
+from .dispatch import advance_dispatch, decline_offer, finish_dispatch, set_rider_location, set_rider_online
 from .routing import apply_route_to_assignment
 from .utils import LocationService
 
@@ -48,60 +51,119 @@ logger = logging.getLogger(__name__)
 
 
 class AvailableOrdersView(APIView):
+    """Deliveries this rider can take now: offers made to them first, then orders open to
+    every nearby rider. Checking in also saves the rider's location and moves on any offer
+    round that has run out (see delivery/dispatch.py)."""
+
     permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
-    
+
     def get(self, request):
         if request.user.role != 'delivery':
-            return Response({'error': 'Only delivery personnel can view available orders'}, 
-                          status=status.HTTP_403_FORBIDDEN)
-        
-        # Get rider's current location
-        rider_lat = float(request.GET.get('lat', 0))
-        rider_lng = float(request.GET.get('lng', 0))
-        
-        # Pipeline: seller still preparing, or ready for rider pickup — but not if any
-        # rider already has an active assignment on this order (OneToOne).
-        busy_order_ids = DeliveryAssignment.objects.exclude(
-            status__in=['delivered', 'cancelled'],
-        ).values_list('order_id', flat=True)
+            return Response({'error': 'Only delivery personnel can view available orders'},
+                            status=status.HTTP_403_FORBIDDEN)
 
+        try:
+            rider_lat = float(request.GET.get('lat', 0))
+            rider_lng = float(request.GET.get('lng', 0))
+        except (TypeError, ValueError):
+            rider_lat = rider_lng = 0.0
+        now = timezone.now()
+        set_rider_location(request.user, rider_lat, rider_lng, now)
+        advance_dispatch(now)
+
+        profile = DeliveryProfile.objects.get(user=request.user)
+        if not profile.is_available:
+            return Response([])
+
+        my_offers = {
+            o.order_id: o
+            for o in DeliveryOffer.objects.filter(rider=request.user, status='pending', expires_at__gt=now)
+        }
         orders = list(
-            Order.objects.filter(
-                status='out_for_delivery',
+            Order.objects.filter(status='out_for_delivery', fulfillment_type='delivery')
+            .exclude(id__in=DeliveryAssignment.objects.values('order_id'))
+            # Orders still in offer rounds are only shown to the riders offered them.
+            .filter(
+                Q(id__in=list(my_offers)) | Q(dispatch__isnull=True) | Q(dispatch__opened_at__isnull=False)
             )
-            .exclude(id__in=busy_order_ids)
             .select_related('seller', 'seller__seller_profile')
             .prefetch_related('items__product')
             .order_by('-created_at')
         )
 
-        pickup_coords = build_pickup_coords_for_orders(
-            orders, allow_fallback=False
-        )
-
+        pickup_coords = build_pickup_coords_for_orders(orders, allow_fallback=False)
         serializer = AvailableOrderSerializer(
             orders,
             many=True,
-            context={
-                'rider_lat': rider_lat,
-                'rider_lng': rider_lng,
-                'pickup_coords': pickup_coords,
-            },
+            context={'rider_lat': rider_lat, 'rider_lng': rider_lng, 'pickup_coords': pickup_coords},
         )
-        payload = list(serializer.data)
-        # Fairness: sort by status priority, then rider distance to pickup.
-        payload.sort(
-            key=lambda row: (
-                {'out_for_delivery': 0, 'preparing': 1, 'accepted': 2, 'pending': 3}.get(
-                    row.get('status'), 4
-                ),
-                row.get('distance_from_rider')
-                if row.get('distance_from_rider') is not None
-                else 10**9,
-                row.get('created_at', ''),
-            )
-        )
+        max_km = DispatchSettings.get().max_distance_km
+        payload = []
+        for row in serializer.data:
+            offer = my_offers.get(row['id'])
+            km = row.get('distance_from_rider')
+            if offer is None and km is not None and km > max_km:
+                continue
+            row['is_offer'] = offer is not None
+            row['offer_id'] = offer.id if offer else None
+            row['offer_expires_at'] = offer.expires_at.isoformat() if offer else None
+            # Seconds rather than a clock time, so a phone with the wrong time still counts down right.
+            row['offer_seconds_left'] = max(0, int((offer.expires_at - now).total_seconds())) if offer else None
+            payload.append(row)
+        # Offers to this rider first (soonest to run out on top), then nearest open orders.
+        payload.sort(key=lambda row: (
+            0 if row['is_offer'] else 1,
+            row['offer_expires_at'] or '',
+            row['distance_from_rider'] if row.get('distance_from_rider') is not None else 10**9,
+        ))
         return Response(payload)
+
+
+class RiderStatusView(APIView):
+    """Go online (needs your location) or offline. The app also calls this every couple of
+    minutes while online, so offers go to riders who are really there."""
+
+    permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
+
+    def post(self, request):
+        online = request.data.get('online')
+        lat, lng = request.data.get('lat'), request.data.get('lng')
+        try:
+            lat = float(lat) if lat not in (None, '') else None
+            lng = float(lng) if lng not in (None, '') else None
+        except (TypeError, ValueError):
+            lat = lng = None
+        has_location = lat is not None and lng is not None and not (lat == 0 and lng == 0)
+
+        if online is None:  # location check-in only
+            if has_location:
+                set_rider_location(request.user, lat, lng)
+            profile = DeliveryProfile.objects.get(user=request.user)
+        elif online in (True, 'true', '1', 1):
+            if not has_location:
+                return Response(
+                    {'error': 'Turn on your location to go online. We only send deliveries to riders we can see nearby.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            profile = set_rider_online(request.user, True, lat, lng)
+        else:
+            profile = set_rider_online(request.user, False)
+        advance_dispatch()
+        return Response({
+            'online': profile.is_available,
+            'location_updated_at': profile.location_updated_at,
+        })
+
+
+class DeclineOfferView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
+
+    def post(self, request, offer_id):
+        offer = DeliveryOffer.objects.filter(id=offer_id, rider=request.user).first()
+        if offer is None:
+            return Response({'error': 'Offer not found.'}, status=status.HTTP_404_NOT_FOUND)
+        decline_offer(offer)
+        return Response({'declined': True})
 
 class AcceptDeliveryView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsApprovedDelivery]
@@ -133,6 +195,18 @@ class AcceptDeliveryView(APIView):
             try:
                 with transaction.atomic():
                     self._reconcile_stale_active_assignments(request.user)
+                    # Lock order (dispatch -> order -> rider) matches delivery/dispatch.py.
+                    # Locking the rider row also stops one rider taking two orders at once.
+                    dispatch = DeliveryDispatch.objects.select_for_update().filter(order_id=order_id).first()
+                    order = Order.objects.select_for_update().get(
+                        id=order_id, status='out_for_delivery'
+                    )
+                    rider_profile = DeliveryProfile.objects.select_for_update().get(user=request.user)
+                    if not rider_profile.is_available:
+                        return Response(
+                            {'error': 'Go online to accept deliveries.'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                     has_active_job = DeliveryAssignment.objects.select_for_update().filter(
                         delivery_person=request.user,
                         status__in=['accepted', 'picked_up', 'in_transit'],
@@ -165,31 +239,30 @@ class AcceptDeliveryView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    order = Order.objects.select_for_update().get(
-                        id=order_id, status='out_for_delivery'
-                    )
-
                     if DeliveryAssignment.objects.filter(order=order).exists():
                         return Response(
-                            {'error': 'Order already assigned'},
+                            {'error': 'Another rider already took this delivery.'},
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    offer = None
+                    offers = DeliveryOffer.objects.filter(order=order, rider=request.user)
                     if offer_id is not None:
-                        offer = DeliveryOffer.objects.filter(
-                            id=offer_id, order=order, rider=request.user
-                        ).first()
-                        if offer is None:
-                            return Response(
-                                {'error': 'Offer not found for this rider/order'},
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                        if offer.status != 'pending' or offer.is_expired:
-                            return Response(
-                                {'error': 'Offer is no longer valid'},
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
+                        offers = offers.filter(id=offer_id)
+                    offer = offers.filter(status='pending', expires_at__gt=timezone.now()).first()
+                    if offer_id is not None and offer is None:
+                        return Response(
+                            {'error': 'This offer has run out. Pull down to see what is available.'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    in_rounds = dispatch is not None and dispatch.opened_at is None and dispatch.finished_at is None
+                    if in_rounds and offer is None:
+                        return Response(
+                            {'error': (
+                                'This delivery is being offered to other riders first. '
+                                "If they don't take it, it opens to everyone nearby."
+                            )},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
                     profile = SellerProfile.objects.filter(user=order.seller).first()
                     if profile is None:
@@ -306,9 +379,15 @@ class AcceptDeliveryView(APIView):
                         offer.status = 'accepted'
                         offer.responded_at = timezone.now()
                         offer.save(update_fields=['status', 'responded_at'])
-                    DeliveryOffer.objects.filter(order=order, status='pending').exclude(
-                        rider=request.user
-                    ).update(status='taken', responded_at=timezone.now())
+                    finish_dispatch(order, request.user)
+                    rider_profile.missed_offers_in_a_row = 0
+                    rider_profile.current_location_lat = float(rider_lat)
+                    rider_profile.current_location_lng = float(rider_lng)
+                    rider_profile.location_updated_at = now
+                    rider_profile.save(update_fields=[
+                        'missed_offers_in_a_row', 'current_location_lat',
+                        'current_location_lng', 'location_updated_at',
+                    ])
 
                 response_serializer = DeliveryAssignmentSerializer(assignment)
                 return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -859,10 +938,7 @@ class DeliveryOffersView(APIView):
                 {'error': 'Only delivery personnel'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        now = timezone.now()
-        DeliveryOffer.objects.filter(
-            rider=request.user, status='pending', expires_at__lt=now
-        ).update(status='expired')
+        advance_dispatch()
         offers = DeliveryOffer.objects.filter(rider=request.user).select_related('order')[:20]
         return Response(DeliveryOfferSerializer(offers, many=True).data)
 

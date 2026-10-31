@@ -1,13 +1,18 @@
 from django.contrib import admin
+from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 from django.urls import reverse
 from django.http import HttpResponseRedirect
 from .models import (
     DeliveryAssignment,
+    DeliveryDispatch,
+    DeliveryOffer,
     DeliveryPricingConfig,
     DeliverySpeedProfile,
     DeliveryTelemetrySegment,
     DeliveryTracking,
     DeliveryZone,
+    DispatchSettings,
 )
 
 
@@ -156,6 +161,68 @@ class DeliverySpeedProfileAdmin(admin.ModelAdmin):
         'avg_speed_kmh',
         'last_updated_at',
     ]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(DispatchSettings)
+class DispatchSettingsAdmin(admin.ModelAdmin):
+    """How ready orders are offered to riders: a few at a time, then everyone nearby."""
+    fieldsets = (
+        ('Offer rounds', {
+            'description': (
+                'When a shop marks an order ready, the best riders get it first. If nobody '
+                'accepts in time, the next riders get it. After the last round, every online '
+                'rider nearby can accept it.'
+            ),
+            'fields': ('riders_per_round', 'seconds_per_round', 'rounds_before_open'),
+        }),
+        ('Who can get offers', {
+            'fields': ('max_distance_km', 'location_fresh_minutes', 'missed_offers_limit'),
+        }),
+        ('Fairness', {
+            'description': (
+                'Score = minutes waiting since their last job (up to the cap) minus points per km '
+                'from the shop. Highest score goes first.'
+            ),
+            'fields': ('wait_cap_minutes', 'km_penalty'),
+        }),
+    )
+
+    def has_add_permission(self, request):
+        return not DispatchSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        return HttpResponseRedirect(
+            reverse('admin:delivery_dispatchsettings_change', args=[DispatchSettings.get().pk])
+        )
+
+
+@admin.register(DeliveryDispatch)
+class DeliveryDispatchAdmin(admin.ModelAdmin):
+    """Read-only history: who each order was offered to, in which round, and what they did."""
+    list_display = ['order', 'round', 'created_at', 'opened_at', 'finished_at']
+    list_filter = ['opened_at', 'finished_at']
+    search_fields = ['order__order_number']
+    readonly_fields = ['order', 'round', 'round_ends_at', 'opened_at', 'finished_at', 'created_at', 'offers']
+
+    @admin.display(description='Offers')
+    def offers(self, obj):
+        rows = DeliveryOffer.objects.filter(order=obj.order).select_related('rider').order_by('round', 'created_at')
+        if not rows:
+            return 'No riders were offered this order (it opened to everyone straight away).'
+        return format_html(
+            '<table><tr><th>Round</th><th>Rider</th><th>Km</th><th>Result</th><th>Sent</th></tr>{}</table>',
+            format_html_join('', '<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>', (
+                (o.round, o.rider.full_name or o.rider.phone_number, o.rider_distance_km if o.rider_distance_km is not None else '-',
+                 o.get_status_display(), timezone.localtime(o.created_at).strftime('%H:%M:%S'))
+                for o in rows
+            )),
+        )
 
     def has_add_permission(self, request):
         return False

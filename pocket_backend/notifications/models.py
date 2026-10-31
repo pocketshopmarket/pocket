@@ -21,6 +21,7 @@ class Notification(models.Model):
         ('refund_completed', 'Refund Completed'),
         ('staff_alert', 'Staff Alert'),
         ('delivery_assigned', 'Delivery Assigned'),
+        ('rider_offline', 'Rider Set Offline'),
         ('verification_approved', 'Verification Approved'),
         ('verification_rejected', 'Verification Rejected'),
         ('welcome', 'Welcome'),
